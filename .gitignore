@@ -1,0 +1,13 @@
+# secrets — 절대 커밋 금지
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.DS_Store
+
+# 골든셋 녹화 원본 중 새니타이즈 전 임시본
+tools/capture/raw/
