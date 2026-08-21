@@ -4,7 +4,7 @@ import type { NS, Warning } from "../../ir/common.js";
 import type { IRRequest } from "../../ir/request.js";
 import type { RequestContext, TransformedRequest } from "../types.js";
 import { AdapterInvalidRequestError, dropUnsupportedParams, makeWarning } from "../shared.js";
-import { parseAnthropicRequestOptions, readBlockCacheControl, readBlockWireType } from "./options.js";
+import { parseAnthropicRequestOptions, readBlockCacheControl, readBlockWireType, readWireExtras } from "./options.js";
 import { AnthropicWireRequestSchema } from "./wire.js";
 
 // IR → Anthropic Messages wire (ir-v0 §13, docs/research/2026-08-20-anthropic-api-coverage.md)
@@ -43,6 +43,33 @@ interface ConvertCtx {
 function withCache(obj: JSONObject, providerOptions: NS | undefined): JSONObject {
   const cc = readBlockCacheControl(providerOptions);
   return cc ? { ...obj, cache_control: cc } : obj;
+}
+
+/**
+ * wireExtras 재병합 (부록 (a) §3.2) — 조립 키와 충돌하면 드롭 + warning (조용한 스킵 금지, D5).
+ * 대상: 함수 툴 정의·tool_use 블록의 비표준 wire 키 (allowed_callers, caller 등).
+ */
+function mergeWireExtras(
+  def: JSONObject,
+  extras: JSONObject | undefined,
+  warnings: Warning[],
+  path: string,
+): void {
+  if (!extras) return;
+  for (const [k, v] of Object.entries(extras)) {
+    if (def[k] !== undefined) {
+      warnings.push(
+        makeWarning(
+          "compatibility",
+          "parameter-dropped",
+          `wireExtras.${k}가 어댑터 조립 키와 충돌 — 드롭 (조립 값 우선)`,
+          `${path}.wireExtras.${k}`,
+        ),
+      );
+      continue;
+    }
+    def[k] = v;
+  }
 }
 
 function fileToWire(block: FileBlock, path: string): JSONObject {
@@ -192,10 +219,10 @@ function blockToWire(block: Block, cctx: ConvertCtx, path: string): JSONObject |
           input: block.input.value,
         };
       }
-      return withCache(
-        { type: "tool_use", id: block.toolCallId, name: block.toolName, input: block.input.value },
-        block.providerOptions,
-      );
+      const toolUse: JSONObject = { type: "tool_use", id: block.toolCallId, name: block.toolName, input: block.input.value };
+      // 히스토리 tool_use의 비표준 키(PTC caller 등) 재병합 — 툴 정의 wireExtras와 동일 규약 (리뷰 G6)
+      mergeWireExtras(toolUse, readWireExtras(block.providerOptions, block.providerMetadata), cctx.warnings, path);
+      return withCache(toolUse, block.providerOptions);
     }
     case "toolResult":
       return toolResultToWire(block, cctx, path);
@@ -312,12 +339,13 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
 
   // ── tools ──
   if (req.tools && req.tools.length > 0) {
-    body["tools"] = req.tools.map((t) => {
+    body["tools"] = req.tools.map((t, ti) => {
       if (t.type === "function") {
         const def: JSONObject = { name: t.name, input_schema: t.inputSchema };
         if (t.description) def["description"] = t.description;
         if (t.strict !== undefined) def["strict"] = t.strict;
         if (t.inputExamples) def["input_examples"] = t.inputExamples;
+        mergeWireExtras(def, readWireExtras(t.providerOptions, undefined), warnings, `tools[${ti}]`);
         return withCache(def, t.providerOptions);
       }
       // provider 툴: id = "anthropic.web_search" 등. args가 wire 정의 원문 (type 필수)

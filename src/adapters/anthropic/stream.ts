@@ -40,6 +40,9 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
   let providerRequestId: string | undefined;
   let origin: Origin = { provider: "anthropic", model: ctx.modelId, surface: "messages" };
   let sawMessageStart = false; // input 과금 발생 기준 (리뷰 R2 — billed)
+  // container 추적 — message_start 외에 top-level·message_delta.delta로도 온다 (턴 중 생성·교체.
+  // 리뷰 G1 — 후기 도착분은 response-metadata가 이미 나갔으므로 finish PM에 싣는다)
+  let latestContainer: JSONValue | undefined;
   let terminalEmitted = false;
   const warnedUnknown = new Set<string>(); // 미지 타입별 warning 1회 (§10.2 스팸 방지)
 
@@ -121,11 +124,17 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
           origin = { provider: "anthropic", model, surface: "messages" };
           const id = message["id"];
           if (typeof id === "string" && id.length > 0) providerRequestId = id;
+          const container = message["container"];
+          if (container && typeof container === "object") latestContainer = container as JSONValue;
           out.push({
             // draft enrich 계약(§13.1): id/created/model.requested는 게이트웨이 부여 (리뷰 A4)
             type: "response-metadata",
             model: { resolved: { provider: "anthropic", model, surface: "messages" } },
             ...(providerRequestId ? { providerRequestId } : {}),
+            // container: 샌드박스 재사용 계약 (§10.1 PM — 2026-08-21)
+            ...(container && typeof container === "object"
+              ? { providerMetadata: { anthropic: { container: container as JSONValue } } }
+              : {}),
           });
           return out;
         }
@@ -300,6 +309,8 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
         case "message_delta": {
           const delta = (json["delta"] ?? {}) as Record<string, unknown>;
           if (typeof delta["stop_reason"] === "string") stopReason = delta["stop_reason"];
+          const deltaContainer = json["container"] ?? delta["container"]; // 실관측 2경로 (리뷰 G1)
+          if (deltaContainer && typeof deltaContainer === "object") latestContainer = deltaContainer as JSONValue;
           const wireUsage = json["usage"];
           if (wireUsage && typeof wireUsage === "object") {
             // 누적 usage 전 필드 병합 — 서버 툴로 mid-turn input 증가 반영 (리뷰 R3)
@@ -316,7 +327,15 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
 
         case "message_stop": {
           terminalEmitted = true;
-          out.push({ type: "finish", finishReason: mapStopReason(stopReason), usage: currentUsage() });
+          out.push({
+            type: "finish",
+            finishReason: mapStopReason(stopReason),
+            usage: currentUsage(),
+            // 최종 container — 턴 중 생성·교체분 포함 (§10.1 PM 대칭, 리뷰 G1)
+            ...(latestContainer !== undefined
+              ? { providerMetadata: { anthropic: { container: latestContainer } } }
+              : {}),
+          });
           return out;
         }
 

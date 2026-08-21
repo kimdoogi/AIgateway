@@ -64,6 +64,9 @@ export function toChatResponse(response: IRResponse, strict: boolean): JSONObjec
   if (!strict) {
     gateway["ir"] = response.message.blocks as unknown as JSONValue;
     gateway["origin"] = response.message.origin as unknown as JSONValue;
+    // D5 — 드롭 보고 소멸 금지 (리뷰 G2). container 등 응답 레벨 PM도 CC엔 자리가 없어 여기로 (리뷰 G4)
+    if (response.warnings.length > 0) gateway["warnings"] = response.warnings as unknown as JSONValue;
+    if (response.providerMetadata) gateway["providerMetadata"] = response.providerMetadata as unknown as JSONValue;
   }
   if (raw !== undefined) gateway["finish_reason_raw"] = raw;
   return {

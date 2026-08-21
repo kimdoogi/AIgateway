@@ -115,3 +115,20 @@
 - **시나리오**: claude(cache_control 프리픽스 ≈8.4k토큰) → openai 우회(동일 히스토리) → claude 복귀. **3턴이 1턴 캐시 8402토큰 전량 히트** (`cache_read_input_tokens=8402`, 신규 과금 52토큰) — 직렬화 결정론(D10) + §13.1 히스토리 편입 + 재타게팅 패스의 참조 보존이 실 API에서 합격. 우회 구간에는 `cache-breakpoint-ignored` warning 정상 발화.
 - **부수 실측**: Haiku 4.5 최소 캐시 프리픽스 — 3377토큰에서 write 0, 8402토큰에서 write 성공. 최소 단위가 구세대 문서값(2048)보다 큰 4096으로 추정. 캡처/스모크 필러 산정 시 참고.
 - **비용**: 스모크 1회 ≈ $0.04 (필러 재전송 3회 + openai 우회 전액).
+
+## 2026-08-21 — neuro 연동 준비: compat 인바운드의 커버리지 구멍 3건 (첫 실소비자가 검출)
+
+- **배경**: neuro(프로덕션 에이전트 루프 — container·skills·PTC·context management 풀사용)를 anthropic-compat 인바운드에 붙이는 사전 점검에서, 부록 (a) 초판의 보수적 미지 키 정책이 실워크로드와 충돌.
+- **① 미지 top-level 키 증발** — `container`/`context_management`/`mcp_servers`가 400(기본) 또는 드롭(opt-in). 드롭이 최악: 에러 없이 샌드박스가 매턴 재생성되는 조용한 오동작. **개정**: anthropic-compat는 미지 top-level 키를 `passthroughParams(provider:"anthropic", pinned:true)`로 원문 통과가 기본 (D10-1 — D10 100% 커버리지 대상이라 4xx가 아닌 통과가 규범. openai-compat는 기존 유지). 부록 (a) §3.2 개정.
+- **② 응답 container 유실** — 아웃바운드가 응답 `container`(id·만료)를 IR로 안 실음 → 컨테이너 재사용·복구 루프 파괴. **수정**: 응답 `providerMetadata.anthropic.container` + 스트림은 `response-metadata.providerMetadata` 신설(ir-v0 §10.1 패치 — wire 선두에서만 얻는 고유 메타 좌석). compat 출구에서 최상위 `container`/`message_start.message.container` 복원. D10 커버리지 구멍의 소급 수정.
+- **③ 함수 툴 비표준 키 유실** — PTC `allowed_callers` 등이 인바운드 툴 변환에서 증발. **수정**: 툴 `providerOptions.anthropic.wireExtras`로 보존, 아웃바운드가 wire 재병합(조립 키는 안 덮음).
+- **검증**: neuro형 요청(베타 헤더+container+PTC+thinking) 왕복 테스트 + container 스트림 경로 단위 테스트. 테스트 265개.
+- **교훈**: compat 인바운드의 "미지 키 4xx" 기본값은 native(IR)에는 맞지만 compat에는 과보수 — compat의 존재 이유가 원문 수용이다. 실소비자 1호가 스펙의 방어 기본값을 두 시간 만에 뒤집음.
+
+
+## 2026-08-21 — 리뷰 라운드(8앵글×검증): CONFIRMED 13건 수정 — compat 출구의 D5 무력화가 최대 구멍
+
+- **게이트웨이 수정 6건**: ① compat 출구 warnings 전멸(G2) — 비스트림 `gateway.warnings` + 스트림은 누적 후 finish로 (Anthropic SSE에 warning 좌석 없음. openai-compat는 gateway chunk). 이게 없으면 이번에 만든 모든 드롭+warning 계열이 클라이언트에게 무증상. ② container 스트림 캡처가 message_start 한정(G1) — 턴 중 생성·교체분(top-level·message_delta.delta 실관측 2경로)을 finish PM으로 후송, 다운컨버터가 message_delta 최상위로 복원. ③ usage TTL 내역 증발(G3) — origin 일치 시 raw 우선 복원(스트림은 start·delta 병합). ④ 히스토리 tool_use의 caller 소실(G6) — 블록에도 wireExtras 보존·재병합. ⑤ wireExtras 충돌 조용한 스킵(G5) — 드롭 + parameter-dropped warning으로. ⑥ CC 크로스의 container·PM(G4) — gateway 확장 providerMetadata로.
+- **neuro 수정 6건**: ① isGatewayRoutedModel을 프리픽스에서 **CLAUDE_GATEWAY_MODELS 허용목록**으로(N2 — 기존 프로덕션 gpt 채팅의 sessionItems 히스토리를 Claude 경로가 못 읽어 resume 0건 사고 차단). ② 미지 모델 단가 폴백 유음화(N1). ③ gpt max_tokens 엔트리 + 낙하 error 로그 + effort 무캡 통과(N3 — 클램프는 게이트웨이 레지스트리 소관). ④ tool_search_tool_bm25 게이트 + gpt 타깃 allowed_callers/defer_loading 스트립(N6). ⑤ 컨테이너 복구 4경로 applyContainer 게이트(N4). ⑥ 장기 세션 gpt 전환 경고(N5 — 감축 수단은 게이트웨이 compaction 로드맵).
+- **미수정 잔여 (기록)**: G7 `pinned` 의미론은 폴백 트리 구현 시(문서화된 유예). G8 KNOWN 키 내부 부분 매핑(output_config/metadata/tool_choice의 미지 하위 키 무경고 증발)은 "미지 키는 어디서 발견되든 보존 또는 warning"으로 일반화 필요 — 로드맵 5 좌석. N5의 근본 해결(크로스 프로바이더 compaction)은 재타게팅 패스 확장 과제.
+- **교훈**: 드롭+warning 체계를 아무리 정교하게 만들어도 **출구가 warning을 버리면 전부 조용한 변조**가 된다 — warning의 전달 경로는 warning 생성만큼 1급 관심사. 테스트 273개.

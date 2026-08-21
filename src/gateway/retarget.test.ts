@@ -104,3 +104,29 @@ describe("재타게팅 패스 v0 (ir-v0 §13.3)", () => {
     expect(warnings).toEqual([]);
   });
 });
+
+describe("passthroughParams 타깃 불일치 (§13.3 — 2026-08-21 구현)", () => {
+  it("provider ≠ 타깃 → 드롭 + passthrough-params-dropped", () => {
+    const req = IRRequestSchema.parse({
+      version: "0",
+      model: "gpt-5.6-luna",
+      messages: [{ role: "user", blocks: [{ type: "text", text: "hi" }] }],
+      passthroughParams: { provider: "anthropic", params: { container: "cont_1" }, pinned: true },
+    });
+    const { request, warnings } = retargetRequest(req, "openai");
+    expect(request.passthroughParams).toBeUndefined();
+    expect(warnings.map((w) => w.code)).toEqual(["passthrough-params-dropped"]);
+  });
+
+  it("provider == 타깃 → 그대로 통과", () => {
+    const req = IRRequestSchema.parse({
+      version: "0",
+      model: "claude-haiku-4-5",
+      messages: [{ role: "user", blocks: [{ type: "text", text: "hi" }] }],
+      passthroughParams: { provider: "anthropic", params: { container: "cont_1" } },
+    });
+    const { request, warnings } = retargetRequest(req, "anthropic");
+    expect(request).toBe(req);
+    expect(warnings).toEqual([]);
+  });
+});

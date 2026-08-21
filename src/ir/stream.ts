@@ -33,6 +33,7 @@ const ResponseMetadata = z.strictObject({
   created: z.iso.datetime({ offset: true }),
   model: z.strictObject({ requested: z.string().min(1), resolved: ResolvedModelSchema }),
   providerRequestId: z.string().optional(),
+  providerMetadata: NSSchema.optional(), // wire 선두 고유 메타 — Anthropic container 등 (§10.1, 2026-08-21)
 });
 const Finish = z.strictObject({
   type: z.literal("finish"),

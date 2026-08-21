@@ -25,6 +25,7 @@
 
 - **응답 방향**: assistant message 객체에 `gateway: { ir: Block[] }` 부가 — 해당 턴의 IR 블록 원문 (origin·opaqueState·providerMetadata 포함, §13.1 편입 전 형태). 스트림에서는 마지막 chunk(finish_reason 실린 chunk)의 `choices[0].delta`가 아니라 **별도 최종 chunk의 `choices[0].message_gateway`가 아닌 — `gateway` 키를 최상위에 실은 전용 chunk**를 `[DONE]` 직전에 방출한다: `{ id, object: "chat.completion.chunk", gateway: { ir: [...] } }`.
 - **요청 방향 복원 1순위**: assistant 메시지에 `gateway.ir`이 있으면 raw CC 필드(content/tool_calls) 대신 이를 IR 블록으로 직접 복원 (zod 검증 후). 검증 실패는 4xx (조용한 폴백 금지 — 절반 복원이 더 위험).
+- **warnings·providerMetadata** (2026-08-21 리뷰 G2/G4): 비-strict 응답의 `gateway` 확장에 `warnings: Warning[]`(드롭·클램프 보고 — 출구에서 소멸시키면 D5가 무력화된다)와 `providerMetadata`(container 등 응답 레벨 PM — CC wire에 자리 없음)를 싣는다. 스트림에서는 [DONE] 직전 gateway chunk에 동일 필드.
 - **strict 모드**: 요청 헤더 `x-gateway-compat: strict` → 응답에 gateway 확장 미부가 (순수 CC 응답). §13.4-4의 보장 하락이 적용된다.
 
 ### 2.2 anthropic-compat
@@ -32,6 +33,9 @@
 - **응답 방향**: 응답 객체 최상위에 `gateway: { origin: Origin }`. 블록 구조는 Anthropic wire가 IR과 1:1이므로 블록 재부착은 불요 — 단 **비-anthropic origin의 reasoning**은 wire `thinking` 블록에 signature가 없으므로 `gateway.origin`이 복원 판단의 근거다.
 - **요청 방향**: wire 블록 → IR 블록 정변환(아래 §3). 요청의 assistant 메시지에 `gateway.origin`이 있으면 그 턴의 `Message.origin`으로 복원 — 표면 sticky(ADR-0002)가 이 경로로 성립.
 - **strict 모드**: 동일 헤더.
+- **container 복원** (2026-08-21): 응답 `providerMetadata.anthropic.container`를 wire 최상위 `container`로, 스트림은 `response-metadata.providerMetadata`를 `message_start.message.container`로 복원 — 코드 실행 샌드박스 재사용 계약. **턴 중 생성·교체분**(Anthropic이 top-level/`message_delta.delta.container`로 후송 — 실관측)은 어댑터가 finish PM으로 실어 `message_delta` 최상위 `container`로 복원 (리뷰 G1).
+- **warnings** (2026-08-21 리뷰 G2): 비-strict 응답의 `gateway.warnings`에 IR warnings 전량. 스트림은 warning 이벤트를 누적해 finish의 `message_delta.gateway.warnings`로 — Anthropic SSE에 warning 이벤트 좌석이 없기 때문.
+- **usage raw 복원** (2026-08-21 리뷰 G3): `origin.provider == anthropic`이면 정규화 평면값 대신 `usage.raw` 원문을 복원한다 (비스트림 = wire 원문 그대로, 스트림 = message_start·message_delta 병합) — `cache_creation` TTL 내역(5m/1h) 등 정규화 밖 필드의 무손실 왕복. 타 origin은 평면 다운컨버트(§5 표).
 
 ## 3. 요청 방향 매핑표
 
@@ -70,7 +74,8 @@
 | `metadata.user_id` | `metadata.userId` |
 | `service_tier` | `providerOptions.anthropic.serviceTier` |
 | 헤더 `anthropic-beta` | `providerOptions.anthropic.betas` |
-| 미지 키 | 4xx (opt-in 헤더 동일) |
+| 함수 툴 정의·**히스토리 `tool_use` 블록**의 비표준 키 (`allowed_callers`, `caller` 등 PTC/신필드) | `providerOptions.anthropic.wireExtras` — 아웃바운드가 wire 재병합. 조립 키와 충돌 시 드롭 + `warning(parameter-dropped)` (조용한 스킵 금지 — 2026-08-21 리뷰 G5/G6) |
+| **미지 top-level 키** (`container`, `context_management`, `mcp_servers`, 베타 신필드) | **`passthroughParams { provider: "anthropic", pinned: true }` 통과가 기본** (2026-08-21 개정 — D10-1 compat passthrough 경로. anthropic-compat는 D10 100% 커버리지 대상이라 4xx가 아닌 원문 통과가 규범. `pinned`라 폴백 시 타 프로바이더는 skipped). openai-compat는 기존대로 4xx/opt-in 드롭 |
 
 ### 3.3 providerOptions 부착 경로와 cache-breakpoint-ignored
 

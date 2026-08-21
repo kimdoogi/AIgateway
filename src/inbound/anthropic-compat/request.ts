@@ -65,15 +65,18 @@ export function wireBlockToIRBlock(raw: Record<string, unknown>, path: string): 
       );
     }
     case "tool_use": {
-      return withCachePO(
-        {
-          type: "toolCall",
-          toolCallId: String(raw["id"] ?? ""),
-          toolName: String(raw["name"] ?? ""),
-          input: { type: "json", value: (raw["input"] ?? {}) as JSONValue },
-        },
-        raw,
-      );
+      // 비표준 키(PTC caller 등)는 wireExtras로 보존 — 아웃바운드가 재병합 (부록 (a) §3.2, 리뷰 G6)
+      const { type: _t, id: _id, name: _name, input: _input, cache_control: _cc, ...toolUseRest } = raw;
+      const block: Block = {
+        type: "toolCall",
+        toolCallId: String(raw["id"] ?? ""),
+        toolName: String(raw["name"] ?? ""),
+        input: { type: "json", value: (raw["input"] ?? {}) as JSONValue },
+      };
+      const withCC = withCachePO(block, raw);
+      if (Object.keys(toolUseRest).length === 0) return withCC;
+      const prevNS = (withCC.providerOptions?.["anthropic"] ?? {}) as JSONObject;
+      return { ...withCC, providerOptions: { anthropic: { ...prevNS, wireExtras: toolUseRest as JSONObject } } };
     }
     case "tool_result": {
       const content = raw["content"];
@@ -127,11 +130,13 @@ export function compatMessagesToIR(
 ): IRRequest {
   if (!wire || typeof wire !== "object" || Array.isArray(wire)) throw invalid("JSON 객체 body가 아닙니다");
   const w = wire as Record<string, unknown>;
-  if (!allowUnknown) {
-    const unknown = Object.keys(w).filter((k) => !KNOWN_TOP_KEYS.has(k));
-    if (unknown.length > 0) {
-      throw invalid(`미지의 파라미터: ${unknown.join(", ")} (D5 — x-gateway-allow-unknown: true로 통과 가능)`);
-    }
+  // 미지 top-level 키는 원문 통과 (부록 (a) §3.2 2026-08-21 개정 — D10-1 compat passthrough 경로).
+  // anthropic-compat는 D10 100% 커버리지 대상: container·context_management·mcp_servers·베타
+  // 신필드를 게이트웨이가 몰라도 죽이지 않는다. pinned → 폴백 시 타 프로바이더는 skipped.
+  // (allowUnknown은 top-level에 더 이상 관여하지 않음 — PO 네임스페이스 내부 미지 키(D5)에만 유효)
+  const passthroughParams: JSONObject = {};
+  for (const k of Object.keys(w)) {
+    if (!KNOWN_TOP_KEYS.has(k)) passthroughParams[k] = w[k] as JSONValue;
   }
 
   const messages: Message[] = [];
@@ -161,7 +166,6 @@ export function compatMessagesToIR(
         const name = String(t["name"] ?? "");
         if (t["input_schema"] !== undefined) {
           const { name: _n, description, input_schema, strict, input_examples, cache_control, ...rest } = t;
-          void rest;
           const tool: Tool = {
             type: "function",
             name,
@@ -170,9 +174,14 @@ export function compatMessagesToIR(
             ...(typeof strict === "boolean" ? { strict } : {}),
             ...(Array.isArray(input_examples) ? { inputExamples: input_examples as JSONObject[] } : {}),
           };
-          return cache_control && typeof cache_control === "object"
-            ? { ...tool, providerOptions: { anthropic: { cacheControl: cache_control as JSONObject } } }
-            : tool;
+          // 비표준 키(allowed_callers 등 PTC/신필드)는 PO로 보존 — 아웃바운드가 wire 재병합
+          // (부록 (a) §3.2, 2026-08-21). cacheControl은 기존 규약 키 유지.
+          const extraPO: JSONObject = { ...(rest as JSONObject) };
+          const po: JSONObject = {
+            ...(cache_control && typeof cache_control === "object" ? { cacheControl: cache_control as JSONObject } : {}),
+            ...(Object.keys(extraPO).length > 0 ? { wireExtras: extraPO } : {}),
+          };
+          return Object.keys(po).length > 0 ? { ...tool, providerOptions: { anthropic: po } } : tool;
         }
         // 서버 툴 정의 ({type: "web_search_20250305", name: "web_search", ...}) → provider 툴
         const { name: _n2, ...args } = t;
@@ -224,6 +233,9 @@ export function compatMessagesToIR(
   if (typeof meta["user_id"] === "string") ir["metadata"] = { userId: meta["user_id"] };
   if (w["stream"] === true) ir["stream"] = true;
   if (Object.keys(po).length > 0) ir["providerOptions"] = { anthropic: po };
+  if (Object.keys(passthroughParams).length > 0) {
+    ir["passthroughParams"] = { provider: "anthropic", params: passthroughParams, pinned: true };
+  }
   if (allowUnknown) ir["allowUnknownProviderOptions"] = true;
 
   const parsed = IRRequestSchema.safeParse(ir);

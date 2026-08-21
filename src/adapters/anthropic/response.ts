@@ -14,6 +14,7 @@ const WireResponseSchema = z.looseObject({
   content: z.array(z.record(z.string(), z.unknown())),
   stop_reason: z.string().nullish(),
   usage: z.record(z.string(), z.unknown()).optional(),
+  container: z.record(z.string(), z.unknown()).nullish(), // 코드 실행 샌드박스 id·만료 (§14)
 });
 
 function intOrUndefined(v: unknown): number | undefined {
@@ -167,6 +168,8 @@ export function transformResponse(
     finishReason: mapStopReason(wire.stop_reason),
     usage: convertUsage(wire.usage ?? {}),
     providerRequestId: wire.id,
+    // container 유실 방지 (2026-08-21 neuro 연동 검출) — 재사용 계약은 id 왕복이 전제
+    ...(wire.container ? { providerMetadata: { anthropic: { container: wire.container as JSONValue } } } : {}),
     warnings,
   };
 }

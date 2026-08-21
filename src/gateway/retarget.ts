@@ -129,6 +129,23 @@ export interface RetargetResult {
 export function retargetRequest(req: IRRequest, targetProvider: string): RetargetResult {
   const warnings: Warning[] = [];
 
+  // §13.3 — passthroughParams (provider ≠ 타깃): params·headers 드롭 + warning.
+  // 명시적 모델 전환(주 라우팅)에서는 사용자 의도가 우선이므로 드롭이 규범.
+  // `pinned`의 "타깃 skipped" 의미론은 자동 폴백 트리 소관 (매트릭스 — 로드맵 폴백 구현 시).
+  let passthroughDropped = false;
+  if (req.passthroughParams && req.passthroughParams.provider !== targetProvider) {
+    passthroughDropped = true;
+    warnings.push(
+      makeWarning(
+        "compatibility",
+        "passthrough-params-dropped",
+        `passthroughParams(${req.passthroughParams.provider})는 타깃(${targetProvider})에 적용 불가 — ` +
+          `${Object.keys(req.passthroughParams.params).join(", ")} 드롭 (§13.3)`,
+        "passthroughParams",
+      ),
+    );
+  }
+
   const repairedMessages = repairToolPairs(req.messages, warnings);
   let messages = repairedMessages ?? req.messages;
 
@@ -166,11 +183,12 @@ export function retargetRequest(req: IRRequest, targetProvider: string): Retarge
   });
   if (msgChanged) messages = strippedMessages;
 
-  if (messages === req.messages && envPO === req.providerOptions && repairedMessages === null) {
+  if (messages === req.messages && envPO === req.providerOptions && repairedMessages === null && !passthroughDropped) {
     return { request: req, warnings }; // warning만 발생한 경우(캐시 브레이크포인트 등)도 이 경로
   }
   const request: IRRequest = { ...req, messages };
   if (envPO && Object.keys(envPO).length > 0) request.providerOptions = envPO;
   else if (envPO !== req.providerOptions) delete request.providerOptions;
+  if (passthroughDropped) delete request.passthroughParams;
   return { request, warnings };
 }

@@ -43,6 +43,18 @@ export function readBlockCacheControl(providerOptions: NS | undefined): JSONObje
   return undefined;
 }
 
+/**
+ * compat 인바운드가 보존한 비표준 wire 키 (부록 (a) §3.2 — allowed_callers 등 PTC/신필드).
+ * PM(신규 응답)·PO(히스토리 편입 후) 양쪽 조회.
+ */
+export function readWireExtras(
+  providerOptions: NS | undefined,
+  providerMetadata: NS | undefined,
+): JSONObject | undefined {
+  const v = providerOptions?.["anthropic"]?.["wireExtras"] ?? providerMetadata?.["anthropic"]?.["wireExtras"];
+  return v && typeof v === "object" && !Array.isArray(v) ? (v as JSONObject) : undefined;
+}
+
 /** 서버 툴 블록의 wire 타입 복원용 (G1 왕복 — 리뷰 R1). PM(신규 응답)·PO(히스토리 편입 후) 양쪽 조회 */
 export function readBlockWireType(
   providerOptions: NS | undefined,

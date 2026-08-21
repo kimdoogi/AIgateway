@@ -403,6 +403,7 @@ function finalizeDraft(draft: AdapterStreamEvent, call: PreparedCall): StreamEve
       created: call.created,
       model: { requested: call.ctx.requestedModel, resolved: draft.model.resolved },
       ...(draft.providerRequestId ? { providerRequestId: draft.providerRequestId } : {}),
+      ...(draft.providerMetadata ? { providerMetadata: draft.providerMetadata } : {}),
     };
   }
   return draft as StreamEventDraft;

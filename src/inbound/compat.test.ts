@@ -6,6 +6,10 @@ import { createApp } from "../server/app.js";
 import { compatChatToIR } from "./openai-compat/request.js";
 import { compatMessagesToIR } from "./anthropic-compat/request.js";
 import { GatewayError } from "../gateway/errors.js";
+import { anthropicAdapter } from "../adapters/anthropic/index.js";
+import { createStreamTransformer as createAnthropicStream } from "../adapters/anthropic/stream.js";
+import { createMessagesDownconverter } from "./anthropic-compat/stream.js";
+import { toMessagesUsage as toMessagesUsageForTest } from "./anthropic-compat/response.js";
 
 // compat 인바운드 2종 (부록 (a)) — 변환 단위 + E2E(픽스처 mock — D9 네트워크 금지).
 // E2E가 곧 크로스 검증: openai-compat 포맷으로 claude 모델 호출 → anthropic 아웃바운드.
@@ -299,5 +303,180 @@ describe("compat E2E — 픽스처 mock (부록 (a) §1: 포맷 ≠ 타깃 교�
     expect(an.status).toBe(400);
     const anBody = (await an.json()) as Record<string, unknown>;
     expect(anBody["type"]).toBe("error");
+  });
+});
+
+describe("anthropic-compat — neuro형 요청 왕복 (부록 (a) §3.2 2026-08-21 개정)", () => {
+  const NEURO_WIRE = {
+    model: "claude-haiku-4-5",
+    max_tokens: 4000,
+    system: [{ type: "text", text: "You are an ads agent.", cache_control: { type: "ephemeral" } }],
+    messages: [{ role: "user", content: "analyze campaign" }],
+    tools: [
+      // PTC — allowed_callers는 IR 표준 밖 비표준 키
+      {
+        name: "get_campaign_data",
+        input_schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
+        allowed_callers: ["code_execution_20250825"],
+      },
+      { type: "code_execution_20250825", name: "code_execution" },
+    ],
+    thinking: { type: "enabled", budget_tokens: 2048 },
+    // 게이트웨이가 모르는 top-level 3종 — passthroughParams로 통과해야 함
+    container: "cont_fixture0001",
+    context_management: { edits: [{ type: "context_compaction" }] },
+    mcp_servers: [{ type: "url", url: "https://mcp.example.test", name: "neuro" }],
+  };
+
+  it("미지 top-level 키 → passthroughParams(pinned) → 아웃바운드 wire 원문 복원", () => {
+    const ir = compatMessagesToIR(NEURO_WIRE, false, "context-management-2025-06-27,code-execution-2025-08-25");
+    expect(ir.passthroughParams).toEqual({
+      provider: "anthropic",
+      params: {
+        container: "cont_fixture0001",
+        context_management: { edits: [{ type: "context_compaction" }] },
+        mcp_servers: [{ type: "url", url: "https://mcp.example.test", name: "neuro" }],
+      },
+      pinned: true,
+    });
+
+    // IR → anthropic wire — 원문 필드가 그대로 돌아와야 함
+    const { request } = anthropicAdapter.transformRequest(ir, { requestId: "req_n", modelId: "claude-haiku-4-5" });
+    expect(request.body["container"]).toBe("cont_fixture0001");
+    expect(request.body["context_management"]).toEqual(NEURO_WIRE.context_management);
+    expect(request.body["mcp_servers"]).toEqual(NEURO_WIRE.mcp_servers);
+    expect(request.body["thinking"]).toEqual(NEURO_WIRE.thinking);
+    expect(request.headers["anthropic-beta"]).toBe("context-management-2025-06-27,code-execution-2025-08-25");
+
+    // PTC 툴 확장 키 재병합 + 서버 툴 정의 복원
+    const tools = request.body["tools"] as Array<Record<string, unknown>>;
+    expect(tools[0]).toMatchObject({ name: "get_campaign_data", allowed_callers: ["code_execution_20250825"] });
+    expect(tools[1]).toEqual({ name: "code_execution", type: "code_execution_20250825" });
+  });
+
+  it("응답 container가 compat 응답 최상위로 복원 (§2.2)", () => {
+    const t = anthropicAdapter.transformResponse(
+      {
+        id: "msg_c1", model: "claude-haiku-4-5", content: [{ type: "text", text: "done" }],
+        stop_reason: "end_turn", usage: { input_tokens: 10, output_tokens: 5 },
+        container: { id: "cont_fixture0001", expires_at: "2026-08-21T01:00:00Z" },
+      },
+      { requestId: "req_n", modelId: "claude-haiku-4-5", requestedModel: "claude-haiku-4-5" },
+    );
+    expect(t.providerMetadata?.["anthropic"]?.["container"]).toMatchObject({ id: "cont_fixture0001" });
+  });
+});
+
+describe("container 스트림 경로 (§10.1 PM — message_start 왕복)", () => {
+  it("어댑터: message_start.container → response-metadata PM", () => {
+    const t = createAnthropicStream({ modelId: "claude-haiku-4-5" });
+    const events = t.onEvent("message_start", JSON.stringify({
+      type: "message_start",
+      message: { id: "msg_1", model: "claude-haiku-4-5", usage: { input_tokens: 1 }, container: { id: "cont_x" } },
+    }));
+    const meta = events.find((e) => e.type === "response-metadata")!;
+    expect(meta.type === "response-metadata" && meta.providerMetadata?.["anthropic"]?.["container"]).toEqual({ id: "cont_x" });
+  });
+
+  it("다운컨버터: response-metadata PM → message_start.message.container", () => {
+    const down = createMessagesDownconverter(false);
+    const frames = down({
+      type: "response-metadata", seq: 1, id: "req_x", created: "2026-08-21T00:00:00Z",
+      model: { requested: "claude-haiku-4-5", resolved: { provider: "anthropic", model: "claude-haiku-4-5", surface: "messages" } },
+      providerMetadata: { anthropic: { container: { id: "cont_x" } } },
+    });
+    const start = JSON.parse(frames[0]!.data) as Record<string, any>;
+    expect(start.message.container).toEqual({ id: "cont_x" });
+  });
+});
+
+describe("리뷰 수정 검증 (2026-08-21 — G1·G2·G3·G5·G6)", () => {
+  const mkStream = () => createAnthropicStream({ modelId: "claude-haiku-4-5" });
+
+  it("G1: message_delta로 온 container도 finish PM에 실린다 (턴 중 생성·교체)", () => {
+    const t = mkStream();
+    t.onEvent("message_start", JSON.stringify({ type: "message_start", message: { id: "msg_1", model: "m", usage: { input_tokens: 1 } } }));
+    t.onEvent("message_delta", JSON.stringify({ type: "message_delta", delta: { stop_reason: "end_turn", container: { id: "cont_late" } }, usage: { output_tokens: 2 } }));
+    const events = t.onEvent("message_stop", JSON.stringify({ type: "message_stop" }));
+    const finish = events.find((e) => e.type === "finish")!;
+    expect(finish.type === "finish" && finish.providerMetadata?.["anthropic"]?.["container"]).toEqual({ id: "cont_late" });
+  });
+
+  it("G1: 다운컨버터가 finish PM container를 message_delta 최상위로 복원", () => {
+    const down = createMessagesDownconverter(false);
+    down({ type: "response-metadata", seq: 1, id: "r", created: "2026-08-21T00:00:00Z", model: { requested: "m", resolved: { provider: "anthropic", model: "m", surface: "messages" } } });
+    const frames = down({
+      type: "finish", seq: 2, finishReason: { unified: "stop", raw: "end_turn" },
+      usage: { input: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, output: { total: 2, text: 2, reasoning: 0 }, totalTokens: 3, raw: {} },
+      providerMetadata: { anthropic: { container: { id: "cont_late" } } },
+    });
+    const delta = JSON.parse(frames[0]!.data) as Record<string, unknown>;
+    expect(delta["container"]).toEqual({ id: "cont_late" });
+  });
+
+  it("G2: 스트림 warning이 finish의 gateway.warnings로 전달 (소멸 금지)", () => {
+    const down = createMessagesDownconverter(false);
+    down({ type: "stream-start", seq: 0, warnings: [{ type: "compatibility", code: "cache-breakpoint-ignored", message: "x" }] });
+    down({ type: "response-metadata", seq: 1, id: "r", created: "2026-08-21T00:00:00Z", model: { requested: "m", resolved: { provider: "openai", model: "g", surface: "responses" } } });
+    down({ type: "warning", seq: 2, warning: { type: "compatibility", code: "server-state-inapplicable", message: "y" } });
+    const frames = down({
+      type: "finish", seq: 3, finishReason: { unified: "stop", raw: "completed" },
+      usage: { input: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, output: { total: 1, text: 1, reasoning: 0 }, totalTokens: 2, raw: {} },
+    });
+    const delta = JSON.parse(frames[0]!.data) as Record<string, any>;
+    expect(delta.gateway.warnings.map((w: any) => w.code)).toEqual(["cache-breakpoint-ignored", "server-state-inapplicable"]);
+  });
+
+  it("G3: origin==anthropic이면 usage raw 우선 복원 — cache TTL 내역 보존", () => {
+    const t = anthropicAdapter.transformResponse(
+      {
+        id: "msg_1", model: "m", content: [{ type: "text", text: "x" }], stop_reason: "end_turn",
+        usage: {
+          input_tokens: 10, output_tokens: 5, cache_creation_input_tokens: 100, cache_read_input_tokens: 0,
+          cache_creation: { ephemeral_5m_input_tokens: 30, ephemeral_1h_input_tokens: 70 },
+        },
+      },
+      { requestId: "r", modelId: "m", requestedModel: "m" },
+    );
+    const wire = toMessagesUsageForTest(t.usage, true);
+    expect(wire["cache_creation"]).toEqual({ ephemeral_5m_input_tokens: 30, ephemeral_1h_input_tokens: 70 });
+    const flat = toMessagesUsageForTest(t.usage, false);
+    expect(flat["cache_creation"]).toBeUndefined();
+  });
+
+  it("G6: 히스토리 tool_use의 caller가 wireExtras로 왕복", () => {
+    const ir = compatMessagesToIR(
+      {
+        model: "claude-haiku-4-5", max_tokens: 100,
+        messages: [
+          { role: "user", content: "run" },
+          { role: "assistant", content: [{ type: "tool_use", id: "toolu_1", name: "f", input: {}, caller: { type: "code_execution_20260120" } }] },
+          { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "ok" }] },
+        ],
+      },
+      false,
+    );
+    const toolCall = ir.messages[1]!.blocks[0]!;
+    expect(toolCall.providerOptions?.["anthropic"]?.["wireExtras"]).toEqual({ caller: { type: "code_execution_20260120" } });
+    const { request } = anthropicAdapter.transformRequest(ir, { requestId: "r", modelId: "claude-haiku-4-5" });
+    const wireMsgs = request.body["messages"] as Array<{ content: Array<Record<string, unknown>> }>;
+    const wireToolUse = wireMsgs[1]!.content.find((b) => b["type"] === "tool_use")!;
+    expect(wireToolUse["caller"]).toEqual({ type: "code_execution_20260120" });
+  });
+
+  it("G5: wireExtras가 조립 키와 충돌하면 드롭 + warning (조용한 스킵 금지)", () => {
+    const ir = compatMessagesToIR(
+      { model: "claude-haiku-4-5", max_tokens: 100, messages: [{ role: "user", content: "x" }], tools: [{ name: "f", input_schema: { type: "object" } }] },
+      false,
+    );
+    const tampered = {
+      ...ir,
+      tools: [{ ...ir.tools![0]!, providerOptions: { anthropic: { wireExtras: { name: "hijacked", allowed_callers: ["x"] } } } }],
+    };
+    const { request, warnings } = anthropicAdapter.transformRequest(tampered as typeof ir, { requestId: "r", modelId: "claude-haiku-4-5" });
+    const tool = (request.body["tools"] as Array<Record<string, unknown>>)[0]!;
+    expect(tool["name"]).toBe("f");
+    expect(tool["allowed_callers"]).toEqual(["x"]);
+    expect(warnings.some((w) => w.code === "parameter-dropped" && w.path?.includes("wireExtras.name"))).toBe(true);
   });
 });

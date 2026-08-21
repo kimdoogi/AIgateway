@@ -71,6 +71,10 @@
 - **실 녹화 완료** (2026-08-21 — 21케이스, 총 ≈$0.045): encrypted reasoning·서버툴 web_search_call·게이트 400×3·401·404(pro-on-cc) 전부 확보, 골든셋 ② 자동 편입(스냅샷 21). 신선도 장치 검출 3건: ① `$.tool_usage` 신필드, ② **GPT-5.6 CC 함수 툴 = `reasoning_effort:'none'` 필수**(400 실측 — 케이스 반영), ③ 미지 모델은 404 아닌 400
 - **실 E2E 스모크 통과** (`pnpm smoke:roadmap4`): openai 비스트림·스트림 완주(seq 단조), **크로스 프로바이더 대화**(claude 1턴 → 히스토리 → gpt 2턴, 내용 연속성 실검증 — 목표 2), compat CC→claude, encrypted reasoning 왕복. 스모크가 **`input_tokens_details.cache_write_tokens` 신필드 검출** → 구 인벤토리의 "캐시 쓰기 미관측" 전제 폐기, convertUsage·ir-v0 §8 갱신. **로드맵 4 완료** — 테스트 261개
 
+### 2026-08-21 — neuro 연동 준비: compat 인바운드 보강 3건
+
+- 실소비자 1호(neuro 에이전트 루프) 접속 사전 점검에서 compat 커버리지 구멍 3건 검출·수정: ① 미지 top-level 키 → `passthroughParams(pinned)` 원문 통과(부록 (a) §3.2 개정 — container·context_management·mcp_servers), ② 응답 `container` 유실 → `providerMetadata` + `response-metadata.providerMetadata` 신설(ir-v0 §10.1), ③ PTC `allowed_callers` 등 툴 비표준 키 → `wireExtras` 보존·재병합. neuro형 왕복 테스트 추가, 테스트 265개. 상세: [problem log](problems/problem-log.md)
+
 ## 로드맵 (2026-08-20 확정)
 
 1. ~~IR 설계 게이트 + 운영 결정 클로즈~~ (완료) → 2. ~~IR 스키마 v0~~ (작성·검증·개정 완료 — 사용자 승인 대기) → 3. **Walking skeleton** ([실행 계획](plan/walking-skeleton.md) — native → Anthropic, stream 포함 + 골든셋 캡처 하네스 + docker-compose + 메타 로그·OTel) → 4. OpenAI 어댑터 + 재타게팅 패스 v0 + 크로스 왕복 골든셋 + **부록 (a) 선행 후** 호환 인바운드 2종 → 5. Gemini·xAI 확장 + **Batches/Files 브리지(부록 (b) 선행)** + 레지스트리·커버리지 CI + 운영 평면(가상 키·예산·정산, 서버 상태 레지스트리, 본문 로그 파이프라인)

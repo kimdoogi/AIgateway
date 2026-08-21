@@ -21,7 +21,21 @@ export function toMessagesStopReason(fr: FinishReason, originIsAnthropic: boolea
   }
 }
 
-export function toMessagesUsage(usage: Usage): JSONObject {
+export function toMessagesUsage(usage: Usage, originIsAnthropic: boolean): JSONObject {
+  // 원문 우선 복원 (§0-2, 리뷰 G3) — cache_creation TTL 내역(5m/1h) 등 정규화 밖 필드 보존.
+  // raw 형태 2종: 비스트림 = wire usage 원문 / 스트림 = {message_start, message_delta} 합성 (§8)
+  if (originIsAnthropic && usage.raw && typeof usage.raw === "object" && !Array.isArray(usage.raw)) {
+    const raw = usage.raw as JSONObject;
+    if (typeof raw["input_tokens"] === "number") return raw;
+    const start = raw["message_start"];
+    const delta = raw["message_delta"];
+    if (start || delta) {
+      return {
+        ...(start && typeof start === "object" ? (start as JSONObject) : {}),
+        ...(delta && typeof delta === "object" ? (delta as JSONObject) : {}),
+      };
+    }
+  }
   return {
     input_tokens: usage.input.noCache,
     cache_creation_input_tokens: usage.input.cacheWrite,
@@ -116,8 +130,14 @@ export function toMessagesResponse(response: IRResponse, strict: boolean): JSONO
   const { stop_reason, raw } = toMessagesStopReason(response.finishReason, origin.provider === "anthropic");
   const content = response.message.blocks.map(blockToWire).filter((b): b is JSONObject => b !== null);
   const gateway: JSONObject = {};
-  if (!strict) gateway["origin"] = origin as unknown as JSONValue;
+  if (!strict) {
+    gateway["origin"] = origin as unknown as JSONValue;
+    // D5 — 드롭·클램프 보고가 출구에서 소멸하면 조용한 변조가 된다 (리뷰 G2)
+    if (response.warnings.length > 0) gateway["warnings"] = response.warnings as unknown as JSONValue;
+  }
   if (raw !== undefined) gateway["finish_reason_raw"] = raw;
+  // container 복원 (부록 (a) §2.2 — 샌드박스 재사용 계약. §14 커버리지)
+  const container = response.providerMetadata?.["anthropic"]?.["container"];
   return {
     id: response.id,
     type: "message",
@@ -126,7 +146,8 @@ export function toMessagesResponse(response: IRResponse, strict: boolean): JSONO
     content,
     stop_reason,
     stop_sequence: null,
-    usage: toMessagesUsage(response.usage),
+    ...(container !== undefined ? { container } : {}),
+    usage: toMessagesUsage(response.usage, origin.provider === "anthropic"),
     ...(Object.keys(gateway).length > 0 ? { gateway } : {}),
   };
 }

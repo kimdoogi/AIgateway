@@ -98,6 +98,8 @@ export interface ResponseMetadataDraft {
   type: "response-metadata";
   model: { resolved: ResolvedModel };
   providerRequestId?: string;
+  /** wire 선두에서만 얻는 고유 메타 (Anthropic message_start.container 등 — §10.1) */
+  providerMetadata?: NS;
 }
 
 // 게이트웨이 세션의 StreamEventDraft(전체 이벤트 Omit seq)와 다른 타입 — 동명 오임포트 방지 개명 (리뷰 RU3-r3)

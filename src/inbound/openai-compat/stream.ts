@@ -1,5 +1,6 @@
 import type { JSONObject, JSONValue } from "../../ir/json.js";
 import type { Block } from "../../ir/blocks.js";
+import type { NS, Warning } from "../../ir/common.js";
 import type { StreamEvent } from "../../ir/stream.js";
 import { toChatError, toChatFinishReason, toChatUsage } from "./response.js";
 
@@ -21,6 +22,8 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
   // gateway.ir 조립 — 텍스트/추론은 delta 누적, 완성본 이벤트(tool-call 등)는 그대로
   const blocks = new Map<string, Block>();
   const order: string[] = [];
+  const warnings: Warning[] = []; // D5 — finish의 gateway chunk로 일괄 전달 (리뷰 G2)
+  let providerMetadata: NS | undefined; // container 등 응답 레벨 PM (리뷰 G4)
 
   const acc = (blockId: string, make: () => Block): Block => {
     let b = blocks.get(blockId);
@@ -41,8 +44,10 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
   return (event: StreamEvent): ChatSSEFrame[] => {
     switch (event.type) {
       case "stream-start":
+        warnings.push(...event.warnings);
         return [];
       case "response-metadata": {
+        if (event.providerMetadata) providerMetadata = { ...providerMetadata, ...event.providerMetadata };
         id = event.id;
         model = event.model.resolved.model;
         created = Math.floor(Date.parse(event.created) / 1000);
@@ -112,8 +117,10 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
         return []; // v0 드롭 — gateway.ir 텍스트 블록 citations는 비스트림 경로에서만 (§6.1)
       case "heartbeat":
         return [{ data: "", comment: "ping" }];
-      case "usage-interim":
       case "warning":
+        warnings.push(event.warning);
+        return [];
+      case "usage-interim":
       case "provider-switched":
       case "raw":
         return [];
@@ -123,9 +130,17 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
           deltaChunk({}, finish_reason),
           chunk({ choices: [], usage: toChatUsage(event.usage) }),
         ];
+        if (event.providerMetadata) providerMetadata = { ...providerMetadata, ...event.providerMetadata };
         if (!strict) {
           const ir = order.map((k) => blocks.get(k)).filter((b): b is Block => b !== undefined);
-          frames.push(chunk({ gateway: { ir: ir as unknown as JSONValue, ...(raw ? { finish_reason_raw: raw } : {}) } }));
+          frames.push(chunk({
+            gateway: {
+              ir: ir as unknown as JSONValue,
+              ...(raw ? { finish_reason_raw: raw } : {}),
+              ...(warnings.length > 0 ? { warnings: warnings as unknown as JSONValue } : {}),
+              ...(providerMetadata ? { providerMetadata: providerMetadata as unknown as JSONValue } : {}),
+            },
+          }));
         }
         frames.push({ data: "[DONE]" });
         return frames;

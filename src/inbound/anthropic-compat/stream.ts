@@ -1,4 +1,5 @@
-import type { JSONObject } from "../../ir/json.js";
+import type { JSONObject, JSONValue } from "../../ir/json.js";
+import type { Warning } from "../../ir/common.js";
 import type { StreamEvent } from "../../ir/stream.js";
 import { blockToWire, toMessagesError, toMessagesStopReason, toMessagesUsage } from "./response.js";
 
@@ -17,6 +18,8 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
   let requestId = "";
   let model = "";
   let originProvider = "";
+  // D5 — warning은 wire에 자리가 없어 finish의 gateway 확장으로 일괄 전달 (리뷰 G2)
+  const warnings: Warning[] = [];
 
   const frame = (event: string, data: JSONObject): MessagesSSEFrame => ({ event, data: JSON.stringify({ type: event, ...data }) });
   const indexOf = (id: string): number => {
@@ -31,6 +34,7 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
   return (event: StreamEvent): MessagesSSEFrame[] => {
     switch (event.type) {
       case "stream-start":
+        warnings.push(...event.warnings);
         return [];
       case "response-metadata": {
         requestId = event.id;
@@ -38,11 +42,14 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
         originProvider = event.model.resolved.provider;
         if (started) return [];
         started = true;
+        const container = event.providerMetadata?.["anthropic"]?.["container"];
         return [
           frame("message_start", {
             message: {
               id: requestId, type: "message", role: "assistant", model, content: [],
               stop_reason: null, stop_sequence: null,
+              // container: SDK가 message_start에서 읽는다 (부록 (a) §2.2 — 2026-08-21)
+              ...(container !== undefined ? { container } : {}),
               usage: { input_tokens: 0, output_tokens: 0 }, // 최종 usage는 message_delta (§6.2)
             },
           }),
@@ -111,10 +118,12 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
           frame("content_block_stop", { index }),
         ];
       }
+      case "warning":
+        warnings.push(event.warning); // 소멸 금지 — finish gateway 확장으로 (리뷰 G2)
+        return [];
       case "file":
       case "source":
       case "usage-interim":
-      case "warning":
       case "provider-switched":
       case "raw":
         return [];
@@ -124,9 +133,15 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
         const { stop_reason, raw } = toMessagesStopReason(event.finishReason, originProvider === "anthropic");
         const deltaBody: JSONObject = {
           delta: { stop_reason, stop_sequence: null },
-          usage: toMessagesUsage(event.usage),
+          usage: toMessagesUsage(event.usage, originProvider === "anthropic"),
         };
-        if (!strict && raw !== undefined) deltaBody["gateway"] = { finish_reason_raw: raw };
+        // 턴 중 생성·교체된 container — SDK가 message_delta에서도 읽는다 (리뷰 G1)
+        const container = event.providerMetadata?.["anthropic"]?.["container"];
+        if (container !== undefined) deltaBody["container"] = container;
+        const gateway: JSONObject = {};
+        if (raw !== undefined) gateway["finish_reason_raw"] = raw;
+        if (!strict && warnings.length > 0) gateway["warnings"] = warnings as unknown as JSONValue;
+        if (Object.keys(gateway).length > 0) deltaBody["gateway"] = gateway;
         return [frame("message_delta", deltaBody), frame("message_stop", {})];
       }
       case "error-partial":

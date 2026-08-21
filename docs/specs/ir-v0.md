@@ -364,7 +364,7 @@ type FinishReason = {
 
 ```
 stream-start        { warnings: Warning[] }
-response-metadata   { id, created, model: {requested, resolved}, providerRequestId? }
+response-metadata   { id, created, model: {requested, resolved}, providerRequestId?, providerMetadata? }   // PM: wire 선두에서만 얻는 프로바이더 고유 메타 (Anthropic message_start.container 등 — 2026-08-21)
 ...콘텐츠/운영 이벤트...
 finish              { finishReason, usage, billing?, attempts?, providerMetadata? }   // 터미널 (attempts: §7 gateway.attempts와 동형 — 스트림/비스트림 대칭)
 error-final         { error: IRError, usage?: Usage }                          // 터미널
@@ -505,6 +505,7 @@ compat 포맷(openai-compat CC, anthropic-compat)에는 IR 전용 필드(`origin
 | Anthropic cache_control | 블록/툴 `providerOptions.anthropic.cacheControl` |
 | Anthropic thinking display / budget | `providerOptions.anthropic` (effort는 표준 §6.3) |
 | Anthropic compaction 블록 | `custom(kind: "anthropic.compaction")` — 무변경 재전송 |
+| Anthropic container (코드 실행 샌드박스 id·만료) | 응답 `providerMetadata.anthropic.container` + 스트림 `response-metadata.providerMetadata` (2026-08-21 — neuro 연동에서 유실 발견). 요청 방향 `container`는 compat passthroughParams 또는 PO |
 | OpenAI store/conversation/background | `providerOptions.openai` + 서버 상태 레지스트리 (ADR-0006) |
 | OpenAI reasoning encrypted_content | `opaqueState` |
 | Gemini safetySettings / grounding 옵션 | `providerOptions.google` |
