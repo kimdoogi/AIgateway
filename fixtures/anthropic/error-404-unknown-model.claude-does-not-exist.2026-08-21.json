@@ -1,0 +1,31 @@
+{
+  "case": "error-404-unknown-model",
+  "recordedAt": "2026-08-21",
+  "model": "claude-does-not-exist",
+  "stream": false,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-does-not-exist",
+      "max_tokens": 50,
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "status": 404,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "not_found_error",
+      "message": "model: claude-does-not-exist"
+    },
+    "request_id": "req_fixture0001"
+  }
+}

@@ -1,0 +1,81 @@
+event: message_start
+data: {"type":"message_start","message":{"model":"claude-sonnet-4-6","id":"msg_fixture0001","type":"message","role":"assistant","content":[],"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":45,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":7,"service_tier":"standard","inference_geo":"global"}}              }
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}      }
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"This is a classic logic puzzle about syllogisms.\n\nGiven:\n1. All Bloops are Razzies\n2. Some Razzies are Lazzies\n\nMust some Bloops be L"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"azzies?\n\nThe answer is No, not necessarily.\n\nThink of it with Venn diagrams:\n- All Bloops are inside the Razzies circle\n- Some"}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" Razzies are Lazzies - but those Razzies that are Lazzies could be entirely outside the Bloops subset\n\nSo the"}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" Bloops could be a subset of Razzies that don't overlap with Lazzies at all."} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"ErMFCpIBCBEYAipAOIW5rbSsRZlMIz6gtJggMmOWzu8bffnsWxa7Ro9hRrU1dGkk/1/5MmT9VJ9vQ7M3UvjjIASsuFtVKMVapvAyIzIRY2xhdWRlLXNvbm5ldC00LTY4AEIIdGhpbmtpbmdaJDRiNjk3MzEwLTJjMjYtNDcxYS04ZDIzLWYxYTIyZmQxY2I2YqgB1sOe1AYSDM9U+MPaDhbPnftcShoMrXpBxFRgzjWTQVlOIjCEq7WufgDgNhRpRQVxnOe51hcAtd/xjQT2RiGqrQFVe8y3+fi71H3AgrTkasx1MLEqzQMdzVeVX2njKik1wxw2Mk/b7byYCgC+hcTA8Yivj1tlZbQ149Vc2m1IHjLrbylWSuLhK+856caPyFSR6tCaNfL43qQqdMKVm6m4sl3Cl5D1OSNeNKJIpbBQzJjQnseJhrdq+SHpXlS0D2cffm7WW7bqWXQkFNL6Z4kuULHFfTplmk/YulrbqHmkFZWN98VPjdeQgQwWeaj+R0MsQDwHfwXPbui08vQDoAjM6P+wF6X8tBwrQy9i4uehZF6efROzFImgCCtdwneFp0mwtVMnHXumEtziQnLJIIIiksFxbjH051dbkVAQNeZWhBAE8He5HgGe8dpl5TCkxoUfqNvVs41D2QV8AzFmU2GAAIv09Jj9KmEZvMfUcc8Ob2Bwbq1n5jqNVgtXOFdsnomLJP5zvckg/Xc3zUpcQ57BmFprI5Ve/zW287U4XXgzgrzP4S+PbZxW/0Y1GLKUtnMN8ZLNserbfsoyzc5G7tIpFc+QMb64koJugTQdqZbxTc4oD0RegKcz3UzVDCAFXHpxv5koYJkYrsZT8R6i8RQJ748mttoRbe+BAUdyhC/AYvG7k1l17LAEFr3xuXzFus9jH0sdtnRUBect+lX8TfrJmrmb4hgB"}         }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"## Answer: **No, it"}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" does not necessarily follow.**\n\n### Breaking Down the Logic\n\n**What we know:**\n1. All Bloops are Razzies → Every Bloop"}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" sits *inside* the Razzies group\n2. Some Razzies are Lazzies → There is *overlap* between Razzies and Lazz"}           }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"ies\n\n### Why the Conclusion Doesn't Follow\n\nThe key issue is **where** the Lazzies overlap with Razzies.\n\nThink"}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" of it visually:\n- Razzies is a large circle\n- Bloops is a **small circle entirely inside**"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" Razzies (because all Bloops are Razzies)\n- Lazzies overlaps with Razzies — but that overlap could land on"}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" the **non-Bloop portion** of Razzies\n\n```\n[  RAZZIES                        ]\n[  ["}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"BLOOPS]    [Razzies∩Lazzies]  ]\n```\n\nThe Lazzies portion of Razzies never has to"}     }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" touch Bloops at all.\n\n### Concrete Example\n- Bloops = Golden Retrievers\n- Razzies = Dogs\n- Lazzies = Black"}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" animals\n\n\"All Golden Retrievers are Dogs\" ✓  \n\"Some Dogs are black\" ✓  \n\"Therefore some"} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" Golden Retrievers are black\" ✗ — Not required!\n\n### The Logical Error\nThis is a classic **invalid"}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" syllogism**. The \"some\" in premise 2 is doing no work to connect back to Bloops specifically. A"}           }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" valid conclusion would require knowing that the *Razzie-Lazzie* overlap specifically includes"}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" Bloops.\n\n**Bottom line: Not necessarily true.**"}    }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1            }
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null,"stop_details":null},"usage":{"input_tokens":45,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":562,"output_tokens_details":{"thinking_tokens":158}}    }
+
+event: message_stop
+data: {"type":"message_stop"       }
+

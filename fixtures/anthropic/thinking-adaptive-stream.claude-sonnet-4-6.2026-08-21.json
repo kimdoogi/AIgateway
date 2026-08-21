@@ -1,0 +1,32 @@
+{
+  "case": "thinking-adaptive-stream",
+  "recordedAt": "2026-08-21",
+  "model": "claude-sonnet-4-6",
+  "stream": true,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-sonnet-4-6",
+      "max_tokens": 1200,
+      "stream": true,
+      "thinking": {
+        "type": "adaptive",
+        "display": "summarized"
+      },
+      "output_config": {
+        "effort": "medium"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "If all Bloops are Razzies and some Razzies are Lazzies, must some Bloops be Lazzies? Reason it out."
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream; charset=utf-8"
+  },
+  "chunksFile": "thinking-adaptive-stream.claude-sonnet-4-6.2026-08-21.chunks.txt"
+}

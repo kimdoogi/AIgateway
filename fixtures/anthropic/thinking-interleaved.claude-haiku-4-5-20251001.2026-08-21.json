@@ -1,0 +1,97 @@
+{
+  "case": "thinking-interleaved",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5-20251001",
+  "stream": false,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "max_tokens": 1500,
+      "thinking": {
+        "type": "enabled",
+        "budget_tokens": 1024
+      },
+      "tools": [
+        {
+          "name": "get_weather",
+          "description": "Get the current weather for a city.",
+          "input_schema": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string",
+                "enum": [
+                  "c",
+                  "f"
+                ]
+              }
+            },
+            "required": [
+              "city"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ],
+      "messages": [
+        {
+          "role": "user",
+          "content": "Decide whether Seoul needs an umbrella today; use the tool first."
+        }
+      ]
+    },
+    "headers": {
+      "anthropic-beta": "interleaved-thinking-2025-05-14"
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "model": "claude-haiku-4-5-20251001",
+    "id": "msg_fixture0001",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "The user is asking me to check the weather for Seoul and determine if an umbrella is needed. I should use the get_weather tool to fetch the current weather for Seoul first.\n\nI'll call the get_weather function with Seoul as the city parameter. The unit parameter is optional - I'll use the default or can specify one. Since the user didn't specify, I'll just provide the city.",
+        "signature": "EvUECpoBCBEYAipAjgQd4km7cgQjZzWwqn/enKzjNndLe16lPSasvvxwtdIbaFMammbrmL0ONl4VORecJhik+SjFimK9CS3ZrZaCQjIZY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMTgAQgh0aGlua2luZ1okNGI2OTczMTAtMmMyNi00NzFhLThkMjMtZjFhMjJmZDFjYjZiqAH8wp7UBhIMF+nZQGetAaEL8oUwGgxrnBOT11LtfvZZOIQiMM50PJaBJMxR/S+5CdjkatHiDkiImSDmJc+BHm/GHiV9AkdSVEAZa8dbQg+ZLzEaeSqHA0XK3+GFcp+NDbiHhWmRIzbMB1BP6cr89SKU/B7CyKznzgt7XMa3Jh5J2sNUgX7j+1OlaxDjOQ1fV0n7h3G9tUzIZNW9j2SQoQP/jNe0QP4BBSLtl8Aj1/5EGczGac3ggIJXqaAIoSj6XcR4GfetDUH2KTZsOEJ1sdtPk3wmt2twaU8rCbqGaYpvh7x43PnD214Jf6K0JjJC4Fnhb5ypNnhD7U8iJhTDrKGpox/EgIbEEQn0O850+62OnyFKq+VXzZnVHx4SVnBKOg38izp5Uk/UH9EReHlLwc/7Zs6nzRKtr644DWR/X4zhK2tgu3Y+n5KvmMt6NTEn0SaKzdtJbdLEfscOjUaukm9lqP1Mm+ZHeufzM3sgirf4D+ARZwhLlrHRz5ZSDJIwW0vi4sMja3zjm/L+/gV2hoJgmWNSbPk/y86A/pZbRisBIxu9QZzzYUvScyrd7rPgEH/+bYJaebl60WZxYKIXHXvORXreX0gdqAr2R2RAszZAHZP3KjHuDrEHIO2CPC4YAQ=="
+      },
+      {
+        "type": "tool_use",
+        "id": "toolu_fixture0002",
+        "name": "get_weather",
+        "input": {
+          "city": "Seoul"
+        },
+        "caller": {
+          "type": "direct"
+        }
+      }
+    ],
+    "stop_reason": "tool_use",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 777,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 144,
+      "output_tokens_details": {
+        "thinking_tokens": 88
+      },
+      "service_tier": "standard",
+      "inference_geo": "not_available"
+    }
+  }
+}

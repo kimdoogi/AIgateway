@@ -1,0 +1,42 @@
+{
+  "case": "citations-stream",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5-20251001",
+  "stream": true,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "max_tokens": 300,
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "document",
+              "source": {
+                "type": "text",
+                "media_type": "text/plain",
+                "data": "The IR hub is versioned as v0. Golden set fixtures verify wire formats, not answer quality."
+              },
+              "title": "IR overview",
+              "citations": {
+                "enabled": true
+              }
+            },
+            {
+              "type": "text",
+              "text": "What do golden set fixtures verify? Cite the document."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream; charset=utf-8"
+  },
+  "chunksFile": "citations-stream.claude-haiku-4-5-20251001.2026-08-21.chunks.txt"
+}

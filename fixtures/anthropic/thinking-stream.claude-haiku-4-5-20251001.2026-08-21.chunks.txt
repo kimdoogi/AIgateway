@@ -1,0 +1,42 @@
+event: message_start
+data: {"type":"message_start","message":{"model":"claude-haiku-4-5-20251001","id":"msg_fixture0001","type":"message","role":"assistant","content":[],"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":49,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":8,"service_tier":"standard","inference_geo":"not_available"}}      }
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}     }
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"I need to calculate 17 *"}             }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" 23.\n\nLet me break this down:\n17 * 23 = 17 * (20 + 3)\n= 17 * 20 + 17 * 3\n= 340 + 51\n= 391\n\nLet me double-check this another way:\n23"}     }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" * 17 = 23 * (10 + 7)\n= 230 + 161\n= 391\n\nYes, that's correct."}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"EtYDCpoBCBEYAipASzYzezWECugi42tpMLLLGKmmbkKJAwT/A1Uymc3Pcw9JPC1Laus/1pFKtbrD2lH9UqexcAOQvn6MG6fzEbK/QjIZY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMTgAQgh0aGlua2luZ1okNGI2OTczMTAtMmMyNi00NzFhLThkMjMtZjFhMjJmZDFjYjZiqAH7wp7UBhIMr8arKo54kNBeTzLvGgw4pKJTam1gphsWbaAiMNPoz/yfU7qeV8hVWDpld5R0FLSxdJCnHm296+XBjNkaMyi4QLXvyrchnetSzwwA3SroAekMM2ad+Zq4EbuuoRJCksBRROPhcD0VOUQh35XH3luVquI8InQQ2uPWagdRxQbeZFwD6eVnqlRRwRacWuSca2rmoxslK++JaHyokp2Kd43PHhtHfYUHUZSUHIyorTWm72/7b8sFmnEygDdcbfaPyZKil9QDDP2ZfcpeMdJ/dAxSV3WcQB6oLGT62IKdpHS5cSGgblpKXUF6A3i8KHZgcr/EpoUZAOla78HpCguc0Phb3RY0XObbRRxKQXGbKjeZFUeyAajov2ISJinN/rj5LzvGbwibbLLTYHL7IqODttHscDnFbqdz8lQYAQ=="}             }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0     }
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"# 17 × 23 = 391\n\n**Brief reasoning:**\n-"}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" Break 23 into 20 + 3\n- 17 × 20 = 340\n- 17 × 3 = 51\n- 340 + 51 = **391**"}       }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1 }
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null,"stop_details":null},"usage":{"input_tokens":49,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":190,"output_tokens_details":{"thinking_tokens":118}}             }
+
+event: message_stop
+data: {"type":"message_stop" }
+

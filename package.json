@@ -11,15 +11,22 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "capture": "tsx tools/capture/capture.ts",
+    "dev": "tsx src/server/index.ts"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "hono": "^4",
+    "pg": "^8.23.0",
+    "redis": "^6.2.1",
     "zod": "^4"
   },
   "devDependencies": {
     "@hono/node-server": "^1",
     "@types/node": "^22",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^3"
   }

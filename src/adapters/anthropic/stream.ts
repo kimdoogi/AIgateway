@@ -343,6 +343,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
 
     onStreamEnd(): AdapterStreamEvent[] {
       if (terminalEmitted) return [];
+      terminalEmitted = true; // 멱등 — 재호출·후속 이벤트 무시 (§10.2)
       // 종료 신호 없는 절단 — 터미널 보장 계약 (ADR-0005). 과금 usage 동봉 (리뷰 R2)
       return [
         {

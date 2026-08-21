@@ -1,0 +1,62 @@
+{
+  "case": "thinking",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5-20251001",
+  "stream": false,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "max_tokens": 1500,
+      "thinking": {
+        "type": "enabled",
+        "budget_tokens": 1024
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "If 3 shirts dry in 2 hours, how long for 9 shirts? Be brief."
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "model": "claude-haiku-4-5-20251001",
+    "id": "msg_fixture0001",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "This is a classic trick question or question that tests understanding of proportional reasoning.\n\nIf 3 shirts dry in 2 hours, the question is asking how long for 9 shirts.\n\nThe key insight is whether drying time depends on the NUMBER of shirts or not.\n\nIf the shirts are drying simultaneously (hung out side by side), then all shirts take the same amount of time to dry regardless of how many there are. So 9 shirts would also take 2 hours.\n\nIf the shirts must dry sequentially (one after another), then:\n- 3 shirts take 2 hours\n- 9 shirts (which is 3 times as many) would take 3 × 2 = 6 hours\n\nIn reality, most drying scenarios (air drying, using a dryer) the shirts dry simultaneously, so the answer would be 2 hours.\n\nHowever, this problem is likely meant to test if people blindly assume proportional scaling. The most likely intended answer is that it still takes 2 hours because the shirts dry at the same time.\n\nLet me be brief as requested.",
+        "signature": "ErMJCpoBCBEYAipALu+DVjM/mMfnvgmuTIIk0o2SPE++Wu/x9djMNd1RTF8etBGPmxLJq/cbRVvk+VDpC2JBDNajK1pPjERsA06iojIZY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMTgAQgh0aGlua2luZ1okNGI2OTczMTAtMmMyNi00NzFhLThkMjMtZjFhMjJmZDFjYjZiqAH5wp7UBhIMS42fzLkG2VGQL2fnGgzAkvzlRal3RI5q0tciMK77FXHIsGDG3fZG14X3x5m5wNwk54235/MPBqAdI4qs9NYlb7I/U4vBhQWsnCKcWirFByJEIQB2rNm4ys9GeTx0Z1uwmwc490WmzFsf65ZC3TkQnOYukolNWjOUyehPg2HtqxqGDYKmtJNiY8FwbWkBAF6mqUxVgcfYOOFHphjYnfVEPjga8tOUvActlUMYmlbrSGYd/uH9mf5L6MlArMNAZpdBn4Mn376ZJueLrQUKI6thfirdPXKcEUZPpxiGDevcwc98xJ4P7UHSGanAfgdaykaTVKeSNlTJNlWOPtO+fqFX5VlmyvWWM01wvYddwGG5GoLisdYXTExf77M777ovnKgXfTLNbxWcjioLVwblGqm3muLNrbtf8fpOShfzd2WmJh6tqzwAYH6ZmXKmQMHCKY5gUvYTQJu9War0CpNXDwG1rSuNSs1q47TIo55SxT9fHzOBNYmv2yE5GzIJahwdFQiDwVYyp0KK7Jqk8F3nK+Xw6JPXDw6yOsTtl19PwE77xUJhPpaVoJHVuToZh9A8oWv/Mxd25QXP2bYPi2hlAaG26VUa2K6QIFNZrgXBpz3CoSnl3GBLadLcYt36RrglsYI7fHBICLpLmppU6u7ppEYOC3iy22T5uqvOuSvrvsVD0uxTLtZQ4yIRq16n4oxOgOkZFHvA2jDlAOsfq0RYAD2uGrgUj0uvS/YAbiZPj5GZM/a8g4juje6wJgNDdFvjCiCSfZSLVYVYlLfnaf2vgmc2Ao2aBkF6g5/N4PUbP46zqGVo33mYlgfGsgJO0KzAG7n0721AFa498AfyuuWrBYkgOJJ8pkx0rU4XmHHmZVhwNWBckSCVT2gbpB2vfvSnjCCnfhNjEXOB7a9XZ+0wcOd/B0tmytlINDmJUqr6M5e7z1zQMMjj8l/GSsIIDaohEcsDpHqKTRKECzDW8YDIfSNhwPlZwGFgy0/1SeSpK5X3hC1d4+JcLOMcz/qLdiZgNgJ63inUbGcJz6DMp8TUL1evcpyLhAfkIcMSSxShayg27pcsFTKD7kkQP/2eTD10X9xgKnxRaaOSnKPwojO1SOYO6v633tdT4CH3BIhZu+juWrtYVNyCBVLEjwL5Yp2h4D/fgyEHDFbAeQGY9RSbY5YZpMY4ER8K4U2PFDy3y4MZeY4rhzuyVRjAVce036obPrRVczh45BmsO722VvA2eTyWyhHXok8w3rCjqWQIMkuXuNNn9N8ezIzb+JJ7ty6GoPVKlYMOQieR5YTFJvQMixeu/QYBrp/hLeXzptXBHu4ahcuA8NHQDyNtKFNDamcvOe18Dcg9YeCcafnLN8wO/ODUvKvbU+XMHWQSLT3PRgRUczUCHDQvGAE="
+      },
+      {
+        "type": "text",
+        "text": "2 hours.\n\nShirts dry simultaneously, not sequentially. Adding more shirts doesn't extend drying time if they're hanging together."
+      }
+    ],
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 59,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 284,
+      "output_tokens_details": {
+        "thinking_tokens": 249
+      },
+      "service_tier": "standard",
+      "inference_geo": "not_available"
+    }
+  }
+}

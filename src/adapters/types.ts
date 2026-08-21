@@ -39,7 +39,7 @@ export interface TransformedResponse {
  * 어댑터는 안전측 기본값을 쓴다.
  */
 export interface AdapterCapabilities {
-  /** messages 배열 내 mid-conversation system 지원 여부 (Anthropic: Opus 5/4.8/Fable 5만) */
+  /** messages 배열 내 mid-conversation system 지원 여부 — 모델별 값은 레지스트리가 공급 */
   midConversationSystem?: boolean;
   /** 모델이 수용하는 effort 값 집합 — 밖의 값은 클램프 + warning */
   supportedEfforts?: readonly string[];
@@ -67,7 +67,8 @@ export interface ResponseMetadataDraft {
   providerRequestId?: string;
 }
 
-export type StreamEventDraft =
+// 게이트웨이 세션의 StreamEventDraft(전체 이벤트 Omit seq)와 다른 타입 — 동명 오임포트 방지 개명 (리뷰 RU3-r3)
+export type AdapterEventDraft =
   | DraftOf<Exclude<StreamEvent, { type: "response-metadata" }>>
   | ResponseMetadataDraft;
 
@@ -76,7 +77,7 @@ export type StreamEventDraft =
  * usage: 과금이 발생한 시도는 반드시 포함 (ADR-0005 — 산출 근거는 어댑터만 가짐, 리뷰 R2)
  */
 export type AdapterStreamEvent =
-  | StreamEventDraft
+  | AdapterEventDraft
   | { type: "provider-error"; error: IRError; usage?: Usage };
 
 export interface StreamContext {
@@ -91,7 +92,11 @@ export interface StreamTransformer {
   readonly framing: "sse" | "ndjson" | "json-array" | "aws-eventstream";
   /** 프레이밍 파서가 분리한 이벤트 1건을 IR 이벤트 draft로 변환 */
   onEvent(eventName: string | undefined, data: string): AdapterStreamEvent[];
-  /** 프로바이더가 종료 신호 없이 스트림을 끊었을 때 — 터미널 보장은 게이트웨이+어댑터 공동 책임 */
+  /**
+   * 프로바이더가 종료 신호 없이 스트림을 끊었을 때 — 터미널 보장은 게이트웨이+어댑터 공동 책임.
+   * 계약: 터미널 미방출 상태의 첫 호출은 터미널을 방출해야 하고, 터미널 이후·반복 호출은
+   * 빈 배열이어야 한다 (멱등 — adapter-conformance가 검증, 재생 유틸이 무조건 호출).
+   */
   onStreamEnd(): AdapterStreamEvent[];
 }
 

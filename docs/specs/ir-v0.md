@@ -254,6 +254,8 @@ type IRRequest = {
 
   stream?: boolean;
   streamOptions?: { includeRaw?: boolean; heartbeatSeconds?: number };
+                  // heartbeatSeconds 게이트웨이 상한 3600 — 초과는 클램프 + warning(parameter-clamped)
+                  // (setInterval 2^31ms 오버플로 방지 — 2026-08-21 리뷰, problem log 참조)
 
   retarget?: { reasoning?: "drop" | "demote-to-text" | "strip-and-annotate" };  // D6-2, 기본 drop
   strictParameters?: boolean;              // D5 strict 모드: 미지원 파라미터를 드롭+warning 대신 4xx (기본 false)
@@ -410,7 +412,9 @@ raw               { provider: string, value: JSONValue }     // streamOptions.in
 
 - native 전송: SSE, `id:` 필드 = `seq`. 재개: `Last-Event-ID` 헤더로 재접속 → Redis 버퍼(TTL 5분)에서 이어서 방출. 버퍼 만료 시 410.
 - **단선 처리**: 비정상 단선 시 grace window 30초 동안 업스트림 유지 + 버퍼링 지속, 초과 시 업스트림 취소 (재접속은 버퍼 재생만). 클라이언트의 **명시적 abort는 즉시** 업스트림 취소 (ADR-0005 §1 / D7).
-- 백프레셔: 송신 버퍼 상한(기본 8MB) 초과 → 연결 종료 + 업스트림 취소 + `error-partial` 기록(재개 버퍼에는 남음).
+- 백프레셔: 재개 버퍼 상한(기본 8MB, **스트림 총 방출 바이트 기준** — 재개를 위해 전 이벤트를 보존하므로 소비-지연이 아닌 총량이 메모리 상한이다, 2026-08-21 확정) 초과 → 업스트림 취소 + `error-partial` 기록(재개 버퍼에는 남음).
+- **abort 계열 터미널의 회계 (2026-08-21 확정)**: 취소·grace 만료·백프레셔의 터미널 `error-partial`은 **펌프가 어댑터의 절단 처리(onStreamEnd)에서 회수한 usage/billed를 실어** 적재한다 — 세션/버퍼 계층은 회계를 모르므로 터미널을 합성하지 않는다 (abort 사유만 기록: 취소·grace=499, 백프레셔=507). 펌프 부재·실패 시에만 게이트웨이 방어 터미널(usage 없는 error-partial, `gatewayException: true`)이 적재된다.
+- **410 통합**: 미지 스트림 id와 만료 버퍼는 구분하지 않고 동일하게 410 (재개·취소 엔드포인트 공통). 취소 엔드포인트 `POST /v0/streams/{id}/cancel`은 진행 중 스트림이면 `{canceled: true}`, 이미 종료된 스트림이면 `{canceled: false}`.
 - 예산 hard 초과가 스트림 중 발생: **현재 스트림은 완료시키고 다음 요청부터 차단** (ADR-0007 채택). `warning(code: "budget-exhausted-next-request-blocked")`를 스트림에 방출. **집행 단위는 게이트웨이 요청당 1회 평가** — 같은 요청 내 폴백 시도는 현재 스트림의 연속으로 간주해 차단하지 않음 (초과분은 원장 기록).
 
 ## 11. Billing (ADR-0007)

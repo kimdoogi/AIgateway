@@ -188,3 +188,6 @@ export type StreamEvent = z.infer<typeof StreamEventSchema>;
 export type StreamEventType = StreamEvent["type"];
 
 export const TERMINAL_EVENT_TYPES = ["finish", "error-final", "error-partial"] as const;
+// 주의(로드맵 4): error-partial + willRetry:true는 논리적으로 터미널이 아니다 — 폴백 트리 구현 시
+// 세션 done 처리에서 예외 필요 (problem log 2026-08-21 참조)
+export const TERMINAL_EVENT_SET: ReadonlySet<string> = new Set(TERMINAL_EVENT_TYPES);

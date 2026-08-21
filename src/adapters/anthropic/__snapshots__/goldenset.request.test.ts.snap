@@ -1,0 +1,708 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든셋 ① IR → anthropic wire > cache-breakpoint — 블록 PO cacheControl → cache_control 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 100,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "system": [
+        {
+          "cache_control": {
+            "type": "ephemeral",
+          },
+          "text": "You are terse.",
+          "type": "text",
+        },
+      ],
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > mid-system-supported — capability 있으면 messages 내 role system 유지 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 100,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "content": [
+            {
+              "text": "mid instruction",
+              "type": "text",
+            },
+          ],
+          "role": "system",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "system": [
+        {
+          "text": "top system",
+          "type": "text",
+        },
+      ],
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > mid-system-unsupported — capability 없으면 user 변환 + warning 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 100,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+            {
+              "text": "mid instruction",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "system": [
+        {
+          "text": "top system",
+          "type": "text",
+        },
+      ],
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [
+    {
+      "code": "system-repositioned",
+      "message": "중간 system 메시지를 user 턴으로 변환 (모델이 mid-conversation system 미지원)",
+      "path": "messages[2]",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > multimodal — 이미지 base64 + 텍스트 문서(citations enabled) 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 100,
+      "messages": [
+        {
+          "content": [
+            {
+              "source": {
+                "data": "PNGDATA",
+                "media_type": "image/png",
+                "type": "base64",
+              },
+              "type": "image",
+            },
+            {
+              "citations": {
+                "enabled": true,
+              },
+              "source": {
+                "data": "The hub is v0.",
+                "media_type": "text/plain",
+                "type": "text",
+              },
+              "title": "IR overview",
+              "type": "document",
+            },
+            {
+              "text": "describe",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > passthrough-params — 미지 키 병합 + 커스텀 헤더 (D10-1) 1`] = `
+{
+  "request": {
+    "body": {
+      "container": {
+        "id": "container_x",
+      },
+      "max_tokens": 100,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "stream": true,
+    },
+    "headers": {
+      "anthropic-beta": "computer-use-2025-01-24",
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > provider-tool — anthropic.web_search (args가 wire 원문) 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 300,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "search",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "tools": [
+        {
+          "max_uses": 1,
+          "name": "web_search",
+          "type": "web_search_20260209",
+        },
+      ],
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > reasoning-foreign — 외래 reasoning은 retarget 정책(demote-to-text) + warning 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 100,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "continue",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "content": [
+            {
+              "text": "foreign thought",
+              "type": "text",
+            },
+            {
+              "text": "answer",
+              "type": "text",
+            },
+          ],
+          "role": "assistant",
+        },
+        {
+          "content": [
+            {
+              "text": "next",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [
+    {
+      "code": "reasoning-demoted",
+      "message": "외래 reasoning을 텍스트로 강등",
+      "path": "messages[1].blocks[0]",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > reasoning-replay — anthropic opaqueState는 thinking+signature 복원, redacted 포함 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 100,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "continue",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "content": [
+            {
+              "signature": "SIG_BYTES",
+              "thinking": "step by step",
+              "type": "thinking",
+            },
+            {
+              "data": "REDACTED_BYTES",
+              "type": "redacted_thinking",
+            },
+            {
+              "text": "answer",
+              "type": "text",
+            },
+          ],
+          "role": "assistant",
+        },
+        {
+          "content": [
+            {
+              "text": "next",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > response-format+effort — output_config 조립, 미지원 effort는 클램프 + warning 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 200,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "json please",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "output_config": {
+        "effort": "low",
+        "format": {
+          "name": "result",
+          "schema": {
+            "properties": {
+              "ok": {
+                "type": "boolean",
+              },
+            },
+            "type": "object",
+          },
+          "type": "json_schema",
+        },
+      },
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [
+    {
+      "code": "parameter-clamped",
+      "message": "effort 'none' → 'low' 클램프",
+      "path": "reasoning.effort",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > sampling-full — 미지원 3종(seed/presence/frequency)은 드롭 + warning 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 100,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "stop_sequences": [
+        "END",
+      ],
+      "temperature": 0.5,
+      "top_k": 40,
+      "top_p": 0.9,
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [
+    {
+      "code": "parameter-dropped",
+      "message": "anthropic 미지원 파라미터 seed 드롭",
+      "path": "seed",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "anthropic 미지원 파라미터 presencePenalty 드롭",
+      "path": "presencePenalty",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "anthropic 미지원 파라미터 frequencyPenalty 드롭",
+      "path": "frequencyPenalty",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > server-tool-roundtrip — providerExecuted + wireType 복원 (G1) 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 150,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "search it",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "content": [
+            {
+              "id": "srvtoolu_01",
+              "input": {
+                "query": "ir hub",
+              },
+              "name": "web_search",
+              "type": "server_tool_use",
+            },
+            {
+              "content": [
+                {
+                  "type": "web_search_result",
+                  "url": "https://x",
+                },
+              ],
+              "tool_use_id": "srvtoolu_01",
+              "type": "web_search_tool_result",
+            },
+          ],
+          "role": "assistant",
+        },
+        {
+          "content": [
+            {
+              "text": "summarize",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > text-minimal — maxOutputTokens 미지정은 기본값 주입 + warning 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 4096,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [
+    {
+      "code": "parameter-defaulted",
+      "message": "maxOutputTokens 미지정 — 기본값 4096 주입 (anthropic max_tokens 필수)",
+      "path": "maxOutputTokens",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > thinking-po — providerOptions.anthropic.thinking + betas 헤더 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 1500,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "why?",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "thinking": {
+        "budget_tokens": 1024,
+        "type": "enabled",
+      },
+    },
+    "headers": {
+      "anthropic-beta": "interleaved-thinking-2025-05-14",
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > tool-roundtrip — toolCall/toolResult 히스토리 + tool role → user 병합 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 150,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "weather in Seoul?",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "content": [
+            {
+              "id": "toolu_01",
+              "input": {
+                "city": "Seoul",
+              },
+              "name": "get_weather",
+              "type": "tool_use",
+            },
+          ],
+          "role": "assistant",
+        },
+        {
+          "content": [
+            {
+              "content": [
+                {
+                  "text": "18C, clear",
+                  "type": "text",
+                },
+              ],
+              "tool_use_id": "toolu_01",
+              "type": "tool_result",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → anthropic wire > tools — function 툴 + 지정 toolChoice + 병렬 off 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 200,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "weather?",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "tool_choice": {
+        "disable_parallel_tool_use": true,
+        "name": "get_weather",
+        "type": "tool",
+      },
+      "tools": [
+        {
+          "description": "Get weather.",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "city": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "city",
+            ],
+            "type": "object",
+          },
+          "name": "get_weather",
+          "strict": true,
+        },
+      ],
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [],
+}
+`;

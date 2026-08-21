@@ -1,0 +1,1678 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든셋 ② anthropic 픽스처 → IR > cache-read 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "Fixtures verify the wire format of gateway records.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 4402,
+      "cacheWrite": 0,
+      "noCache": 18,
+      "total": 4420,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 13,
+      "total": 13,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 4402,
+      "inference_geo": "not_available",
+      "input_tokens": 18,
+      "output_tokens": 13,
+      "service_tier": "standard",
+    },
+    "totalTokens": 4433,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > cache-write 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "The gateway records golden set fixtures for wire format verification.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 4402,
+      "noCache": 18,
+      "total": 4420,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 14,
+      "total": 14,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 4402,
+      },
+      "cache_creation_input_tokens": 4402,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 18,
+      "output_tokens": 14,
+      "service_tier": "standard",
+    },
+    "totalTokens": 4434,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > citations 1`] = `
+{
+  "blocks": [
+    {
+      "citations": [
+        {
+          "citedText": "Fixtures are recorded with Haiku 4.5.",
+          "location": {
+            "end": 143,
+            "start": 106,
+            "type": "char",
+          },
+          "source": {
+            "documentIndex": 0,
+            "title": "IR overview",
+            "type": "document",
+          },
+        },
+      ],
+      "id": "blk_0",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "Haiku 4.5 records fixtures.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 634,
+      "total": 634,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 30,
+      "total": 30,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 634,
+      "output_tokens": 30,
+      "service_tier": "standard",
+    },
+    "totalTokens": 664,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > citations-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+    },
+    "providerRequestId": "msg_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_0",
+    "type": "text-start",
+  },
+  {
+    "citation": {
+      "citedText": "Golden set fixtures verify wire formats, not answer quality.",
+      "location": {
+        "end": 91,
+        "start": 31,
+        "type": "char",
+      },
+      "source": {
+        "documentIndex": 0,
+        "title": "IR overview",
+        "type": "document",
+      },
+    },
+    "id": "blk_0",
+    "type": "citation-delta",
+  },
+  {
+    "delta": "Golden set fixtures verify wire formats, not answer quality.",
+    "id": "blk_0",
+    "type": "text-delta",
+  },
+  {
+    "id": "blk_0",
+    "type": "text-end",
+  },
+  {
+    "type": "usage-interim",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 603,
+        "total": 603,
+      },
+      "output": {
+        "total": 30,
+      },
+    },
+  },
+  {
+    "finishReason": {
+      "raw": "end_turn",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 603,
+        "total": 603,
+      },
+      "output": {
+        "reasoning": 0,
+        "text": 30,
+        "total": 30,
+      },
+      "raw": {
+        "message_delta": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 603,
+          "output_tokens": 30,
+        },
+        "message_start": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 603,
+          "output_tokens": 4,
+          "service_tier": "standard",
+        },
+      },
+      "totalTokens": 633,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > error-400-adaptive-gate 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "adaptive thinking is not supported on this model",
+  "provider": {
+    "code": "invalid_request_error",
+    "key": "anthropic",
+    "raw": {
+      "error": {
+        "message": "adaptive thinking is not supported on this model",
+        "type": "invalid_request_error",
+      },
+      "request_id": "req_fixture0001",
+      "type": "error",
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > error-400-budget-exceeds-max 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "\`max_tokens\` must be greater than \`thinking.budget_tokens\`. Please consult our documentation at https://platform.claude.com/docs/en/build-with-claude/extended-thinking#max-tokens-and-context-window-size-with-extended-thinking",
+  "provider": {
+    "code": "invalid_request_error",
+    "key": "anthropic",
+    "raw": {
+      "error": {
+        "message": "\`max_tokens\` must be greater than \`thinking.budget_tokens\`. Please consult our documentation at https://platform.claude.com/docs/en/build-with-claude/extended-thinking#max-tokens-and-context-window-size-with-extended-thinking",
+        "type": "invalid_request_error",
+      },
+      "request_id": "req_fixture0001",
+      "type": "error",
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > error-400-effort-gate 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "This model does not support the effort parameter.",
+  "provider": {
+    "code": "invalid_request_error",
+    "key": "anthropic",
+    "raw": {
+      "error": {
+        "message": "This model does not support the effort parameter.",
+        "type": "invalid_request_error",
+      },
+      "request_id": "req_fixture0001",
+      "type": "error",
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > error-400-missing-max-tokens 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "max_tokens: Field required",
+  "provider": {
+    "code": "invalid_request_error",
+    "key": "anthropic",
+    "raw": {
+      "error": {
+        "message": "max_tokens: Field required",
+        "type": "invalid_request_error",
+      },
+      "request_id": "req_fixture0001",
+      "type": "error",
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > error-401-invalid-key 1`] = `
+{
+  "billed": false,
+  "category": "auth",
+  "fallbackEligible": false,
+  "httpStatus": 401,
+  "message": "API key is invalid.",
+  "provider": {
+    "code": "authentication_error",
+    "key": "anthropic",
+    "raw": {
+      "error": {
+        "message": "API key is invalid.",
+        "type": "authentication_error",
+      },
+      "request_id": null,
+      "type": "error",
+    },
+    "status": 401,
+  },
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > error-404-unknown-model 1`] = `
+{
+  "billed": false,
+  "category": "not_found",
+  "fallbackEligible": false,
+  "httpStatus": 404,
+  "message": "model: claude-does-not-exist",
+  "provider": {
+    "code": "not_found_error",
+    "key": "anthropic",
+    "raw": {
+      "error": {
+        "message": "model: claude-does-not-exist",
+        "type": "not_found_error",
+      },
+      "request_id": "req_fixture0001",
+      "type": "error",
+    },
+    "status": 404,
+  },
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > multimodal-image 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "This image shows a small, light pink or salmon-colored dot or circular shape against a white background.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 23,
+      "total": 23,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 24,
+      "total": 24,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 23,
+      "output_tokens": 24,
+      "service_tier": "standard",
+    },
+    "totalTokens": 47,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > multimodal-pdf 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "The text on this page reads "Golden set fixture page".",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 1589,
+      "total": 1589,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 15,
+      "total": 15,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 1589,
+      "output_tokens": 15,
+      "service_tier": "standard",
+    },
+    "totalTokens": 1604,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > stop-max-tokens 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "#",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "max_tokens",
+    "unified": "length",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 15,
+      "total": 15,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 1,
+      "total": 1,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 15,
+      "output_tokens": 1,
+      "service_tier": "standard",
+    },
+    "totalTokens": 16,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > text 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "The capital of France is Paris.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 20,
+      "total": 20,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 10,
+      "total": 10,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 20,
+      "output_tokens": 10,
+      "service_tier": "standard",
+    },
+    "totalTokens": 30,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > text-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+    },
+    "providerRequestId": "msg_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_0",
+    "type": "text-start",
+  },
+  {
+    "delta": "The",
+    "id": "blk_0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " three primary colors are red, yellow, and blue.",
+    "id": "blk_0",
+    "type": "text-delta",
+  },
+  {
+    "id": "blk_0",
+    "type": "text-end",
+  },
+  {
+    "type": "usage-interim",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 18,
+        "total": 18,
+      },
+      "output": {
+        "total": 15,
+      },
+    },
+  },
+  {
+    "finishReason": {
+      "raw": "end_turn",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 18,
+        "total": 18,
+      },
+      "output": {
+        "reasoning": 0,
+        "text": 15,
+        "total": 15,
+      },
+      "raw": {
+        "message_delta": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 18,
+          "output_tokens": 15,
+        },
+        "message_start": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 18,
+          "output_tokens": 1,
+          "service_tier": "standard",
+        },
+      },
+      "totalTokens": 33,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > thinking 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "opaqueState": {
+        "data": "ErMJCpoBCBEYAipALu+DVjM/mMfnvgmuTIIk0o2SPE++Wu/x9djMNd1RTF8etBGPmxLJq/cbRVvk+VDpC2JBDNajK1pPjERsA06iojIZY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMTgAQgh0aGlua2luZ1okNGI2OTczMTAtMmMyNi00NzFhLThkMjMtZjFhMjJmZDFjYjZiqAH5wp7UBhIMS42fzLkG2VGQL2fnGgzAkvzlRal3RI5q0tciMK77FXHIsGDG3fZG14X3x5m5wNwk54235/MPBqAdI4qs9NYlb7I/U4vBhQWsnCKcWirFByJEIQB2rNm4ys9GeTx0Z1uwmwc490WmzFsf65ZC3TkQnOYukolNWjOUyehPg2HtqxqGDYKmtJNiY8FwbWkBAF6mqUxVgcfYOOFHphjYnfVEPjga8tOUvActlUMYmlbrSGYd/uH9mf5L6MlArMNAZpdBn4Mn376ZJueLrQUKI6thfirdPXKcEUZPpxiGDevcwc98xJ4P7UHSGanAfgdaykaTVKeSNlTJNlWOPtO+fqFX5VlmyvWWM01wvYddwGG5GoLisdYXTExf77M777ovnKgXfTLNbxWcjioLVwblGqm3muLNrbtf8fpOShfzd2WmJh6tqzwAYH6ZmXKmQMHCKY5gUvYTQJu9War0CpNXDwG1rSuNSs1q47TIo55SxT9fHzOBNYmv2yE5GzIJahwdFQiDwVYyp0KK7Jqk8F3nK+Xw6JPXDw6yOsTtl19PwE77xUJhPpaVoJHVuToZh9A8oWv/Mxd25QXP2bYPi2hlAaG26VUa2K6QIFNZrgXBpz3CoSnl3GBLadLcYt36RrglsYI7fHBICLpLmppU6u7ppEYOC3iy22T5uqvOuSvrvsVD0uxTLtZQ4yIRq16n4oxOgOkZFHvA2jDlAOsfq0RYAD2uGrgUj0uvS/YAbiZPj5GZM/a8g4juje6wJgNDdFvjCiCSfZSLVYVYlLfnaf2vgmc2Ao2aBkF6g5/N4PUbP46zqGVo33mYlgfGsgJO0KzAG7n0721AFa498AfyuuWrBYkgOJJ8pkx0rU4XmHHmZVhwNWBckSCVT2gbpB2vfvSnjCCnfhNjEXOB7a9XZ+0wcOd/B0tmytlINDmJUqr6M5e7z1zQMMjj8l/GSsIIDaohEcsDpHqKTRKECzDW8YDIfSNhwPlZwGFgy0/1SeSpK5X3hC1d4+JcLOMcz/qLdiZgNgJ63inUbGcJz6DMp8TUL1evcpyLhAfkIcMSSxShayg27pcsFTKD7kkQP/2eTD10X9xgKnxRaaOSnKPwojO1SOYO6v633tdT4CH3BIhZu+juWrtYVNyCBVLEjwL5Yp2h4D/fgyEHDFbAeQGY9RSbY5YZpMY4ER8K4U2PFDy3y4MZeY4rhzuyVRjAVce036obPrRVczh45BmsO722VvA2eTyWyhHXok8w3rCjqWQIMkuXuNNn9N8ezIzb+JJ7ty6GoPVKlYMOQieR5YTFJvQMixeu/QYBrp/hLeXzptXBHu4ahcuA8NHQDyNtKFNDamcvOe18Dcg9YeCcafnLN8wO/ODUvKvbU+XMHWQSLT3PRgRUczUCHDQvGAE=",
+        "provider": "anthropic",
+      },
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "This is a classic trick question or question that tests understanding of proportional reasoning.
+
+If 3 shirts dry in 2 hours, the question is asking how long for 9 shirts.
+
+The key insight is whether drying time depends on the NUMBER of shirts or not.
+
+If the shirts are drying simultaneously (hung out side by side), then all shirts take the same amount of time to dry regardless of how many there are. So 9 shirts would also take 2 hours.
+
+If the shirts must dry sequentially (one after another), then:
+- 3 shirts take 2 hours
+- 9 shirts (which is 3 times as many) would take 3 × 2 = 6 hours
+
+In reality, most drying scenarios (air drying, using a dryer) the shirts dry simultaneously, so the answer would be 2 hours.
+
+However, this problem is likely meant to test if people blindly assume proportional scaling. The most likely intended answer is that it still takes 2 hours because the shirts dry at the same time.
+
+Let me be brief as requested.",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "2 hours.
+
+Shirts dry simultaneously, not sequentially. Adding more shirts doesn't extend drying time if they're hanging together.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 59,
+      "total": 59,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 284,
+      "total": 284,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 59,
+      "output_tokens": 284,
+      "output_tokens_details": {
+        "thinking_tokens": 249,
+      },
+      "service_tier": "standard",
+    },
+    "totalTokens": 343,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > thinking-adaptive 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "opaqueState": {
+        "data": "EtMCCpIBCBEYAipA+5I4MPvwcJOQZIngUa7IKqLxihJIB8UobFqc9UVZiOARMkUrdJhvsxGj0sHUDMwX39G1JIAQQUn+O7oQZd2TGDIRY2xhdWRlLXNvbm5ldC00LTY4AEIIdGhpbmtpbmdaJDRiNjk3MzEwLTJjMjYtNDcxYS04ZDIzLWYxYTIyZmQxY2I2YqgBzsOe1AYSDNk9ZZ6g79+7BWaP0hoMhVtUJrulWWFfvxloIjDlCBrDIliCFM6hL9pjnkBY9ooQtsW9V1z75Y8sH202dudTASTolr043d0gx+N9/2wqbl33dbhRnMU/QuKtliPIw38cwEccnkWNX97nu2trr/FDYoEb5WpTeMq+Wmd1ybjCQBFqn2M36nPo7Sk3Fy0No27iy1JrWvE860czntRxtoktMLT/QJRYdAmyvTCg/iTAcucD6Msp5IuwWcFLnIAiGAE=",
+        "provider": "anthropic",
+      },
+      "origin": {
+        "model": "claude-sonnet-4-6",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "The ball costs x, the bat costs x + 1.00. Together: 2x + 1.00 = 1.10, so 2x = 0.10, x = $0.05.",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "claude-sonnet-4-6",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "## Working Through This Carefully
+
+Let me define the variable properly.
+
+Let the ball = **x**
+Then the bat = **x + $1.00**
+
+**Setting up the equation:**
+$$x + (x + \\$1.00) = \\$1.10$$
+$$2x + \\$1.00 = \\$1.10$$
+$$2x = \\$0.10$$
+$$x = \\$0.05$$
+
+## Answer
+
+**The ball costs $0.05 (5 cents).**
+
+The bat costs $1.05, and $1.05 + $0.05 = $1.10 ✓
+The bat is exactly $1.00 more than the ball ✓
+
+---
+
+The intuitive (but wrong) answer is $0.10 — which is the common snap judgment. But if the ball were $0.10, the bat would be $1.10, and the total would be $1.20, not $1.10. This is a classic example of how our intuitive thinking can lead us astray.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-sonnet-4-6",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 42,
+      "total": 42,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 311,
+      "total": 311,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "global",
+      "input_tokens": 42,
+      "output_tokens": 311,
+      "output_tokens_details": {
+        "thinking_tokens": 61,
+      },
+      "service_tier": "standard",
+    },
+    "totalTokens": 353,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > thinking-adaptive-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "claude-sonnet-4-6",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+    },
+    "providerRequestId": "msg_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_0",
+    "type": "reasoning-start",
+  },
+  {
+    "delta": "This is a classic logic puzzle about syllogisms.
+
+Given:
+1. All Bloops are Razzies
+2. Some Razzies are Lazzies
+
+Must some Bloops be L",
+    "id": "blk_0",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "azzies?
+
+The answer is No, not necessarily.
+
+Think of it with Venn diagrams:
+- All Bloops are inside the Razzies circle
+- Some",
+    "id": "blk_0",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " Razzies are Lazzies - but those Razzies that are Lazzies could be entirely outside the Bloops subset
+
+So the",
+    "id": "blk_0",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " Bloops could be a subset of Razzies that don't overlap with Lazzies at all.",
+    "id": "blk_0",
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "blk_0",
+    "opaqueState": {
+      "data": "ErMFCpIBCBEYAipAOIW5rbSsRZlMIz6gtJggMmOWzu8bffnsWxa7Ro9hRrU1dGkk/1/5MmT9VJ9vQ7M3UvjjIASsuFtVKMVapvAyIzIRY2xhdWRlLXNvbm5ldC00LTY4AEIIdGhpbmtpbmdaJDRiNjk3MzEwLTJjMjYtNDcxYS04ZDIzLWYxYTIyZmQxY2I2YqgB1sOe1AYSDM9U+MPaDhbPnftcShoMrXpBxFRgzjWTQVlOIjCEq7WufgDgNhRpRQVxnOe51hcAtd/xjQT2RiGqrQFVe8y3+fi71H3AgrTkasx1MLEqzQMdzVeVX2njKik1wxw2Mk/b7byYCgC+hcTA8Yivj1tlZbQ149Vc2m1IHjLrbylWSuLhK+856caPyFSR6tCaNfL43qQqdMKVm6m4sl3Cl5D1OSNeNKJIpbBQzJjQnseJhrdq+SHpXlS0D2cffm7WW7bqWXQkFNL6Z4kuULHFfTplmk/YulrbqHmkFZWN98VPjdeQgQwWeaj+R0MsQDwHfwXPbui08vQDoAjM6P+wF6X8tBwrQy9i4uehZF6efROzFImgCCtdwneFp0mwtVMnHXumEtziQnLJIIIiksFxbjH051dbkVAQNeZWhBAE8He5HgGe8dpl5TCkxoUfqNvVs41D2QV8AzFmU2GAAIv09Jj9KmEZvMfUcc8Ob2Bwbq1n5jqNVgtXOFdsnomLJP5zvckg/Xc3zUpcQ57BmFprI5Ve/zW287U4XXgzgrzP4S+PbZxW/0Y1GLKUtnMN8ZLNserbfsoyzc5G7tIpFc+QMb64koJugTQdqZbxTc4oD0RegKcz3UzVDCAFXHpxv5koYJkYrsZT8R6i8RQJ748mttoRbe+BAUdyhC/AYvG7k1l17LAEFr3xuXzFus9jH0sdtnRUBect+lX8TfrJmrmb4hgB",
+      "provider": "anthropic",
+    },
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "blk_0",
+    "type": "reasoning-end",
+  },
+  {
+    "id": "blk_1",
+    "type": "text-start",
+  },
+  {
+    "delta": "## Answer: **No, it",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " does not necessarily follow.**
+
+### Breaking Down the Logic
+
+**What we know:**
+1. All Bloops are Razzies → Every Bloop",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " sits *inside* the Razzies group
+2. Some Razzies are Lazzies → There is *overlap* between Razzies and Lazz",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": "ies
+
+### Why the Conclusion Doesn't Follow
+
+The key issue is **where** the Lazzies overlap with Razzies.
+
+Think",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " of it visually:
+- Razzies is a large circle
+- Bloops is a **small circle entirely inside**",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " Razzies (because all Bloops are Razzies)
+- Lazzies overlaps with Razzies — but that overlap could land on",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " the **non-Bloop portion** of Razzies
+
+\`\`\`
+[  RAZZIES                        ]
+[  [",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": "BLOOPS]    [Razzies∩Lazzies]  ]
+\`\`\`
+
+The Lazzies portion of Razzies never has to",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " touch Bloops at all.
+
+### Concrete Example
+- Bloops = Golden Retrievers
+- Razzies = Dogs
+- Lazzies = Black",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " animals
+
+"All Golden Retrievers are Dogs" ✓  
+"Some Dogs are black" ✓  
+"Therefore some",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " Golden Retrievers are black" ✗ — Not required!
+
+### The Logical Error
+This is a classic **invalid",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " syllogism**. The "some" in premise 2 is doing no work to connect back to Bloops specifically. A",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " valid conclusion would require knowing that the *Razzie-Lazzie* overlap specifically includes",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " Bloops.
+
+**Bottom line: Not necessarily true.**",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "id": "blk_1",
+    "type": "text-end",
+  },
+  {
+    "type": "usage-interim",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 45,
+        "total": 45,
+      },
+      "output": {
+        "total": 562,
+      },
+    },
+  },
+  {
+    "finishReason": {
+      "raw": "end_turn",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 45,
+        "total": 45,
+      },
+      "output": {
+        "reasoning": 0,
+        "text": 562,
+        "total": 562,
+      },
+      "raw": {
+        "message_delta": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 45,
+          "output_tokens": 562,
+          "output_tokens_details": {
+            "thinking_tokens": 158,
+          },
+        },
+        "message_start": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "global",
+          "input_tokens": 45,
+          "output_tokens": 7,
+          "service_tier": "standard",
+        },
+      },
+      "totalTokens": 607,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > thinking-interleaved 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "opaqueState": {
+        "data": "EvUECpoBCBEYAipAjgQd4km7cgQjZzWwqn/enKzjNndLe16lPSasvvxwtdIbaFMammbrmL0ONl4VORecJhik+SjFimK9CS3ZrZaCQjIZY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMTgAQgh0aGlua2luZ1okNGI2OTczMTAtMmMyNi00NzFhLThkMjMtZjFhMjJmZDFjYjZiqAH8wp7UBhIMF+nZQGetAaEL8oUwGgxrnBOT11LtfvZZOIQiMM50PJaBJMxR/S+5CdjkatHiDkiImSDmJc+BHm/GHiV9AkdSVEAZa8dbQg+ZLzEaeSqHA0XK3+GFcp+NDbiHhWmRIzbMB1BP6cr89SKU/B7CyKznzgt7XMa3Jh5J2sNUgX7j+1OlaxDjOQ1fV0n7h3G9tUzIZNW9j2SQoQP/jNe0QP4BBSLtl8Aj1/5EGczGac3ggIJXqaAIoSj6XcR4GfetDUH2KTZsOEJ1sdtPk3wmt2twaU8rCbqGaYpvh7x43PnD214Jf6K0JjJC4Fnhb5ypNnhD7U8iJhTDrKGpox/EgIbEEQn0O850+62OnyFKq+VXzZnVHx4SVnBKOg38izp5Uk/UH9EReHlLwc/7Zs6nzRKtr644DWR/X4zhK2tgu3Y+n5KvmMt6NTEn0SaKzdtJbdLEfscOjUaukm9lqP1Mm+ZHeufzM3sgirf4D+ARZwhLlrHRz5ZSDJIwW0vi4sMja3zjm/L+/gV2hoJgmWNSbPk/y86A/pZbRisBIxu9QZzzYUvScyrd7rPgEH/+bYJaebl60WZxYKIXHXvORXreX0gdqAr2R2RAszZAHZP3KjHuDrEHIO2CPC4YAQ==",
+        "provider": "anthropic",
+      },
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "The user is asking me to check the weather for Seoul and determine if an umbrella is needed. I should use the get_weather tool to fetch the current weather for Seoul first.
+
+I'll call the get_weather function with Seoul as the city parameter. The unit parameter is optional - I'll use the default or can specify one. Since the user didn't specify, I'll just provide the city.",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Seoul",
+        },
+      },
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "toolCallId": "toolu_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+  ],
+  "finishReason": {
+    "raw": "tool_use",
+    "unified": "tool_call",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 777,
+      "total": 777,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 144,
+      "total": 144,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 777,
+      "output_tokens": 144,
+      "output_tokens_details": {
+        "thinking_tokens": 88,
+      },
+      "service_tier": "standard",
+    },
+    "totalTokens": 921,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > thinking-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+    },
+    "providerRequestId": "msg_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_0",
+    "type": "reasoning-start",
+  },
+  {
+    "delta": "I need to calculate 17 *",
+    "id": "blk_0",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 23.
+
+Let me break this down:
+17 * 23 = 17 * (20 + 3)
+= 17 * 20 + 17 * 3
+= 340 + 51
+= 391
+
+Let me double-check this another way:
+23",
+    "id": "blk_0",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " * 17 = 23 * (10 + 7)
+= 230 + 161
+= 391
+
+Yes, that's correct.",
+    "id": "blk_0",
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "blk_0",
+    "opaqueState": {
+      "data": "EtYDCpoBCBEYAipASzYzezWECugi42tpMLLLGKmmbkKJAwT/A1Uymc3Pcw9JPC1Laus/1pFKtbrD2lH9UqexcAOQvn6MG6fzEbK/QjIZY2xhdWRlLWhhaWt1LTQtNS0yMDI1MTAwMTgAQgh0aGlua2luZ1okNGI2OTczMTAtMmMyNi00NzFhLThkMjMtZjFhMjJmZDFjYjZiqAH7wp7UBhIMr8arKo54kNBeTzLvGgw4pKJTam1gphsWbaAiMNPoz/yfU7qeV8hVWDpld5R0FLSxdJCnHm296+XBjNkaMyi4QLXvyrchnetSzwwA3SroAekMM2ad+Zq4EbuuoRJCksBRROPhcD0VOUQh35XH3luVquI8InQQ2uPWagdRxQbeZFwD6eVnqlRRwRacWuSca2rmoxslK++JaHyokp2Kd43PHhtHfYUHUZSUHIyorTWm72/7b8sFmnEygDdcbfaPyZKil9QDDP2ZfcpeMdJ/dAxSV3WcQB6oLGT62IKdpHS5cSGgblpKXUF6A3i8KHZgcr/EpoUZAOla78HpCguc0Phb3RY0XObbRRxKQXGbKjeZFUeyAajov2ISJinN/rj5LzvGbwibbLLTYHL7IqODttHscDnFbqdz8lQYAQ==",
+      "provider": "anthropic",
+    },
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "blk_0",
+    "type": "reasoning-end",
+  },
+  {
+    "id": "blk_1",
+    "type": "text-start",
+  },
+  {
+    "delta": "# 17 × 23 = 391
+
+**Brief reasoning:**
+-",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "delta": " Break 23 into 20 + 3
+- 17 × 20 = 340
+- 17 × 3 = 51
+- 340 + 51 = **391**",
+    "id": "blk_1",
+    "type": "text-delta",
+  },
+  {
+    "id": "blk_1",
+    "type": "text-end",
+  },
+  {
+    "type": "usage-interim",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 49,
+        "total": 49,
+      },
+      "output": {
+        "total": 190,
+      },
+    },
+  },
+  {
+    "finishReason": {
+      "raw": "end_turn",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 49,
+        "total": 49,
+      },
+      "output": {
+        "reasoning": 0,
+        "text": 190,
+        "total": 190,
+      },
+      "raw": {
+        "message_delta": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 49,
+          "output_tokens": 190,
+          "output_tokens_details": {
+            "thinking_tokens": 118,
+          },
+        },
+        "message_start": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 49,
+          "output_tokens": 8,
+          "service_tier": "standard",
+        },
+      },
+      "totalTokens": 239,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > tool-call 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Seoul",
+        },
+      },
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "toolCallId": "toolu_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+  ],
+  "finishReason": {
+    "raw": "tool_use",
+    "unified": "tool_call",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 595,
+      "total": 595,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 54,
+      "total": 54,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 595,
+      "output_tokens": 54,
+      "service_tier": "standard",
+    },
+    "totalTokens": 649,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > tool-call-parallel 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Tokyo",
+        },
+      },
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "toolCallId": "toolu_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+    {
+      "id": "blk_1",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Paris",
+        },
+      },
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "toolCallId": "toolu_fixture0003",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+  ],
+  "finishReason": {
+    "raw": "tool_use",
+    "unified": "tool_call",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 599,
+      "total": 599,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 90,
+      "total": 90,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 599,
+      "output_tokens": 90,
+      "service_tier": "standard",
+    },
+    "totalTokens": 689,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > tool-call-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+    },
+    "providerRequestId": "msg_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_0",
+    "toolCallId": "toolu_fixture0002",
+    "toolName": "get_weather",
+    "type": "tool-input-start",
+  },
+  {
+    "delta": "",
+    "id": "blk_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "delta": "{"c",
+    "id": "blk_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "delta": "ity": "Busan",
+    "id": "blk_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "delta": ""}",
+    "id": "blk_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "id": "blk_0",
+    "type": "tool-input-end",
+  },
+  {
+    "block": {
+      "id": "blk_0",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Busan",
+        },
+      },
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "toolCallId": "toolu_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+    "type": "tool-call",
+  },
+  {
+    "type": "usage-interim",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 597,
+        "total": 597,
+      },
+      "output": {
+        "total": 56,
+      },
+    },
+  },
+  {
+    "finishReason": {
+      "raw": "tool_use",
+      "unified": "tool_call",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 597,
+        "total": 597,
+      },
+      "output": {
+        "reasoning": 0,
+        "text": 56,
+        "total": 56,
+      },
+      "raw": {
+        "message_delta": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 597,
+          "output_tokens": 56,
+        },
+        "message_start": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 597,
+          "output_tokens": 26,
+          "service_tier": "standard",
+        },
+      },
+      "totalTokens": 653,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > tool-result-roundtrip 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "The weather in Seoul is currently **18°C (about 64°F)** with **clear** conditions. It's a pleasant day with clear skies!",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 661,
+      "total": 661,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 37,
+      "total": 37,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 661,
+      "output_tokens": 37,
+      "service_tier": "standard",
+    },
+    "totalTokens": 698,
+  },
+  "warnings": [],
+}
+`;

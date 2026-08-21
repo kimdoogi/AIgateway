@@ -59,3 +59,26 @@
 20. **Gemini grounding TOS** — groundingMetadata/searchEntryPoint는 무수정 패스스루 의무 + **캐시·학습 금지** → 게이트웨이 응답 캐시에서 grounding 응답 제외 설계 필요.
 21. **reasoning 모델의 sampling 파라미터 거부는 4사 공통 패턴** — Anthropic 5세대 temperature 400, OpenAI reasoning 모델 temperature/top_p 400, xAI reasoning 모델 penalties/stop 400, Gemini 3 temperature≠1.0 성능 경고. 모델×파라미터 게이트가 레지스트리 필수 항목.
 22. **이중 API 표면이 3사에서 진행 중** — OpenAI(CC→Responses), Gemini(generateContent→Interactions), xAI(chat→responses). 신기능이 신형 표면에만 실림. 어댑터가 기능 조합에 따라 표면을 선택하는 내부 라우팅 필요.
+
+## 2026-08-21 — 골든셋 첫 녹화: 신선도 장치(D10-5)가 미지 wire 필드 2건 검출
+
+- **증상**: `pnpm capture` 첫 실행에서 known-fields 검출기가 경고 — ① `tool_use` 블록의 `caller` 필드(`{"type":"direct"}`), ② `usage.output_tokens_details`(`{"thinking_tokens":N}`). 리서치 인벤토리(2026-08-20) 이후 등장했거나 당시 누락된 필드.
+- **처리**: known-fields 인지 목록에 등재(경고 해소). 어댑터 동작은 무변경 — `caller`는 looseObject라 원문 보존되고 IR로는 미변환, `output_tokens_details.thinking_tokens`는 usage 정규화(§8)에 미반영.
+- **후속 과제**: ① `thinking_tokens`를 `usage.output.reasoning`에 매핑하면 §8 공식 표의 "Anthropic은 reasoning 분리 미제공" 전제가 깨짐 — **ir-v0 §8 표 갱신 + convertUsage 수정 검토** (adaptive 모델 한정 제공으로 보임). ② `caller`는 programmatic tool calling(코드 실행 내 툴 호출) 판별 신호 — 커버리지 체크리스트 대조 필요.
+- **교훈**: 신선도 장치가 첫 실행에서 바로 밥값 함. 재녹화 시 경고 승격 정책(CI화)은 로드맵 5 유지.
+
+
+## 2026-08-21 — 리뷰 2~3라운드: 코드에서 먼저 내려진 스펙 레벨 결정 4건 소급 문서화
+
+- **증상**: 게이트웨이 구현·리뷰 중 스펙에 없는 운영 의미론이 코드에서 확정됨 — ① `streamOptions.heartbeatSeconds` 상한 3600(초과 클램프+warning, setInterval 2^31ms 오버플로 방지), ② abort 계열(취소 499·grace 499·백프레셔 507) 터미널 `error-partial`의 회계 주체 = 펌프(어댑터 onStreamEnd 회수분), 세션은 터미널 합성 금지, ③ 미지 스트림 id도 만료와 동일 410 + cancel 엔드포인트 `{canceled: boolean}` 의미론, ④ 게이트웨이 방어 터미널(터미널 없는 스트림 종료 시 error-partial + gatewayException).
+- **처리**: ir-v0 §6(heartbeat 상한)·§10.4(abort 회계·410 통합) 패치 완료 — "문서가 진실" 위반 소급 해소.
+- **로드맵 4 지뢰 (기록)**: `TERMINAL_EVENT_TYPES`가 `error-partial`을 무조건 터미널로 취급 — **`willRetry: true`는 논리적으로 터미널이 아니다**. 폴백 트리 구현 시 세션 done 처리에 예외를 넣지 않으면 provider-switched 이후 이벤트가 done 게이트에 전부 드롭된다 (ir/stream.ts 주석 참조).
+- **7단계 구현 예고 (ADR-0006 관련, 2026-08-21 갱신)**: ~~① append/get 비동기화 필요~~ → **write-through로 확정 구현** — 인메모리 세션이 fast path(동기 append, 단일 스탬퍼 유지), Redis는 persistTail 체인으로 순서 보장하며 비동기 미러링, 재시작 후 재개는 **재생 전용**(라이브 테일 없음, append 실패 시 버퍼 무효화→410). 비동기화 재설계 불필요 — 이 노트를 따라 push를 async로 바꾸지 말 것. ② cancel()/detach() 크로스 노드 시그널(pub/sub) 필요는 유효. ExecuteDeps.fetchImpl은 signal을 존중해야 취소 터미널이 즉시 적재됨.
+
+
+## 2026-08-21 — 7단계 리뷰(4라운드): 스펙 레벨 결정 소급 문서화 + 회계 구멍 수정
+
+- **소급 문서화**: ① 리트라이 정책 수치(3회, 백오프 500ms×attempt² — maxDelayMs 10s 클램프, Retry-After가 상한 초과 시 즉시 포기) + 적격 카테고리(rate_limit/overloaded/provider_error/timeout) — 매트릭스에 행 추가. ② 백프레셔 8MB는 소비-지연이 아닌 **총 방출 바이트 기준** — ir-v0 §10.4 문구 정정. ③ 업스트림 접속 타임아웃 120s(헤더 수신까지, category timeout 504) 신설. ④ 재시작 후 재개 = 재생 전용 + 절단 버퍼는 방어 터미널 합성.
+- **회계 수정**: 200 수신 후 body/변환 실패도 billed 원장 행 기록(과금 유출 차단), attempt 번호 전 경로 전파(충돌 행 제거), `gateway.attempts`/`finish.attempts` 스펙 좌석 구현(리트라이 이력 클라이언트 노출), TTFT·warnings·surface 메타 로그 배선.
+- **신뢰성**: pg Pool error 리스너(유휴 단절 크래시 방지), PG/Redis 캐시된 거부 프라미스 리셋, Redis expire 터미널 경합 — persistTail 직렬화로 해소, append 실패 시 버퍼 무효화(틀린 재생 대신 410), RUNNING_TTL 7200(heartbeat 최대 주기와 경계 분리).
+- **로드맵 4 좌석 (기록)**: 폴백 트리에서 attempt는 타깃별로 재시작 — LedgerRow에 targetIndex 열 추가 필요. recordTerminal은 willRetry:true error-partial에도 발화 — 트리 구현 시 판정 이전 기록 금지.

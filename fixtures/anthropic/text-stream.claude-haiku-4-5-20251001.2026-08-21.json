@@ -1,0 +1,25 @@
+{
+  "case": "text-stream",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5-20251001",
+  "stream": true,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "max_tokens": 100,
+      "stream": true,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Name three primary colors. Answer in one short sentence."
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream; charset=utf-8"
+  },
+  "chunksFile": "text-stream.claude-haiku-4-5-20251001.2026-08-21.chunks.txt"
+}

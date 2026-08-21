@@ -1,0 +1,619 @@
+import type { Warning } from "../ir/common.js";
+import type { IRError } from "../ir/error.js";
+import type { IRRequest } from "../ir/request.js";
+import type { Attempt, IRResponse } from "../ir/response.js";
+import { TERMINAL_EVENT_SET } from "../ir/stream.js";
+import type { Usage } from "../ir/usage.js";
+import type { AdapterStreamEvent, RequestContext, WireRequest } from "../adapters/types.js";
+import { AdapterInvalidRequestError, makeWarning } from "../adapters/shared.js";
+import { parseSSEStream } from "../stream/sse.js";
+import { getProvider, resolveModel, type ProviderRuntime } from "./registry.js";
+import { GatewayError, irError, providerError, toIRError } from "./errors.js";
+import { SessionStore, type StreamSession, type StreamEventDraft } from "./session.js";
+import type { LedgerRow, UsageLedger } from "../state/types.js";
+import { DEFAULT_RETRY, retryDelayMs, type RetryPolicy } from "../policy/retry.js";
+import {
+  endSpanError,
+  stdoutMetaLog,
+  tracer,
+  warningCount,
+  type MetaLogSink,
+} from "./observability.js";
+
+// 요청 실행기 v0 — 단일 target, 폴백 트리 없음 (로드맵 4). 코어에 프로바이더 분기문 금지 (D4).
+// 스트림은 seq 없는 draft를 방출한다 — seq 발급은 세션(envelope 계층) 단독 (ir-v0 §13.1).
+// 리트라이 범위: dispatch 단계(콘텐츠 방출 전)만 — mid-stream 재시도는 로드맵 4 폴백 트리 소관
+// (problem log 2026-08-21 stage-7 항목).
+
+export interface ExecuteDeps {
+  /** 주입 시 반드시 init.signal을 존중해야 한다 — 무시하면 취소 터미널이 스트림 자연 종료까지 지연 */
+  fetchImpl?: typeof fetch;
+  now?: () => Date;
+  genId?: () => string;
+  /** usage 원장 (ADR-0006/0007) — 시도별 1행 append-only. 실패는 로그 강등, 요청 비차단 */
+  ledger?: UsageLedger;
+  /** 메타 로그 sink (ADR-0008 §1) — 기본 stdout JSON */
+  metaLog?: MetaLogSink;
+  sleep?: (ms: number) => Promise<void>;
+  retry?: RetryPolicy;
+  /** 업스트림 접속(헤더 수신까지) 타임아웃 — body 스트리밍에는 미적용. 기본 120s */
+  upstreamTimeoutMs?: number;
+}
+
+const defaultSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+const UPSTREAM_TIMEOUT_MS = 120_000;
+
+export function genRequestId(deps: ExecuteDeps = {}): string {
+  return deps.genId?.() ?? `req_${crypto.randomUUID().replaceAll("-", "")}`;
+}
+
+/** 원장 + 메타 로그 동시 기록 — 관측 실패(동기 throw 포함)가 요청을 막지 않는다 (ADR-0006) */
+function recordAttempt(
+  deps: ExecuteDeps,
+  row: LedgerRow,
+  extra?: { providerRequestId?: string; warnings?: number; ttftMs?: number },
+): void {
+  try {
+    deps.ledger?.record(row).catch((err) => console.error("[ledger]", err));
+    (deps.metaLog ?? stdoutMetaLog)({
+      requestId: row.requestId,
+      attempt: row.attempt,
+      provider: row.provider,
+      model: row.model,
+      surface: row.surface,
+      stream: row.stream,
+      outcome: row.outcome,
+      httpStatus: row.httpStatus,
+      finishReason: row.finishReason,
+      errorCategory: row.errorCategory,
+      providerRequestId: extra?.providerRequestId,
+      totalTokens: row.usage?.totalTokens,
+      billed: row.billed,
+      durationMs: row.durationMs,
+      ttftMs: extra?.ttftMs,
+      warnings: extra?.warnings,
+    });
+  } catch (err) {
+    console.error("[observability]", err);
+  }
+}
+
+function credentialHeaders(rt: ProviderRuntime): Record<string, string> {
+  const secret = process.env[rt.auth.envVar];
+  if (!secret) {
+    // 설정 결함 = 게이트웨이 내부 결함
+    throw new GatewayError(
+      irError("auth", 500, `${rt.auth.envVar} 미설정 — ${rt.adapter.provider} 자격증명 없음`, {
+        gatewayException: true,
+      }),
+    );
+  }
+  return { [rt.auth.header]: secret };
+}
+
+interface PreparedCall {
+  rt: ProviderRuntime;
+  ctx: RequestContext & { requestedModel: string };
+  wire: WireRequest;
+  transformWarnings: Warning[];
+  created: string;
+}
+
+function prepare(req: IRRequest, deps: ExecuteDeps): PreparedCall {
+  const route = resolveModel(req.model);
+  const rt = getProvider(route.provider);
+  const ctx = {
+    requestId: genRequestId(deps),
+    modelId: route.modelId,
+    requestedModel: req.model,
+    ...(route.capabilities ? { capabilities: route.capabilities } : {}),
+  };
+  try {
+    const { request, warnings } = rt.adapter.transformRequest(req, ctx);
+    return { rt, ctx, wire: request, transformWarnings: warnings, created: (deps.now?.() ?? new Date()).toISOString() };
+  } catch (err) {
+    if (err instanceof AdapterInvalidRequestError) throw new GatewayError(err.irError);
+    throw err;
+  }
+}
+
+/** 원장 행 공통 필드 (리뷰 RU1-r4 — 4개 사이트 중복 해소). model은 라우팅 id로 통일 */
+function rowBase(
+  call: PreparedCall,
+  deps: ExecuteDeps,
+  attempt: number,
+  stream: boolean,
+  durationMs: number,
+): Omit<LedgerRow, "outcome" | "billed"> {
+  return {
+    requestId: call.ctx.requestId,
+    attempt,
+    provider: call.rt.adapter.provider,
+    model: call.ctx.modelId,
+    surface: call.rt.adapter.surface,
+    stream,
+    durationMs,
+    createdAt: (deps.now?.() ?? new Date()).toISOString(),
+  };
+}
+
+async function dispatch(
+  call: PreparedCall,
+  deps: ExecuteDeps,
+  signal: AbortSignal | undefined,
+): Promise<Response> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  // 접속 타임아웃 — 헤더 수신(fetch resolve)까지만. body 스트리밍은 타이머 해제 후 무영향 (리뷰 SW4-r4)
+  const timeoutCtrl = new AbortController();
+  const timer = setTimeout(() => timeoutCtrl.abort(), deps.upstreamTimeoutMs ?? UPSTREAM_TIMEOUT_MS);
+  timer.unref?.();
+  const combined = signal ? AbortSignal.any([signal, timeoutCtrl.signal]) : timeoutCtrl.signal;
+  try {
+    return await fetchImpl(`${call.rt.baseUrl}${call.wire.path}`, {
+      method: call.wire.method,
+      headers: { ...call.wire.headers, ...credentialHeaders(call.rt) },
+      body: JSON.stringify(call.wire.body),
+      signal: combined,
+    });
+  } catch (err) {
+    if (timeoutCtrl.signal.aborted && !signal?.aborted) {
+      throw new GatewayError({
+        category: "timeout",
+        httpStatus: 504,
+        message: `업스트림 접속 타임아웃 (${deps.upstreamTimeoutMs ?? UPSTREAM_TIMEOUT_MS}ms)`,
+        fallbackEligible: true,
+        billed: false,
+      });
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function mapHttpErrorResponse(call: PreparedCall, response: Response): Promise<GatewayError> {
+  const body: unknown = await response.json().catch(() => undefined); // 에러 body는 비JSON 허용
+  return new GatewayError(
+    call.rt.adapter.mapHttpError(response.status, body, Object.fromEntries(response.headers)),
+  );
+}
+
+interface DispatchResult {
+  response: Response;
+  attempt: number;
+  attempts: Attempt[];
+}
+
+/**
+ * 리트라이 정책 적용 dispatch (Retry-After 존중 + 단일 대기 상한, 같은 타깃만).
+ * 재시도 확정 시도는 원장에 시도별 행 기록; 최종 실패는 호출측이 터미널로 1회 기록.
+ * attempts는 클라이언트 노출용 시도 이력 (ir-v0 §7 gateway.attempts / finish.attempts).
+ */
+async function dispatchWithRetry(
+  call: PreparedCall,
+  deps: ExecuteDeps,
+  signal: AbortSignal | undefined,
+  stream: boolean,
+): Promise<DispatchResult> {
+  const policy = deps.retry ?? DEFAULT_RETRY;
+  const sleep = deps.sleep ?? defaultSleep;
+  const attempts: Attempt[] = [];
+  const target = { provider: call.rt.adapter.provider, model: call.ctx.modelId };
+  for (let attempt = 1; ; attempt++) {
+    const attemptStart = Date.now();
+    let error: IRError | undefined;
+    let raw: unknown;
+    try {
+      const response = await dispatch(call, deps, signal);
+      if (response.ok) {
+        attempts.push({ ...target, outcome: "success" });
+        return { response, attempt, attempts };
+      }
+      raw = response; // !ok 매핑은 try 밖 — 어댑터 mapHttpError 결함을 재시도 대상으로 오분류 금지 (리뷰 B4-r4)
+    } catch (err) {
+      if (signal?.aborted) {
+        const canceled =
+          err instanceof GatewayError ? err : new GatewayError(irError("gateway_error", 499, "클라이언트 취소로 요청 중단"));
+        canceled.attempt = attempt; // 원장 attempt 충돌 방지 (리뷰 F6-r4)
+        throw canceled;
+      }
+      if (err instanceof GatewayError) {
+        if (err.irError.category === "timeout") error = err.irError;
+        else {
+          err.attempt = attempt;
+          throw err; // 자격증명 등 비재시도 게이트웨이 오류
+        }
+      } else {
+        error = providerError(`업스트림 접속 실패: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    if (error === undefined) {
+      error = (await mapHttpErrorResponse(call, raw as Response)).irError;
+    }
+    const delay = retryDelayMs(error, attempt, policy);
+    if (delay === null) {
+      attempts.push({ ...target, outcome: "failed", error: error.category });
+      const giveUp = new GatewayError(error); // 최종 실패는 호출측이 터미널로 1회 기록
+      giveUp.attempt = attempt;
+      giveUp.attempts = attempts;
+      throw giveUp;
+    }
+    attempts.push({ ...target, outcome: "failed", error: error.category });
+    // 재시도 확정 시도만 여기서 기록 (시도별 행 — 해당 시도 소요만)
+    recordAttempt(deps, {
+      ...rowBase(call, deps, attempt, stream, Date.now() - attemptStart),
+      outcome: "error",
+      httpStatus: error.httpStatus,
+      errorCategory: error.category,
+      billed: error.billed,
+    });
+    await sleep(delay); // ponytail: sleep은 abort 비인지 — 아래 체크가 커버, race 도입은 로드맵 4에서
+    if (signal?.aborted) {
+      const canceled = new GatewayError(irError("gateway_error", 499, "리트라이 대기 중 취소"));
+      canceled.attempt = attempt;
+      throw canceled;
+    }
+  }
+}
+
+// ── 비스트림 ─────────────────────────────────────────────
+export async function executeNonStream(
+  req: IRRequest,
+  deps: ExecuteDeps = {},
+  signal?: AbortSignal,
+): Promise<IRResponse> {
+  const startedAt = Date.now();
+  const call = prepare(req, deps);
+  const span = tracer.startSpan("gateway.request", {
+    attributes: {
+      "gateway.request_id": call.ctx.requestId,
+      "gateway.provider": call.rt.adapter.provider,
+      "gateway.model": call.ctx.modelId,
+      "gateway.stream": false,
+    },
+  });
+
+  let response: Response;
+  let attempt = 1;
+  let attempts: Attempt[] = [];
+  try {
+    ({ response, attempt, attempts } = await dispatchWithRetry(call, deps, signal, false));
+  } catch (err) {
+    const irErr = toIRError(err);
+    if (err instanceof GatewayError && err.attempt !== undefined) attempt = err.attempt;
+    recordAttempt(deps, {
+      ...rowBase(call, deps, attempt, false, Date.now() - startedAt),
+      outcome: irErr.httpStatus === 499 ? "canceled" : "error",
+      httpStatus: irErr.httpStatus,
+      errorCategory: irErr.category,
+      billed: irErr.billed,
+    });
+    endSpanError(span, irErr.category, irErr.message);
+    span.end();
+    throw err instanceof GatewayError ? err : new GatewayError(irErr);
+  }
+
+  // 200 이후 실패도 과금된 시도 — 반드시 원장 기록 (리뷰 F2-r4 과금 유출)
+  try {
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch (err) {
+      if (signal?.aborted) throw new GatewayError(irError("gateway_error", 499, "클라이언트 취소로 응답 수신 중단"));
+      throw new GatewayError(
+        providerError(`응답 body 읽기 실패: ${err instanceof Error ? err.message : String(err)}`, call.rt.adapter.provider, 200),
+      );
+    }
+
+    let t: ReturnType<typeof call.rt.adapter.transformResponse>;
+    try {
+      t = call.rt.adapter.transformResponse(body, call.ctx);
+    } catch (err) {
+      if (err instanceof AdapterInvalidRequestError) throw new GatewayError(err.irError);
+      throw new GatewayError(
+        providerError(`응답 변환 실패: ${err instanceof Error ? err.message : String(err)}`, call.rt.adapter.provider, 200),
+      );
+    }
+
+    const warnings = [...call.transformWarnings, ...t.warnings];
+    recordAttempt(
+      deps,
+      {
+        ...rowBase(call, deps, attempt, false, Date.now() - startedAt),
+        outcome: "success",
+        httpStatus: 200,
+        finishReason: t.finishReason.unified,
+        usage: t.usage,
+        billed: true,
+      },
+      { providerRequestId: t.providerRequestId, warnings: warningCount(warnings) },
+    );
+    span.setAttribute("gateway.finish_reason", t.finishReason.unified);
+    span.setAttribute("gateway.total_tokens", t.usage.totalTokens);
+    span.end();
+    return {
+      version: "0",
+      id: call.ctx.requestId,
+      created: call.created,
+      model: {
+        requested: call.ctx.requestedModel,
+        resolved: { provider: t.origin.provider, model: t.origin.model, surface: t.origin.surface ?? call.rt.adapter.surface },
+      },
+      message: { role: "assistant", blocks: t.blocks, origin: t.origin },
+      finishReason: t.finishReason,
+      usage: t.usage,
+      warnings,
+      gateway: {
+        requestId: call.ctx.requestId,
+        ...(t.providerRequestId ? { providerRequestId: t.providerRequestId } : {}),
+        ...(attempts.length > 1 ? { attempts } : {}), // 리트라이 발생 시 시도 이력 노출 (ir-v0 §7)
+      },
+      ...(t.providerMetadata ? { providerMetadata: t.providerMetadata } : {}),
+    };
+  } catch (err) {
+    const irErr = toIRError(err);
+    recordAttempt(deps, {
+      ...rowBase(call, deps, attempt, false, Date.now() - startedAt),
+      outcome: irErr.httpStatus === 499 ? "canceled" : "error",
+      httpStatus: irErr.httpStatus,
+      errorCategory: irErr.category,
+      billed: irErr.httpStatus === 499 ? false : true, // 200 수신 = 과금 발생 (취소는 수신 중단)
+    });
+    endSpanError(span, irErr.category, irErr.message);
+    span.end();
+    throw err;
+  }
+}
+
+// ── 스트림 ───────────────────────────────────────────────
+export type { StreamEventDraft };
+
+export interface StreamOptions {
+  /** stream-start.warnings에 병합할 게이트웨이 발신 경고 (§10.1 — stream-start가 지정석) */
+  extraWarnings?: Warning[];
+  /** abort 시 터미널의 error 본문 공급자 — 세션의 abortReason 라벨링 */
+  abortDetail?: () => IRError;
+}
+
+/** 어댑터 draft → 게이트웨이 draft (seq 없음 — 세션이 발급). envelope 소유 필드 enrich (§13.1) */
+function finalizeDraft(draft: AdapterStreamEvent, call: PreparedCall): StreamEventDraft {
+  if (draft.type === "provider-error") {
+    // 단일 target v0 — 재시도 없음, error-final로 종결 (폴백 트리가 error-partial 판정 인계 — 로드맵 4)
+    return { type: "error-final", error: draft.error, usage: draft.usage };
+  }
+  if (draft.type === "response-metadata") {
+    return {
+      type: "response-metadata",
+      id: call.ctx.requestId,
+      created: call.created,
+      model: { requested: call.ctx.requestedModel, resolved: draft.model.resolved },
+      ...(draft.providerRequestId ? { providerRequestId: draft.providerRequestId } : {}),
+    };
+  }
+  return draft as StreamEventDraft;
+}
+
+/** §10.2 콘텐츠 이벤트 여부 — 절단 터미널의 partial/final 판정 기준 (리뷰 SW6-r4) */
+const LIFECYCLE_TYPES = new Set(["stream-start", "response-metadata", "warning", "heartbeat", "usage-interim", "raw"]);
+
+/**
+ * 스트림 실행 — seq 없는 StreamEventDraft async generator (seq는 세션이 스탬프).
+ * 터미널 보장: 모든 실패 경로가 터미널 draft로 끝난다 (ADR-0005).
+ * 절단 분류: 콘텐츠 방출 후 = error-partial(기방출분 유효) / 방출 전 = error-final.
+ */
+export async function* executeStream(
+  req: IRRequest,
+  deps: ExecuteDeps = {},
+  signal?: AbortSignal,
+  options: StreamOptions = {},
+): AsyncGenerator<StreamEventDraft> {
+  const startedAt = Date.now();
+  const call = prepare(req, deps); // prepare 실패는 호출측(startStreamSession) 소관 — throw
+  const span = tracer.startSpan("gateway.stream", {
+    attributes: {
+      "gateway.request_id": call.ctx.requestId,
+      "gateway.provider": call.rt.adapter.provider,
+      "gateway.model": call.ctx.modelId,
+      "gateway.stream": true,
+    },
+  });
+
+  let terminal = false;
+  let attempt = 1;
+  let attempts: Attempt[] = [];
+  let contentEmitted = false;
+  let ttftMs: number | undefined;
+  let providerRequestId: string | undefined;
+
+  const abortBase = (): IRError => options.abortDetail?.() ?? irError("gateway_error", 499, "업스트림 취소 (ADR-0005)");
+
+  /** 터미널 draft → 원장 행 (스트림 회계 단일 지점). 리트라이 시 finish에 attempts 노출 */
+  const recordTerminal = (event: StreamEventDraft): StreamEventDraft => {
+    const error = event.type === "error-final" || event.type === "error-partial" ? event.error : undefined;
+    const usage = event.type === "finish" || event.type === "error-final" || event.type === "error-partial" ? event.usage : undefined;
+    recordAttempt(
+      deps,
+      {
+        ...rowBase(call, deps, attempt, true, Date.now() - startedAt),
+        outcome: event.type === "finish" ? "success" : error?.httpStatus === 499 ? "canceled" : "error",
+        httpStatus: error?.httpStatus ?? (event.type === "finish" ? 200 : undefined),
+        finishReason: event.type === "finish" ? event.finishReason.unified : undefined,
+        errorCategory: error?.category,
+        usage,
+        billed: error ? error.billed : true,
+      },
+      { providerRequestId, ttftMs, warnings: warningCount(call.transformWarnings) },
+    );
+    if (error) endSpanError(span, error.category, error.message);
+    span.end();
+    if (event.type === "finish" && attempts.length > 1) return { ...event, attempts }; // §10.1 finish.attempts
+    return event;
+  };
+
+  const emit = (event: StreamEventDraft): StreamEventDraft => {
+    if (event.type === "response-metadata" && event.providerRequestId) providerRequestId = event.providerRequestId;
+    if (!contentEmitted && !LIFECYCLE_TYPES.has(event.type) && !TERMINAL_EVENT_SET.has(event.type)) {
+      contentEmitted = true;
+      ttftMs = Date.now() - startedAt; // TTFT (ADR-0008 §1)
+    }
+    if (TERMINAL_EVENT_SET.has(event.type)) {
+      terminal = true;
+      return recordTerminal(event);
+    }
+    return event;
+  };
+
+  // stream-start는 첫 이벤트 (§10.1) — 게이트웨이 발신 경고도 여기 병합
+  yield emit({
+    type: "stream-start",
+    warnings: [...(options.extraWarnings ?? []), ...call.transformWarnings],
+  });
+
+  let response: Response;
+  try {
+    ({ response, attempt, attempts } = await dispatchWithRetry(call, deps, signal, true));
+  } catch (err) {
+    if (err instanceof GatewayError && err.attempt !== undefined) attempt = err.attempt;
+    if (err instanceof GatewayError && err.attempts !== undefined) attempts = err.attempts;
+    if (signal?.aborted) {
+      yield emit({ type: "error-partial", error: abortBase(), willRetry: false });
+    } else {
+      yield emit({ type: "error-final", error: toIRError(err) });
+    }
+    return;
+  }
+
+  const transformer = call.rt.adapter.createStreamTransformer({
+    modelId: call.ctx.modelId,
+    ...(req.streamOptions?.includeRaw ? { includeRaw: true } : {}),
+    ...(call.ctx.capabilities ? { capabilities: call.ctx.capabilities } : {}),
+  });
+
+  try {
+    const body = response.body;
+    if (!body) throw new Error("응답 body 없음");
+    for await (const frame of parseSSEStream(body)) {
+      for (const draft of transformer.onEvent(frame.event, frame.data)) {
+        yield emit(finalizeDraft(draft, call));
+        if (terminal) return;
+      }
+    }
+    // 종료 신호 없는 절단 — 어댑터의 터미널 보장 경로 (try 안 — 어댑터 throw도 catch가 수습)
+    for (const draft of transformer.onStreamEnd()) {
+      yield emit(finalizeDraft(draft, call));
+      if (terminal) return;
+    }
+  } catch (err) {
+    if (terminal) return;
+    if (signal?.aborted) {
+      // 취소로 인한 절단. 어댑터 flush 대칭 처리: 콘텐츠 draft 방출, 회계는 abort 터미널에 회수
+      let harvested: { billed: boolean; usage?: Usage } | undefined;
+      try {
+        for (const draft of transformer.onStreamEnd()) {
+          if (draft.type === "provider-error") {
+            harvested = { billed: draft.error.billed, ...(draft.usage ? { usage: draft.usage } : {}) };
+          } else {
+            const finalized = finalizeDraft(draft, call);
+            if (!TERMINAL_EVENT_SET.has(finalized.type)) yield emit(finalized); // 터미널은 abort 라벨로 대체
+          }
+        }
+      } catch {
+        /* 어댑터 flush 실패 — 기본 abort 터미널로 진행 */
+      }
+      const error = { ...abortBase(), ...(harvested ? { billed: harvested.billed } : {}) };
+      // 콘텐츠 유무로 partial/final 구분 (기방출 이벤트 유효 의미론 — 리뷰 SW6-r4)
+      yield emit(
+        contentEmitted
+          ? { type: "error-partial", error, usage: harvested?.usage, willRetry: false }
+          : { type: "error-final", error, usage: harvested?.usage },
+      );
+      return;
+    }
+    const error = providerError(`스트림 소비 중단: ${err instanceof Error ? err.message : String(err)}`);
+    yield emit(
+      contentEmitted
+        ? { type: "error-partial", error, willRetry: false }
+        : { type: "error-final", error },
+    );
+  }
+}
+
+// ── 스트림 세션 오케스트레이션 (게이트웨이 소관 — compat 인바운드가 재사용) ──
+export interface StreamSessionDeps extends ExecuteDeps {
+  sessions: SessionStore;
+  heartbeatMs?: number;
+}
+
+const HEARTBEAT_MS = 15_000;
+const HEARTBEAT_MAX_SECONDS = 3600; // setInterval 2^31ms 오버플로 방지 상한 (ir-v0 §6 등재)
+
+/**
+ * 세션 생성 + 펌프 + heartbeat 가동. 펌프 예외도 터미널로 수렴 (터미널 보장).
+ * heartbeat 주기: 클라이언트 지정(streamOptions.heartbeatSeconds, 상한 클램프+warning — D5) > 기본 15s.
+ */
+export function startStreamSession(req: IRRequest, deps: StreamSessionDeps): StreamSession {
+  const id = genRequestId(deps);
+  const session = deps.sessions.create(id);
+
+  let heartbeatMs = deps.heartbeatMs ?? HEARTBEAT_MS;
+  const extraWarnings: Warning[] = [];
+  const requested = req.streamOptions?.heartbeatSeconds;
+  if (requested !== undefined) {
+    if (requested > HEARTBEAT_MAX_SECONDS) {
+      heartbeatMs = HEARTBEAT_MAX_SECONDS * 1000;
+      extraWarnings.push(
+        makeWarning(
+          "compatibility",
+          "parameter-clamped",
+          `heartbeatSeconds ${requested} → ${HEARTBEAT_MAX_SECONDS} 클램프 (게이트웨이 상한 — ir-v0 §6)`,
+          "streamOptions.heartbeatSeconds",
+        ),
+      );
+    } else {
+      heartbeatMs = requested * 1000;
+    }
+  }
+  const heartbeat = setInterval(() => session.appendHeartbeat(), heartbeatMs);
+  heartbeat.unref?.();
+
+  const streamOptions: StreamOptions = {
+    extraWarnings,
+    abortDetail: () => session.abortError(),
+  };
+
+  void (async () => {
+    try {
+      for await (const draft of executeStream(req, { ...deps, genId: () => id }, session.upstreamSignal, streamOptions)) {
+        session.append(draft);
+        if (session.isDone) break;
+      }
+    } catch (err) {
+      // prepare 실패·펌프 내부 예외 — 터미널 보장 + 원장/메타 기록 (리뷰 E3-r4)
+      const irErr = toIRError(err);
+      recordAttempt(deps, {
+        requestId: id,
+        attempt: 1,
+        provider: "unknown", // prepare 전 실패 — 라우팅 미확정
+        model: req.model,
+        surface: "unknown",
+        stream: true,
+        outcome: "error",
+        httpStatus: irErr.httpStatus,
+        errorCategory: irErr.category,
+        billed: false,
+        durationMs: 0,
+        createdAt: (deps.now?.() ?? new Date()).toISOString(),
+      });
+      if (!session.isDone) {
+        session.append({ type: "error-final", error: irErr });
+      } else {
+        console.error(`[gateway] 스트림 ${id} done 이후 펌프 예외:`, err);
+      }
+    } finally {
+      clearInterval(heartbeat);
+      session.end(); // 터미널 부재 시 방어 터미널 적재 (원장 미기록 — session.end가 로그)
+    }
+  })();
+
+  return session;
+}

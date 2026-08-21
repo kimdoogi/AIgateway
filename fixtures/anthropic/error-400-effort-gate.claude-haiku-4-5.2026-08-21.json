@@ -1,0 +1,34 @@
+{
+  "case": "error-400-effort-gate",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5",
+  "stream": false,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "max_tokens": 50,
+      "output_config": {
+        "effort": "high"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "invalid_request_error",
+      "message": "This model does not support the effort parameter."
+    },
+    "request_id": "req_fixture0001"
+  }
+}

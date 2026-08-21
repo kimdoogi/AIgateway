@@ -1,0 +1,65 @@
+{
+  "case": "thinking-adaptive",
+  "recordedAt": "2026-08-21",
+  "model": "claude-sonnet-4-6",
+  "stream": false,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-sonnet-4-6",
+      "max_tokens": 1200,
+      "thinking": {
+        "type": "adaptive",
+        "display": "summarized"
+      },
+      "output_config": {
+        "effort": "medium"
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "A bat and a ball cost $1.10 total. The bat costs $1.00 more than the ball. What does the ball cost? Think carefully."
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "model": "claude-sonnet-4-6",
+    "id": "msg_fixture0001",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "type": "thinking",
+        "thinking": "The ball costs x, the bat costs x + 1.00. Together: 2x + 1.00 = 1.10, so 2x = 0.10, x = $0.05.",
+        "signature": "EtMCCpIBCBEYAipA+5I4MPvwcJOQZIngUa7IKqLxihJIB8UobFqc9UVZiOARMkUrdJhvsxGj0sHUDMwX39G1JIAQQUn+O7oQZd2TGDIRY2xhdWRlLXNvbm5ldC00LTY4AEIIdGhpbmtpbmdaJDRiNjk3MzEwLTJjMjYtNDcxYS04ZDIzLWYxYTIyZmQxY2I2YqgBzsOe1AYSDNk9ZZ6g79+7BWaP0hoMhVtUJrulWWFfvxloIjDlCBrDIliCFM6hL9pjnkBY9ooQtsW9V1z75Y8sH202dudTASTolr043d0gx+N9/2wqbl33dbhRnMU/QuKtliPIw38cwEccnkWNX97nu2trr/FDYoEb5WpTeMq+Wmd1ybjCQBFqn2M36nPo7Sk3Fy0No27iy1JrWvE860czntRxtoktMLT/QJRYdAmyvTCg/iTAcucD6Msp5IuwWcFLnIAiGAE="
+      },
+      {
+        "type": "text",
+        "text": "## Working Through This Carefully\n\nLet me define the variable properly.\n\nLet the ball = **x**\nThen the bat = **x + $1.00**\n\n**Setting up the equation:**\n$$x + (x + \\$1.00) = \\$1.10$$\n$$2x + \\$1.00 = \\$1.10$$\n$$2x = \\$0.10$$\n$$x = \\$0.05$$\n\n## Answer\n\n**The ball costs $0.05 (5 cents).**\n\nThe bat costs $1.05, and $1.05 + $0.05 = $1.10 ✓\nThe bat is exactly $1.00 more than the ball ✓\n\n---\n\nThe intuitive (but wrong) answer is $0.10 — which is the common snap judgment. But if the ball were $0.10, the bat would be $1.10, and the total would be $1.20, not $1.10. This is a classic example of how our intuitive thinking can lead us astray."
+      }
+    ],
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 42,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 311,
+      "output_tokens_details": {
+        "thinking_tokens": 61
+      },
+      "service_tier": "standard",
+      "inference_geo": "global"
+    }
+  }
+}

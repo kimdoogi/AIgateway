@@ -1,0 +1,35 @@
+{
+  "case": "error-400-budget-exceeds-max",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5",
+  "stream": false,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "max_tokens": 100,
+      "thinking": {
+        "type": "enabled",
+        "budget_tokens": 2048
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "invalid_request_error",
+      "message": "`max_tokens` must be greater than `thinking.budget_tokens`. Please consult our documentation at https://platform.claude.com/docs/en/build-with-claude/extended-thinking#max-tokens-and-context-window-size-with-extended-thinking"
+    },
+    "request_id": "req_fixture0001"
+  }
+}

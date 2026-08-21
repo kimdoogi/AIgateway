@@ -1,0 +1,77 @@
+{
+  "case": "citations",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5-20251001",
+  "stream": false,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "max_tokens": 300,
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "document",
+              "source": {
+                "type": "text",
+                "media_type": "text/plain",
+                "data": "The gateway converts N inbound formats and M providers through one IR hub. The IR hub is versioned as v0. Fixtures are recorded with Haiku 4.5."
+              },
+              "title": "IR overview",
+              "citations": {
+                "enabled": true
+              }
+            },
+            {
+              "type": "text",
+              "text": "Which model records fixtures? Cite the document."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "model": "claude-haiku-4-5-20251001",
+    "id": "msg_fixture0001",
+    "type": "message",
+    "role": "assistant",
+    "content": [
+      {
+        "citations": [
+          {
+            "type": "char_location",
+            "cited_text": "Fixtures are recorded with Haiku 4.5.",
+            "document_index": 0,
+            "document_title": "IR overview",
+            "start_char_index": 106,
+            "end_char_index": 143
+          }
+        ],
+        "type": "text",
+        "text": "Haiku 4.5 records fixtures."
+      }
+    ],
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "stop_details": null,
+    "usage": {
+      "input_tokens": 634,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "cache_creation": {
+        "ephemeral_5m_input_tokens": 0,
+        "ephemeral_1h_input_tokens": 0
+      },
+      "output_tokens": 30,
+      "service_tier": "standard",
+      "inference_geo": "not_available"
+    }
+  }
+}

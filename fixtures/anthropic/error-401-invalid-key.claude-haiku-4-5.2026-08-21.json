@@ -1,0 +1,31 @@
+{
+  "case": "error-401-invalid-key",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5",
+  "stream": false,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "max_tokens": 50,
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ]
+    }
+  },
+  "status": 401,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "type": "error",
+    "error": {
+      "type": "authentication_error",
+      "message": "API key is invalid."
+    },
+    "request_id": null
+  }
+}

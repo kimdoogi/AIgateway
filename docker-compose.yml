@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: gateway
       POSTGRES_DB: gateway
     ports:
-      - "5432:5432"
+      - "5433:5432" # 로컬(homebrew) postgres와 충돌 회피
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -19,7 +19,7 @@ services:
   redis:
     image: redis:8-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379" # 로컬(homebrew) redis와 충돌 회피
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

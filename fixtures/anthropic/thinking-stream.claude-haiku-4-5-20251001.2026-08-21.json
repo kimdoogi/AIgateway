@@ -1,0 +1,29 @@
+{
+  "case": "thinking-stream",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5-20251001",
+  "stream": true,
+  "request": {
+    "path": "/v1/messages",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "max_tokens": 1500,
+      "stream": true,
+      "thinking": {
+        "type": "enabled",
+        "budget_tokens": 1024
+      },
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is 17 * 23? Show brief reasoning."
+        }
+      ]
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream; charset=utf-8"
+  },
+  "chunksFile": "thinking-stream.claude-haiku-4-5-20251001.2026-08-21.chunks.txt"
+}
