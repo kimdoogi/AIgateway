@@ -14,6 +14,7 @@
     "build": "tsc -p tsconfig.build.json",
     "capture": "tsx tools/capture/capture.ts",
     "smoke:roadmap4": "tsx tools/smoke-roadmap4.ts",
+    "smoke:xai": "tsx tools/smoke-xai.ts",
     "dev": "tsx src/server/index.ts"
   },
   "dependencies": {

@@ -148,4 +148,9 @@
 - **게이트 판정** (전 항목의 "녹화가 판정" 예고에 대한 답): ① 인증 오류 = **400 확인** (B2-2 — 문서 401 반증, 이중 파서 휴리스틱 유효). ② penalty+reasoning = **400 확인** (B2-3). ③ Live Search = **410 확인** (B2-18). ④ **미지원 파라미터(store)는 400 아닌 200 묵살 — 인벤토리 B2-7 반증(드리프트)**. 응답은 정상 완성이라 store가 저장으로 이어졌는지는 wire만으로 불명. strip의 근거를 "400 회피"에서 **ADR-0004 store:false 정책**으로 이전(어댑터 주석·케이스 note 갱신, expectStatus 200 — 이제 무과금 게이트는 3종). metadata/audio 등 나머지 strip 키의 400 여부는 이번에 미검증 — 재녹화 시 개별 판정 좌석.
 - **xAI id 형태 4형 실측** — 인벤토리에 없던 세부: ① responses item `접두사_UUID`(rs_/msg_), ② body.id bare UUID(CC·responses 공통 — chatcmpl- 아님), ③ CC tool call `call-UUID-n`(하이픈형), ④ 서버툴 복합 `ws_UUID_call-UUID-n`·`tco_`(신규 접두사). 기존 새니타이저 앵커 패턴(hex형 가정)이 전부 미스 → **잔류 id 검출기(F9-r3)가 경고 5건으로 잡아냄** — 자동 치환 금지+사람 검토 설계가 의도대로 작동한 첫 사례. 새니타이저에 UUID 앵커 패턴 3형+tco 등재, 잔류 검출기에 UUID 추가, raw에서 단일 패스 재생성으로 번호 결정론 복구.
 - **usage 신필드 (기록만)**: `num_sources_used`·`cost_in_usd_ticks` — 프로바이더가 응답에 USD 비용을 직접 실어주는 사례(billing 라인아이템 대사 후보, ADR-0007 좌석). xai 미지 필드 검출은 의도적 no-op(신선도 하드 보장은 Anthropic 한정)이라 경고 없음 — 정상.
-- **잔여**: xAI 실 E2E 스모크는 스크립트 부재(smoke:roadmap4는 openai 한정) — 로드맵 5 후속.
+- **잔여**: ~~xAI 실 E2E 스모크는 스크립트 부재(smoke:roadmap4는 openai 한정) — 로드맵 5 후속.~~ → `pnpm smoke:xai` 신설·통과 (아래 항목).
+
+## 2026-08-21 — xAI 실 E2E 스모크: 표면 스위칭·크로스 왕복 전부 1차 통과
+
+- **스크립트**: `pnpm smoke:xai` (`tools/smoke-xai.ts` — smoke:roadmap4와 동일 패턴, opt-in 실 과금 ≈$0.01). 6단계: ① CC 비스트림 ② 스트림 완주(seq 단조) ③ CC reasoning(effort만으로는 CC 유지 + reasoning_content→블록) ④ **표면 스위칭**(PO `xai.include` → responses 강제, encrypted reasoning 왕복, 2턴은 히스토리 opaqueState 트리거로 responses 유지) ⑤ 크로스 프로바이더(claude가 고른 숫자를 grok이 히스토리로 읽음 — 목표 2의 xai 방향 첫 실증) ⑥ compat CC→grok(gateway.ir 부착).
+- **의미**: ADR-0004 표면 선택자(명시 트리거 → responses required, 기본 CC)와 리맵 래퍼(요청 xai→openai→base, 응답 역방향)가 실 API에서 전 경로 검증됨. 골든셋(픽스처)과 스모크(실 API)의 이중 안전망이 xAI에도 성립.
