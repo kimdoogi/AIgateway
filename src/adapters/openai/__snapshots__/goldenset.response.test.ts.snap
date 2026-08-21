@@ -1,0 +1,2163 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-cc-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "chat-completions",
+      },
+    },
+    "providerRequestId": "chatcmpl_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_text",
+    "type": "text-start",
+  },
+  {
+    "delta": "1",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "2",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "3",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "4",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "5",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": ".",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "id": "blk_text",
+    "type": "text-end",
+  },
+  {
+    "finishReason": {
+      "raw": "stop",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 20,
+        "total": 20,
+      },
+      "output": {
+        "reasoning": 0,
+        "text": 17,
+        "total": 17,
+      },
+      "raw": {
+        "completion_tokens": 17,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 0,
+          "rejected_prediction_tokens": 0,
+        },
+        "prompt_tokens": 20,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cache_write_tokens": 0,
+          "cached_tokens": 0,
+        },
+        "total_tokens": 37,
+      },
+      "totalTokens": 37,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-cc-text 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "chat-completions",
+      },
+      "text": "The capital of Japan is Tokyo.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "chatcmpl_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 19,
+      "total": 19,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 10,
+      "total": 10,
+    },
+    "raw": {
+      "completion_tokens": 10,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0,
+      },
+      "prompt_tokens": 19,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "total_tokens": 29,
+    },
+    "totalTokens": 29,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-cc-tool-call 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Paris",
+        },
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "chat-completions",
+      },
+      "toolCallId": "call_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+  ],
+  "finishReason": {
+    "raw": "tool_calls",
+    "unified": "tool_call",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "chatcmpl_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 132,
+      "total": 132,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 17,
+      "total": 17,
+    },
+    "raw": {
+      "completion_tokens": 17,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0,
+      },
+      "prompt_tokens": 132,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "total_tokens": 149,
+    },
+    "totalTokens": 149,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-cc-tool-call-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "chat-completions",
+      },
+    },
+    "providerRequestId": "chatcmpl_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_tool_0",
+    "toolCallId": "call_fixture0002",
+    "toolName": "get_weather",
+    "type": "tool-input-start",
+  },
+  {
+    "delta": "{"",
+    "id": "blk_tool_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "delta": "city",
+    "id": "blk_tool_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "delta": "":"",
+    "id": "blk_tool_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "delta": "Tokyo",
+    "id": "blk_tool_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "delta": ""}",
+    "id": "blk_tool_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "id": "blk_tool_0",
+    "type": "tool-input-end",
+  },
+  {
+    "block": {
+      "id": "blk_tool_0",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Tokyo",
+        },
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "chat-completions",
+      },
+      "toolCallId": "call_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+    "type": "tool-call",
+  },
+  {
+    "finishReason": {
+      "raw": "tool_calls",
+      "unified": "tool_call",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 132,
+        "total": 132,
+      },
+      "output": {
+        "reasoning": 0,
+        "text": 17,
+        "total": 17,
+      },
+      "raw": {
+        "completion_tokens": 17,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 0,
+          "rejected_prediction_tokens": 0,
+        },
+        "prompt_tokens": 132,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cache_write_tokens": 0,
+          "cached_tokens": 0,
+        },
+        "total_tokens": 149,
+      },
+      "totalTokens": 149,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-gate-401 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 401,
+  "message": "Incorrect API key provided: sk-proj-**************************0000. You can find your API key at https://platform.openai.com/account/api-keys.",
+  "provider": {
+    "code": "invalid_api_key",
+    "key": "openai",
+    "raw": {
+      "error": {
+        "code": "invalid_api_key",
+        "message": "Incorrect API key provided: sk-proj-**************************0000. You can find your API key at https://platform.openai.com/account/api-keys.",
+        "param": null,
+        "type": "invalid_request_error",
+      },
+      "status": 401,
+    },
+    "status": 401,
+  },
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-gate-bad-schema 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "Invalid schema for response_format 'bad': [] should be non-empty.",
+  "provider": {
+    "code": "invalid_json_schema",
+    "key": "openai",
+    "raw": {
+      "error": {
+        "code": "invalid_json_schema",
+        "message": "Invalid schema for response_format 'bad': [] should be non-empty.",
+        "param": "text.format.schema",
+        "type": "invalid_request_error",
+      },
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-gate-pro-on-cc 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 404,
+  "message": "This model is only supported in v1/responses and not in v1/chat/completions.",
+  "provider": {
+    "code": "invalid_request_error",
+    "key": "openai",
+    "raw": {
+      "error": {
+        "code": null,
+        "message": "This model is only supported in v1/responses and not in v1/chat/completions.",
+        "param": "model",
+        "type": "invalid_request_error",
+      },
+    },
+    "status": 404,
+  },
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-gate-sampling-reasoning 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "Unsupported parameter: 'temperature' is not supported with this model.",
+  "provider": {
+    "code": "invalid_request_error",
+    "key": "openai",
+    "raw": {
+      "error": {
+        "code": null,
+        "message": "Unsupported parameter: 'temperature' is not supported with this model.",
+        "param": "temperature",
+        "type": "invalid_request_error",
+      },
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-gate-unknown-model 1`] = `
+{
+  "billed": false,
+  "category": "not_found",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "The requested model 'gpt-nonexistent-model' does not exist.",
+  "provider": {
+    "code": "model_not_found",
+    "key": "openai",
+    "raw": {
+      "error": {
+        "code": "model_not_found",
+        "message": "The requested model 'gpt-nonexistent-model' does not exist.",
+        "param": "model",
+        "type": "invalid_request_error",
+      },
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-json-schema 1`] = `
+{
+  "blocks": [
+    {
+      "id": "rs_fixture0002",
+      "opaqueState": {
+        "data": "gAAAAABqh911ZzD-KdyBd6_DZ_WTvVQ0mCX6tj8WfgGixv9VYRetVzc5NM0965mX0Aqb4NRuPNTbCIbDGOUzpPuwmjlNtSMH6vUb4wtkom0LPkimGW97o8hCzBp3Q0bfMZDoyBofZg1_YMX7JD4BzyQo050MYrZ2MufitcP1PhMGr0Ha5d2f_ckG_R36Fw0idblsEMHbBdHKhBXz4XywO89JbhUVLLKaaSdirIDxi91Lo6MmVbkjBx6UzR2dOJxYd1HaazP9K-2mOqz2dwIlQ3d_p-YwNDt_V-30ENRp1HzJGdVYxiTYzXQcsemSg55001oLBe6Eh8vnX-VBC1N4G1ZQbztLyE-Q268Mh0SPhPo6EK4yc4i9TKr4o1Srl6YDMixkgJuA8D0PZ1CX7uVj6hq1ihQfvPVJmWdC6tyBmYMZp41Y-ktpu6g1szYndjfzHy9gk6_GlenOnpL0taEsoKylYVc12m06m2CbcuK0C5rMRFnhg8thh9Qtlq3EWUNfgk8d2G1XRZxHT1cO5S3LBJRLU4hU8JU-BJKih-eRVP1KZ_hbSV4TLW8WAd5J1Nl60vW0t6W5jMAFcngbZUhOtMNzLCeffDO7furEommfUa4lO6U7o_i8eSVwTf7_Y1ei4geSJLliHHBRK7u7dsQh8zvFDe1eLwEPZDYXNzPDQ5MoG3umFIUtX71gAfjeiDCFsZn0ZK46pKJsyEjlXnjvEXV2eYZHhBt395wGgqkzQibSaoqr0KS7QtDmzEsOouVIbxUzmqe21o9J9N4MFIJhUgt1AptVMD29kNlGYo_Y5i_EmZFUyCrX8WubHAqxEE_cjYn0QDkiKfLIGYOR2ZkeYj_ATzOsopxeLiUpTyqchMqGSB_RHZ-lVozF30CioD9jDZmn3GKqZ3VM38aZyoZV7CNRO4Vi_nIbPbRXpYK074lrDRoFTACtHrxqOrizl8UjxBuFYVIVyzN5AUieLEvZn-LMXErXtp0CSvTDlHsgLjWHSvmuuAs8XGSeeUbIa2FPfHdHJM0PX_RRzNX5cYI_3F1ySaTNdzU_J5aMInXQVlv0yHnYyhyFhx1quKbd3Ct0xWyTfenx1eCq80puP1eyAUJw8vg02KRBJt_PLzRipe7HKFfX_jwr0H2oUATwysNW9cPcGfLihHxDGwWsWbh48WcQ2xXhX5o36wE9lJaPfm6je7PCiItVoEY_7pVfzjyIViKXWclvSpt7HRTNFof0QAJxIHf1SLFsyKcnza96f0GiYUikQmkxJoI=",
+        "provider": "openai",
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "item": {
+            "content": [],
+            "encrypted_content": "gAAAAABqh911ZzD-KdyBd6_DZ_WTvVQ0mCX6tj8WfgGixv9VYRetVzc5NM0965mX0Aqb4NRuPNTbCIbDGOUzpPuwmjlNtSMH6vUb4wtkom0LPkimGW97o8hCzBp3Q0bfMZDoyBofZg1_YMX7JD4BzyQo050MYrZ2MufitcP1PhMGr0Ha5d2f_ckG_R36Fw0idblsEMHbBdHKhBXz4XywO89JbhUVLLKaaSdirIDxi91Lo6MmVbkjBx6UzR2dOJxYd1HaazP9K-2mOqz2dwIlQ3d_p-YwNDt_V-30ENRp1HzJGdVYxiTYzXQcsemSg55001oLBe6Eh8vnX-VBC1N4G1ZQbztLyE-Q268Mh0SPhPo6EK4yc4i9TKr4o1Srl6YDMixkgJuA8D0PZ1CX7uVj6hq1ihQfvPVJmWdC6tyBmYMZp41Y-ktpu6g1szYndjfzHy9gk6_GlenOnpL0taEsoKylYVc12m06m2CbcuK0C5rMRFnhg8thh9Qtlq3EWUNfgk8d2G1XRZxHT1cO5S3LBJRLU4hU8JU-BJKih-eRVP1KZ_hbSV4TLW8WAd5J1Nl60vW0t6W5jMAFcngbZUhOtMNzLCeffDO7furEommfUa4lO6U7o_i8eSVwTf7_Y1ei4geSJLliHHBRK7u7dsQh8zvFDe1eLwEPZDYXNzPDQ5MoG3umFIUtX71gAfjeiDCFsZn0ZK46pKJsyEjlXnjvEXV2eYZHhBt395wGgqkzQibSaoqr0KS7QtDmzEsOouVIbxUzmqe21o9J9N4MFIJhUgt1AptVMD29kNlGYo_Y5i_EmZFUyCrX8WubHAqxEE_cjYn0QDkiKfLIGYOR2ZkeYj_ATzOsopxeLiUpTyqchMqGSB_RHZ-lVozF30CioD9jDZmn3GKqZ3VM38aZyoZV7CNRO4Vi_nIbPbRXpYK074lrDRoFTACtHrxqOrizl8UjxBuFYVIVyzN5AUieLEvZn-LMXErXtp0CSvTDlHsgLjWHSvmuuAs8XGSeeUbIa2FPfHdHJM0PX_RRzNX5cYI_3F1ySaTNdzU_J5aMInXQVlv0yHnYyhyFhx1quKbd3Ct0xWyTfenx1eCq80puP1eyAUJw8vg02KRBJt_PLzRipe7HKFfX_jwr0H2oUATwysNW9cPcGfLihHxDGwWsWbh48WcQ2xXhX5o36wE9lJaPfm6je7PCiItVoEY_7pVfzjyIViKXWclvSpt7HRTNFof0QAJxIHf1SLFsyKcnza96f0GiYUikQmkxJoI=",
+            "id": "rs_fixture0002",
+            "summary": [],
+            "type": "reasoning",
+          },
+        },
+      },
+      "text": "",
+      "type": "reasoning",
+    },
+    {
+      "id": "msg_fixture0003",
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "itemId": "msg_fixture0003",
+        },
+      },
+      "text": "{"name":"Alice","age":30}",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "responses",
+  },
+  "providerRequestId": "resp_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 44,
+      "total": 44,
+    },
+    "output": {
+      "reasoning": 14,
+      "text": 18,
+      "total": 32,
+    },
+    "raw": {
+      "input_tokens": 44,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "output_tokens": 32,
+      "output_tokens_details": {
+        "reasoning_tokens": 14,
+      },
+      "total_tokens": 76,
+    },
+    "totalTokens": 76,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-multimodal-image 1`] = `
+{
+  "blocks": [
+    {
+      "id": "rs_fixture0002",
+      "opaqueState": {
+        "data": "gAAAAABqh914fLngGkWtvuhk6u7nRLHtcyAH-ROfBOfnCzQfk94HiwyClqJX3O1MsGSjBaV27hKxEXE7OxCPblLjWpHvJjV9SWmlBHk9qC7jq9RXz74iQdxL9g7_l1HpiaCeBeFkSoz0tmGYBGYoG0K3o07kyoyohkRL9lmwwyKkNCqeiBXbgZjy9utMlWj-WmQxQz7L8xFzSIJhxH2XoVELDQ2-OPJb0M02_tQ4BwRQx38gXG-33wLt7jlpY9yKn9uK84DDPlPmfF1L6qLJp_iQrMQ6BX8gB0MTHir0zG7Vvoott5fvlhfL9SwhpveDn3f-JfseEEMKRuyu1AxhsKDW2WNFTIP1YYg3Z8ILXK7LcLpB-vB7lbe8jyDbacmruZLBZhzAuJmVMTQZRwUi1EXzXTCo_GSrueLL8b3EBS6-QmeUn6foaxPc0dBhe15gFf-kC2CWFOGcqiYDS6FCfN3Axdtvla0nB235OaaLGdzhlngLdbc5zxNo0bTq1LyaZsmtic955NlcAM-rcQ8d3nfYw2AN3SkZeXpiRQ_YfrwdBKQiOkT_GGQ_jLlPwMkJvGL3FbuV8nyJTBSGeIut8fJ8VPSkL3kWyZ2cOczItlGPt6Hfs2HJLacN5ks1ViyDtQtc3eTUpvjzHzXbU9s85URjlb_eyqjShBwvjbNWQX0y2D96l9GZ3DJ8wASToQPNzRJNEy4xdcAnHn4Y924cFppjFObUPGiCwr-DwAL47Oe5LFnUYBT8zey5bLtfoBpl8IR_h_rYAzcfGpwaIlzNLcXBFYKaTEI4W9VY7bO7-VL0rOS0hBegN4WKu_2afwtoF8fjFWucVN0KZtiiZtkmXtJBlsBSsEg40Tziq7PZPMh_0Mx_hKG4X7j6ekSIsUZV2y9MMM3pZh0_2xg56h6TQVo1Fr5twfLbuzJi8lculukd-fEhiejmfPhV9ieyN_BDEyjO4F3kD8oTTi3_bGfI5f21DA5fQioERQvvZ-OXsFrn29vb6DHRPjI3cnZS-Km1KinCHFDS7G_EJhwV-wvy7BMA1u2HskuN465LwOoE498H7KDAOyeWJxAwymbpyRPUUZ4UY3alYdevZV2A9qXyj8Ofl3_62yoOb1djkzNrNn5XX4dC5PDMZMg8GF_SLG-YFjegA0DOgEkPDgDVlF6gai1ac_Lr8PZwtbU10McHn07Qv7CfPPlUTataO8HjYRPS29UXIGPZF9aWwjE0jO3XVgFLV2t3KlDed3-vWvPs8ZWR4dvexA7ehf_XfuLn7Kl72CXFJr0m8TRgD0kA4MiryxlFxywJQNgvuLYl5vIFW0QLqzTsCxlBbjfwmE1feF-RCBCJFzXyFgB3lHK50CPegFSQ1lrrhON6Q0vPm5bKb__FncZ5vPXh6xQTN4eGsflCk2zyZ_D9o3XOHhSrzWwm1wN2_jjBecztEaASnX8fjLu7wZcAz3eaMCRLC_E5kY8xXIKXFqKeokUs8-sZfNx07ImeVE6Jk4a5f2qGoYjg--3PC61nwtTADiRZ0LB_0X0B6F7OtHHEfpJM306OREqffwXmrr-WFptAovGWb0PEnWv98DPv6TMrybFUfPcJ83vrcTJ7R91qf-vwZhg-tKMQGPUrz4AZozN9GA2E5VqfL5P-jsUpviBok5D5KQIrmtZgwWrdhToLuorLDLm9RN-9Br21r2OtiBqiYUzH6BZScSl7pc64ujSG5vtydE4Dmbq2XNkc8IXt_iorLVSNo7p6o_0x_c5OBQdz9Q==",
+        "provider": "openai",
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "item": {
+            "content": [],
+            "encrypted_content": "gAAAAABqh914fLngGkWtvuhk6u7nRLHtcyAH-ROfBOfnCzQfk94HiwyClqJX3O1MsGSjBaV27hKxEXE7OxCPblLjWpHvJjV9SWmlBHk9qC7jq9RXz74iQdxL9g7_l1HpiaCeBeFkSoz0tmGYBGYoG0K3o07kyoyohkRL9lmwwyKkNCqeiBXbgZjy9utMlWj-WmQxQz7L8xFzSIJhxH2XoVELDQ2-OPJb0M02_tQ4BwRQx38gXG-33wLt7jlpY9yKn9uK84DDPlPmfF1L6qLJp_iQrMQ6BX8gB0MTHir0zG7Vvoott5fvlhfL9SwhpveDn3f-JfseEEMKRuyu1AxhsKDW2WNFTIP1YYg3Z8ILXK7LcLpB-vB7lbe8jyDbacmruZLBZhzAuJmVMTQZRwUi1EXzXTCo_GSrueLL8b3EBS6-QmeUn6foaxPc0dBhe15gFf-kC2CWFOGcqiYDS6FCfN3Axdtvla0nB235OaaLGdzhlngLdbc5zxNo0bTq1LyaZsmtic955NlcAM-rcQ8d3nfYw2AN3SkZeXpiRQ_YfrwdBKQiOkT_GGQ_jLlPwMkJvGL3FbuV8nyJTBSGeIut8fJ8VPSkL3kWyZ2cOczItlGPt6Hfs2HJLacN5ks1ViyDtQtc3eTUpvjzHzXbU9s85URjlb_eyqjShBwvjbNWQX0y2D96l9GZ3DJ8wASToQPNzRJNEy4xdcAnHn4Y924cFppjFObUPGiCwr-DwAL47Oe5LFnUYBT8zey5bLtfoBpl8IR_h_rYAzcfGpwaIlzNLcXBFYKaTEI4W9VY7bO7-VL0rOS0hBegN4WKu_2afwtoF8fjFWucVN0KZtiiZtkmXtJBlsBSsEg40Tziq7PZPMh_0Mx_hKG4X7j6ekSIsUZV2y9MMM3pZh0_2xg56h6TQVo1Fr5twfLbuzJi8lculukd-fEhiejmfPhV9ieyN_BDEyjO4F3kD8oTTi3_bGfI5f21DA5fQioERQvvZ-OXsFrn29vb6DHRPjI3cnZS-Km1KinCHFDS7G_EJhwV-wvy7BMA1u2HskuN465LwOoE498H7KDAOyeWJxAwymbpyRPUUZ4UY3alYdevZV2A9qXyj8Ofl3_62yoOb1djkzNrNn5XX4dC5PDMZMg8GF_SLG-YFjegA0DOgEkPDgDVlF6gai1ac_Lr8PZwtbU10McHn07Qv7CfPPlUTataO8HjYRPS29UXIGPZF9aWwjE0jO3XVgFLV2t3KlDed3-vWvPs8ZWR4dvexA7ehf_XfuLn7Kl72CXFJr0m8TRgD0kA4MiryxlFxywJQNgvuLYl5vIFW0QLqzTsCxlBbjfwmE1feF-RCBCJFzXyFgB3lHK50CPegFSQ1lrrhON6Q0vPm5bKb__FncZ5vPXh6xQTN4eGsflCk2zyZ_D9o3XOHhSrzWwm1wN2_jjBecztEaASnX8fjLu7wZcAz3eaMCRLC_E5kY8xXIKXFqKeokUs8-sZfNx07ImeVE6Jk4a5f2qGoYjg--3PC61nwtTADiRZ0LB_0X0B6F7OtHHEfpJM306OREqffwXmrr-WFptAovGWb0PEnWv98DPv6TMrybFUfPcJ83vrcTJ7R91qf-vwZhg-tKMQGPUrz4AZozN9GA2E5VqfL5P-jsUpviBok5D5KQIrmtZgwWrdhToLuorLDLm9RN-9Br21r2OtiBqiYUzH6BZScSl7pc64ujSG5vtydE4Dmbq2XNkc8IXt_iorLVSNo7p6o_0x_c5OBQdz9Q==",
+            "id": "rs_fixture0002",
+            "summary": [],
+            "type": "reasoning",
+          },
+        },
+      },
+      "text": "",
+      "type": "reasoning",
+    },
+    {
+      "id": "msg_fixture0003",
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "itemId": "msg_fixture0003",
+        },
+      },
+      "text": "It is",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "incomplete:max_output_tokens",
+    "unified": "length",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "responses",
+  },
+  "providerRequestId": "resp_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 20,
+      "total": 20,
+    },
+    "output": {
+      "reasoning": 93,
+      "text": 7,
+      "total": 100,
+    },
+    "raw": {
+      "input_tokens": 20,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "output_tokens": 100,
+      "output_tokens_details": {
+        "reasoning_tokens": 93,
+      },
+      "total_tokens": 120,
+    },
+    "totalTokens": 120,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-pdf 1`] = `
+{
+  "blocks": [
+    {
+      "id": "msg_fixture0002",
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "itemId": "msg_fixture0002",
+        },
+      },
+      "text": "The PDF says: “Golden set fixture page.”",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "responses",
+  },
+  "providerRequestId": "resp_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 44,
+      "total": 44,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 14,
+      "total": 14,
+    },
+    "raw": {
+      "input_tokens": 44,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "output_tokens": 14,
+      "output_tokens_details": {
+        "reasoning_tokens": 0,
+      },
+      "total_tokens": 58,
+    },
+    "totalTokens": 58,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-reasoning 1`] = `
+{
+  "blocks": [
+    {
+      "id": "rs_fixture0002",
+      "opaqueState": {
+        "data": "gAAAAABqh91w_whpGtDGVU-JBVUv2ho11GKAfCRmbOH34WSBVnABg7-LfGLqXI0cvrOlfR3MNORf5rBsbATi2IQ8ik0jPZSn3rdixdD9yWpOXRpBhvlgj9QFcErNVJaXQFoE24eaO1cwgvpri7FZ7lNfhT28OD003ZOiMDHUqiLWLOU4IbnA3-5hirU7gUE7C9C_KAIVEct4ouEizAeEZAASkH456-Parr2tsx1_QPtLe3axuH-qkaJ4-S7UAx45QodPhzDFAlWtQdrQPbTf_fgEghnASyW3qthd8YrR9UDo0QIpbljN6dYKcU13uZ8jzNuBL8sRHLk8F_C39JGfkgnOkd4-IoEqMjv15-A8Uavnhr2_KmHcWZwyxZeO454SCGqQaLYmy4Qw0_9MkaYT0Q4G_qn-pJ1sde-Z-E6AzSrtaMAVThkrSZHVHAA1iHKLJ9G1esxtDzhBg-SHEcByASqIYmGAcKpanbVayjqOn_HfJXMXqeaAZ83pSM7kW7e8KjEoVaaJUn8deBhAzwXmCsRsO_gaN-cIx9bMDgy-87cAt3-uVGpWQwPZClItrdZ_XDMbhxo1jsORcmOc6JJcmy0DGsSBZkcpIY64eCOuYQKtQbP2-R-BVhaq_1lu1s74D6H2wpxz4eEsfcDl2yMig76NyqWGCUjTXJZUCL04j0Hbvv1ApvDoQzdqsD8XfvsW5c2leQIj0aORX-6GgA-LZ2iXmPb3UzDfRfORYXsqZX95aH6AF9w6oKqiRRDrKPY7m5LvdhmKUtDNbRWg1kiwKregdIzTAoFPGjDxqBfrvsSVZFpOzX0SpBA9E6bXN7eGvHTp_dHN04zCZsuPjcMMR4V46KA85fxrLSVspS5zWzRIToITAsGXiESYVZXRxyLnGWoBZT-DP2DGR7956M5JrrkcGkMrI5OUGSeIKd69SyCIEg3_lImlBBRaMUO-zCJbSTVV0iCccTic3U9X_TMpJSxUhHDo9KSSWHRDUrVdcaFVBQEzRBjqy0eftEXPAOVkbBmcVTDcNmzi6MNjbJxmcIKfvS84m4HakSuh62PQmN1SIh5l9zvkYSt_k3YmC9hvEFYSdRQAPpxD6KjRJCgfMVat-GzAwBmnFEJzw1FMs6Doo-2fmb-aR7iOTkCOo2-b0yHoLblh4EWZ1d345we8kep-AQCu0TIYvwEr3oG2Ap8nAyOivKROKP9R4iVGoUt9E_-NOG0dofxgx3p8FRQ8TjlXO2THHm4_xG7SOrJEDJ4qMenJmhrqFj5wy9Ys5q1_4KCGVjIWWnDtZ8lgFYXw7g_ERNXk8Q61oWLm2dVhjjuYeQXfOV-CWKs=",
+        "provider": "openai",
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "item": {
+            "content": [],
+            "encrypted_content": "gAAAAABqh91w_whpGtDGVU-JBVUv2ho11GKAfCRmbOH34WSBVnABg7-LfGLqXI0cvrOlfR3MNORf5rBsbATi2IQ8ik0jPZSn3rdixdD9yWpOXRpBhvlgj9QFcErNVJaXQFoE24eaO1cwgvpri7FZ7lNfhT28OD003ZOiMDHUqiLWLOU4IbnA3-5hirU7gUE7C9C_KAIVEct4ouEizAeEZAASkH456-Parr2tsx1_QPtLe3axuH-qkaJ4-S7UAx45QodPhzDFAlWtQdrQPbTf_fgEghnASyW3qthd8YrR9UDo0QIpbljN6dYKcU13uZ8jzNuBL8sRHLk8F_C39JGfkgnOkd4-IoEqMjv15-A8Uavnhr2_KmHcWZwyxZeO454SCGqQaLYmy4Qw0_9MkaYT0Q4G_qn-pJ1sde-Z-E6AzSrtaMAVThkrSZHVHAA1iHKLJ9G1esxtDzhBg-SHEcByASqIYmGAcKpanbVayjqOn_HfJXMXqeaAZ83pSM7kW7e8KjEoVaaJUn8deBhAzwXmCsRsO_gaN-cIx9bMDgy-87cAt3-uVGpWQwPZClItrdZ_XDMbhxo1jsORcmOc6JJcmy0DGsSBZkcpIY64eCOuYQKtQbP2-R-BVhaq_1lu1s74D6H2wpxz4eEsfcDl2yMig76NyqWGCUjTXJZUCL04j0Hbvv1ApvDoQzdqsD8XfvsW5c2leQIj0aORX-6GgA-LZ2iXmPb3UzDfRfORYXsqZX95aH6AF9w6oKqiRRDrKPY7m5LvdhmKUtDNbRWg1kiwKregdIzTAoFPGjDxqBfrvsSVZFpOzX0SpBA9E6bXN7eGvHTp_dHN04zCZsuPjcMMR4V46KA85fxrLSVspS5zWzRIToITAsGXiESYVZXRxyLnGWoBZT-DP2DGR7956M5JrrkcGkMrI5OUGSeIKd69SyCIEg3_lImlBBRaMUO-zCJbSTVV0iCccTic3U9X_TMpJSxUhHDo9KSSWHRDUrVdcaFVBQEzRBjqy0eftEXPAOVkbBmcVTDcNmzi6MNjbJxmcIKfvS84m4HakSuh62PQmN1SIh5l9zvkYSt_k3YmC9hvEFYSdRQAPpxD6KjRJCgfMVat-GzAwBmnFEJzw1FMs6Doo-2fmb-aR7iOTkCOo2-b0yHoLblh4EWZ1d345we8kep-AQCu0TIYvwEr3oG2Ap8nAyOivKROKP9R4iVGoUt9E_-NOG0dofxgx3p8FRQ8TjlXO2THHm4_xG7SOrJEDJ4qMenJmhrqFj5wy9Ys5q1_4KCGVjIWWnDtZ8lgFYXw7g_ERNXk8Q61oWLm2dVhjjuYeQXfOV-CWKs=",
+            "id": "rs_fixture0002",
+            "summary": [
+              {
+                "text": "**Calculating factors of 91**
+
+I need to explain why 91 isn't prime. It's actually 7 times 13, which means it's composite. To check this, I think about the square root of 91, which is about 9.5. So I can test if it’s divisible by small primes like 2, 3, 5, and 7. I found out it is divisible by 7, confirming that 91 is definitely not a prime number!",
+                "type": "summary_text",
+              },
+            ],
+            "type": "reasoning",
+          },
+        },
+      },
+      "text": "**Calculating factors of 91**
+
+I need to explain why 91 isn't prime. It's actually 7 times 13, which means it's composite. To check this, I think about the square root of 91, which is about 9.5. So I can test if it’s divisible by small primes like 2, 3, 5, and 7. I found out it is divisible by 7, confirming that 91 is definitely not a prime number!",
+      "type": "reasoning",
+    },
+    {
+      "id": "msg_fixture0003",
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "itemId": "msg_fixture0003",
+        },
+      },
+      "text": "No. \\(91\\) is not prime because it factors as
+
+\\[
+91 = 7 \\times 13.
+\\]
+
+Since it has factors other than \\(1\\) and itself, \\(91\\) is composite.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "responses",
+  },
+  "providerRequestId": "resp_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 15,
+      "total": 15,
+    },
+    "output": {
+      "reasoning": 42,
+      "text": 53,
+      "total": 95,
+    },
+    "raw": {
+      "input_tokens": 15,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "output_tokens": 95,
+      "output_tokens_details": {
+        "reasoning_tokens": 42,
+      },
+      "total_tokens": 110,
+    },
+    "totalTokens": 110,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-reasoning-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+    },
+    "providerRequestId": "resp_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "rs_fixture0002",
+    "type": "reasoning-start",
+  },
+  {
+    "delta": "**Clarifying prime factorization**
+
+I",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " need",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " to",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " explain",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " how",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " to",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " handle",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 133",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ".",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " The",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " square",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " root",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " of",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 133",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " is",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " approximately",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 11",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ".",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "53",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ".",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " Next",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ",",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " I",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " should",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " test",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " if",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " it's",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " divisible",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " by",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " prime",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " numbers",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " like",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 2",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ",",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 3",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ",",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 5",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ",",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 7",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ",",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " and",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 11",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ".",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " When",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " I",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " multiply",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 7",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " and",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 19",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ",",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " it",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " should",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " equal",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " 133",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ",",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " but",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " it",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " doesn't",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " appear",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " to",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " be",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " correct",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ".",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " I",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "’ll",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " keep",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " my",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " explanation",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " concise",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ",",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " making",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " sure",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " to",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " focus",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " on",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " the",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " prime",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " factor",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "ization",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " of",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " this",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " number",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " clearly",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ".",
+    "id": "rs_fixture0002",
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "rs_fixture0002",
+    "opaqueState": {
+      "data": "gAAAAABqh91z-sTg0EBCi_aVuqu_e_Y9otNr0zr2sAgqAUgBPEpT4mtaNnBcWlNt7xo2JaFjjIwyQsh-WQc6ypqr3Ps9gHX0mjGcvK8jS-A2pckVPL9_f58LDOtNnQwjtU9OoK2_6pq-svlSnkdWlu9hMQ3T21R-_Svg0OGLg5PAehqNLj0T0SQcLCHUx93SCyjJBuRNxhHYbbOWKWD4cTCsyUHqhRmiB4XACQHDmaesbm-PKoYcEIS42_7jJMkWLct7ZSv4EasU2rez7foTJ7334bs5Rsln1fgnAsytS2zfdBQnQVXS0hIvn6hbIJhsQUVJPRQ7FqLCn9tWHEiwwqR_EfG-T6_rH2Dpbah8yDG7pYsbzQpu3srYWK7AAk9tRlVZ2DdFWpD7H5x4mN8byOl2ihp8W_rEwAvDmx3dPtwf21cRdPNQwV8xUuCer0Cp9yzPPcznF2WTRJ-BEspHQFmQqvbP7fstuBSb0pZbt9dFWQIEkdLmbb3x9Y8NwBFrlwLywl5XldBB01D7J27ggtyDuzv7kXWwAlphl-6FuJOMTYL8TDcIvKTwf5rF_DWtics2rUXNEQQT7guy4QAu6P29LU8I-kqoRsMs5-QTTtHyN8tOQevqpUyN8bMZgEG_z4-a3mponaOSDkCoKGFhH6kOmEhTJNzc3AZsDJMysWLrsl4GAOyfkP2cXNVSP-K6Py2qPvorXTvbvcnMppVJYhT0Di71OHfQve5Gy5mT8Ln0cLsTW_ODvr3yv44ewIJ7LyBh1M6fQQIk_NrRh66mPuqc--gWWA4bC3ooLMmmyktBdIRLJ5qhIRFvQGm0842NGh-5Ka2tO9LfEm3FPAgp47BUJqciPdnyGXtNKVce2Nmnla3Ajjbii6pqnAS43-xJJmRyccbiIhAA-LfWGHCgcqrhO1AStVAmdlLG0Z6SPjzoOrFWEOJCu1voBVTe03HWWk41v_qF7A-4oU6tlpcjmQ1YQxgcrhWufRcDQjX944KDSPqos4ajK13o0Oaqa_Dt-SIzcWZs9kxrAiLJl_CY7nsVAPiFWU59RTkGq_r3fNX3KMMsOrpWZgtt99J2fYYd11UEnTxGqylRF66Q_0CUz5eC0uh0-6tiSuqsk6Ffo82OaSVEn1LBMCEWY2zZ1xbSWe7OAYZYAcK_AxRNd-HRdFn_VQfGYa5JYVjLDBovGtDJc_V9-ryBVjHDfDtzAJF-cHD0UFoRFqcvHLxgl9NEgGqh-oEpvUM_pz3imCTQSrS29gaiB0rKbaJ03xKAXYD8ksqk67S3toHH1X2aj1gqiLa9AKZxF0WAMg==",
+      "provider": "openai",
+    },
+    "providerMetadata": {
+      "openai": {
+        "item": {
+          "content": [],
+          "encrypted_content": "gAAAAABqh91z-sTg0EBCi_aVuqu_e_Y9otNr0zr2sAgqAUgBPEpT4mtaNnBcWlNt7xo2JaFjjIwyQsh-WQc6ypqr3Ps9gHX0mjGcvK8jS-A2pckVPL9_f58LDOtNnQwjtU9OoK2_6pq-svlSnkdWlu9hMQ3T21R-_Svg0OGLg5PAehqNLj0T0SQcLCHUx93SCyjJBuRNxhHYbbOWKWD4cTCsyUHqhRmiB4XACQHDmaesbm-PKoYcEIS42_7jJMkWLct7ZSv4EasU2rez7foTJ7334bs5Rsln1fgnAsytS2zfdBQnQVXS0hIvn6hbIJhsQUVJPRQ7FqLCn9tWHEiwwqR_EfG-T6_rH2Dpbah8yDG7pYsbzQpu3srYWK7AAk9tRlVZ2DdFWpD7H5x4mN8byOl2ihp8W_rEwAvDmx3dPtwf21cRdPNQwV8xUuCer0Cp9yzPPcznF2WTRJ-BEspHQFmQqvbP7fstuBSb0pZbt9dFWQIEkdLmbb3x9Y8NwBFrlwLywl5XldBB01D7J27ggtyDuzv7kXWwAlphl-6FuJOMTYL8TDcIvKTwf5rF_DWtics2rUXNEQQT7guy4QAu6P29LU8I-kqoRsMs5-QTTtHyN8tOQevqpUyN8bMZgEG_z4-a3mponaOSDkCoKGFhH6kOmEhTJNzc3AZsDJMysWLrsl4GAOyfkP2cXNVSP-K6Py2qPvorXTvbvcnMppVJYhT0Di71OHfQve5Gy5mT8Ln0cLsTW_ODvr3yv44ewIJ7LyBh1M6fQQIk_NrRh66mPuqc--gWWA4bC3ooLMmmyktBdIRLJ5qhIRFvQGm0842NGh-5Ka2tO9LfEm3FPAgp47BUJqciPdnyGXtNKVce2Nmnla3Ajjbii6pqnAS43-xJJmRyccbiIhAA-LfWGHCgcqrhO1AStVAmdlLG0Z6SPjzoOrFWEOJCu1voBVTe03HWWk41v_qF7A-4oU6tlpcjmQ1YQxgcrhWufRcDQjX944KDSPqos4ajK13o0Oaqa_Dt-SIzcWZs9kxrAiLJl_CY7nsVAPiFWU59RTkGq_r3fNX3KMMsOrpWZgtt99J2fYYd11UEnTxGqylRF66Q_0CUz5eC0uh0-6tiSuqsk6Ffo82OaSVEn1LBMCEWY2zZ1xbSWe7OAYZYAcK_AxRNd-HRdFn_VQfGYa5JYVjLDBovGtDJc_V9-ryBVjHDfDtzAJF-cHD0UFoRFqcvHLxgl9NEgGqh-oEpvUM_pz3imCTQSrS29gaiB0rKbaJ03xKAXYD8ksqk67S3toHH1X2aj1gqiLa9AKZxF0WAMg==",
+          "id": "rs_fixture0002",
+          "summary": [
+            {
+              "text": "**Clarifying prime factorization**
+
+I need to explain how to handle 133. The square root of 133 is approximately 11.53. Next, I should test if it's divisible by prime numbers like 2, 3, 5, 7, and 11. When I multiply 7 and 19, it should equal 133, but it doesn't appear to be correct. I’ll keep my explanation concise, making sure to focus on the prime factorization of this number clearly.",
+              "type": "summary_text",
+            },
+          ],
+          "type": "reasoning",
+        },
+      },
+    },
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "rs_fixture0002",
+    "type": "reasoning-end",
+  },
+  {
+    "id": "msg_fixture0003:0",
+    "type": "text-start",
+  },
+  {
+    "delta": "No",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ".",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " \\(",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "133",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "\\",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ")",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " is",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " not",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " prime",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " because",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " it",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " factors",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " as",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "
+
+",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "\\",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "[
+",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "133",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " =",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "7",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " \\",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "times",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "19",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ".
+",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "\\",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "]
+
+",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "Therefore",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " it",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " is",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " composite",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ".",
+    "id": "msg_fixture0003:0",
+    "type": "text-delta",
+  },
+  {
+    "id": "msg_fixture0003:0",
+    "type": "text-end",
+  },
+  {
+    "finishReason": {
+      "raw": "completed",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 15,
+        "total": 15,
+      },
+      "output": {
+        "reasoning": 47,
+        "text": 39,
+        "total": 86,
+      },
+      "raw": {
+        "input_tokens": 15,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0,
+        },
+        "output_tokens": 86,
+        "output_tokens_details": {
+          "reasoning_tokens": 47,
+        },
+        "total_tokens": 101,
+      },
+      "totalTokens": 101,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-system 1`] = `
+{
+  "blocks": [
+    {
+      "id": "msg_fixture0002",
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "itemId": "msg_fixture0002",
+        },
+      },
+      "text": "Ahoy, matey!",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "responses",
+  },
+  "providerRequestId": "resp_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 29,
+      "total": 29,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 10,
+      "total": 10,
+    },
+    "raw": {
+      "input_tokens": 29,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "output_tokens": 10,
+      "output_tokens_details": {
+        "reasoning_tokens": 0,
+      },
+      "total_tokens": 39,
+    },
+    "totalTokens": 39,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-text 1`] = `
+{
+  "blocks": [
+    {
+      "id": "msg_fixture0002",
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "itemId": "msg_fixture0002",
+        },
+      },
+      "text": "The capital of France is Paris.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "responses",
+  },
+  "providerRequestId": "resp_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 19,
+      "total": 19,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 11,
+      "total": 11,
+    },
+    "raw": {
+      "input_tokens": 19,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "output_tokens": 11,
+      "output_tokens_details": {
+        "reasoning_tokens": 0,
+      },
+      "total_tokens": 30,
+    },
+    "totalTokens": 30,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-text-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+    },
+    "providerRequestId": "resp_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "msg_fixture0002:0",
+    "type": "text-start",
+  },
+  {
+    "delta": "1",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "2",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "3",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "4",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": "5",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "delta": ".",
+    "id": "msg_fixture0002:0",
+    "type": "text-delta",
+  },
+  {
+    "id": "msg_fixture0002:0",
+    "type": "text-end",
+  },
+  {
+    "finishReason": {
+      "raw": "completed",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 20,
+        "total": 20,
+      },
+      "output": {
+        "reasoning": 0,
+        "text": 18,
+        "total": 18,
+      },
+      "raw": {
+        "input_tokens": 20,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0,
+        },
+        "output_tokens": 18,
+        "output_tokens_details": {
+          "reasoning_tokens": 0,
+        },
+        "total_tokens": 38,
+      },
+      "totalTokens": 38,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-tool-call 1`] = `
+{
+  "blocks": [
+    {
+      "id": "fc_fixture0002",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Paris",
+        },
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "item": {
+            "arguments": "{"city":"Paris"}",
+            "call_id": "call_fixture0003",
+            "id": "fc_fixture0002",
+            "name": "get_weather",
+            "status": "completed",
+            "type": "function_call",
+          },
+        },
+      },
+      "toolCallId": "call_fixture0003",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "tool_call",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "responses",
+  },
+  "providerRequestId": "resp_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 50,
+      "total": 50,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 18,
+      "total": 18,
+    },
+    "raw": {
+      "input_tokens": 50,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "output_tokens": 18,
+      "output_tokens_details": {
+        "reasoning_tokens": 0,
+      },
+      "total_tokens": 68,
+    },
+    "totalTokens": 68,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-tool-call-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+    },
+    "providerRequestId": "resp_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "rs_fixture0002",
+    "type": "reasoning-start",
+  },
+  {
+    "id": "rs_fixture0002",
+    "opaqueState": {
+      "data": "gAAAAABqh91s3YJnPDi4gJJr4iShmu9VVaKxTC6hQ9UeYhqGYt30xxuwswE4hV85r4AgBFTMw3pb3zVQ9pn8KJQeijQLFPax--2zGLJ0B7FPlY82Ky6Zz0iDK_17pGQHyk_650s1_dfkYF8xYa1lkQt2znBx4jqiBz4eYUmFLBGosFmWeWTHVBf-dF0l-5VcOH-5IKn_83fgLUWGphRE4Z707U4dP_xOhu7I5N0wTTRlGIf4rTpiJ4BkscleL90MFrfWz4Y1rmtDseo8RiBV6jgyr7G3oCScbUJTrIr6NOdfcQm2GLgIpgEEAWTJvXlRozhyVxHGOLG-DjGcbIAL2It2R7nxtB_cGhafN5SY8M_6bfddSAGimuqid5HagAJf7qhUShMsCDJ_s4c9NSYQhWefz_48J2YVsSUeljgd8f4IhvAzJdNWzN0ghhklxdG8nCRI-ZuPwdMtoAK4CtNG_tRMkMAIThSxnvHWPi9FgXZLFAflXUZa1RglfNC1A6EdqrPQUGOdH_Y8H5pTCFhsvbJlVa2iJ0pBHXJ-GtnWOXjezpPncCDxuyxgUVYYTHMR-_rvMeuzWy4CnTIF2WjPoH3lMXbwov5V6sqTxq2bPPSwsZb4lJ_wv4JElE13ck4zlTf_KSq-V0DD3rYpcbywFpE29KsEaR1eCQbQgQ0_FKum1My7Z5Mu7nt7A8dnrCUhAmZDGEmFfT32_zINe0i3xQSj8Q976DVCoeUEpnmW7bfTY6HOS6lZOPk40nciXyBmBtQGF_kGbwDtGPdYu_6fSYBXlhnQ2B23VFI4RJdiV_JjU-712dtC6HiI-QypHtLcLYlZ8BBG28UsGQn7Ys3sNlCWIerl6cg5l5wavVfXZUvGXVXo8WtwCdLiNUs5N8Bfg40Y8MvPFqRVmnFb_dfVYj7977x7JBFCRj_rkno-Oer3VwyZl4qK0A-EP6yWVI_YGBXdFFkKqymUs-V2LjktF7x5atcD4QTdqoNSwN2EcBXAyzd1cGZYbjeW2JtH-aSc0TxQ3g37QXOavdHvLcXx9-0YAMDDL0YFAyqar-nOsez_zNrKJeuw7t0tq-A0cINKDIdUrS4cuNilz-l9s83vIKO6PTwVgWQzyqtXx94Kds9d_6xSlaz24XC7yI5NfxdYoiWqzCLajwb3LBH6SIYLCgFd3T1OTxTP2zBduRkHpToxdeMeaVVny_mdv_lyhyCo3enjFYO0FAEM",
+      "provider": "openai",
+    },
+    "providerMetadata": {
+      "openai": {
+        "item": {
+          "content": [],
+          "encrypted_content": "gAAAAABqh91s3YJnPDi4gJJr4iShmu9VVaKxTC6hQ9UeYhqGYt30xxuwswE4hV85r4AgBFTMw3pb3zVQ9pn8KJQeijQLFPax--2zGLJ0B7FPlY82Ky6Zz0iDK_17pGQHyk_650s1_dfkYF8xYa1lkQt2znBx4jqiBz4eYUmFLBGosFmWeWTHVBf-dF0l-5VcOH-5IKn_83fgLUWGphRE4Z707U4dP_xOhu7I5N0wTTRlGIf4rTpiJ4BkscleL90MFrfWz4Y1rmtDseo8RiBV6jgyr7G3oCScbUJTrIr6NOdfcQm2GLgIpgEEAWTJvXlRozhyVxHGOLG-DjGcbIAL2It2R7nxtB_cGhafN5SY8M_6bfddSAGimuqid5HagAJf7qhUShMsCDJ_s4c9NSYQhWefz_48J2YVsSUeljgd8f4IhvAzJdNWzN0ghhklxdG8nCRI-ZuPwdMtoAK4CtNG_tRMkMAIThSxnvHWPi9FgXZLFAflXUZa1RglfNC1A6EdqrPQUGOdH_Y8H5pTCFhsvbJlVa2iJ0pBHXJ-GtnWOXjezpPncCDxuyxgUVYYTHMR-_rvMeuzWy4CnTIF2WjPoH3lMXbwov5V6sqTxq2bPPSwsZb4lJ_wv4JElE13ck4zlTf_KSq-V0DD3rYpcbywFpE29KsEaR1eCQbQgQ0_FKum1My7Z5Mu7nt7A8dnrCUhAmZDGEmFfT32_zINe0i3xQSj8Q976DVCoeUEpnmW7bfTY6HOS6lZOPk40nciXyBmBtQGF_kGbwDtGPdYu_6fSYBXlhnQ2B23VFI4RJdiV_JjU-712dtC6HiI-QypHtLcLYlZ8BBG28UsGQn7Ys3sNlCWIerl6cg5l5wavVfXZUvGXVXo8WtwCdLiNUs5N8Bfg40Y8MvPFqRVmnFb_dfVYj7977x7JBFCRj_rkno-Oer3VwyZl4qK0A-EP6yWVI_YGBXdFFkKqymUs-V2LjktF7x5atcD4QTdqoNSwN2EcBXAyzd1cGZYbjeW2JtH-aSc0TxQ3g37QXOavdHvLcXx9-0YAMDDL0YFAyqar-nOsez_zNrKJeuw7t0tq-A0cINKDIdUrS4cuNilz-l9s83vIKO6PTwVgWQzyqtXx94Kds9d_6xSlaz24XC7yI5NfxdYoiWqzCLajwb3LBH6SIYLCgFd3T1OTxTP2zBduRkHpToxdeMeaVVny_mdv_lyhyCo3enjFYO0FAEM",
+          "id": "rs_fixture0002",
+          "summary": [],
+          "type": "reasoning",
+        },
+      },
+    },
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "rs_fixture0002",
+    "type": "reasoning-end",
+  },
+  {
+    "id": "fc_fixture0003",
+    "toolCallId": "call_fixture0004",
+    "toolName": "get_weather",
+    "type": "tool-input-start",
+  },
+  {
+    "delta": "{"city":"Tokyo"}",
+    "id": "fc_fixture0003",
+    "type": "tool-input-delta",
+  },
+  {
+    "id": "fc_fixture0003",
+    "type": "tool-input-end",
+  },
+  {
+    "block": {
+      "id": "fc_fixture0003",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Tokyo",
+        },
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "item": {
+            "arguments": "{"city":"Tokyo"}",
+            "call_id": "call_fixture0004",
+            "id": "fc_fixture0003",
+            "name": "get_weather",
+            "status": "completed",
+            "type": "function_call",
+          },
+        },
+      },
+      "toolCallId": "call_fixture0004",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+    "type": "tool-call",
+  },
+  {
+    "id": "fc_fixture0005",
+    "toolCallId": "call_fixture0006",
+    "toolName": "get_weather",
+    "type": "tool-input-start",
+  },
+  {
+    "delta": "{"city":"Seoul"}",
+    "id": "fc_fixture0005",
+    "type": "tool-input-delta",
+  },
+  {
+    "id": "fc_fixture0005",
+    "type": "tool-input-end",
+  },
+  {
+    "block": {
+      "id": "fc_fixture0005",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Seoul",
+        },
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "item": {
+            "arguments": "{"city":"Seoul"}",
+            "call_id": "call_fixture0006",
+            "id": "fc_fixture0005",
+            "name": "get_weather",
+            "status": "completed",
+            "type": "function_call",
+          },
+        },
+      },
+      "toolCallId": "call_fixture0006",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+    "type": "tool-call",
+  },
+  {
+    "finishReason": {
+      "raw": "completed",
+      "unified": "tool_call",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 52,
+        "total": 52,
+      },
+      "output": {
+        "reasoning": 10,
+        "text": 51,
+        "total": 61,
+      },
+      "raw": {
+        "input_tokens": 52,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0,
+        },
+        "output_tokens": 61,
+        "output_tokens_details": {
+          "reasoning_tokens": 10,
+        },
+        "total_tokens": 113,
+      },
+      "totalTokens": 113,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-tool-result-roundtrip 1`] = `
+{
+  "blocks": [
+    {
+      "id": "msg_fixture0003",
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "itemId": "msg_fixture0003",
+        },
+      },
+      "text": "Paris is currently **21°C and clear**.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "responses",
+  },
+  "providerRequestId": "resp_fixture0002",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 89,
+      "total": 89,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 14,
+      "total": 14,
+    },
+    "raw": {
+      "input_tokens": 89,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0,
+      },
+      "output_tokens": 14,
+      "output_tokens_details": {
+        "reasoning_tokens": 0,
+      },
+      "total_tokens": 103,
+    },
+    "totalTokens": 103,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② openai 픽스처 → IR > oai-web-search 1`] = `
+{
+  "blocks": [
+    {
+      "id": "rs_fixture0002",
+      "opaqueState": {
+        "data": "gAAAAABqh917oGBSME158SOaV7iuu6UBFyvnSPr6RjgC-TDTbw3ELRWwLGSK4g3kOjVaPCDh3w2eyGJMHOlZraG6rxDa0k1_FbBTr4HcT7yr-kBY22juuOfpDtSrKbpgBdx6ufMMjHauW00zD8Rs3f0FH9JjYb2dCKix0UqWKJ8rIRhwPfyMzMtReGImXq_xj2tUdjj2Ro43FzTSumiOd-g5HisVrQ6Yv-vzo-sqFmChaD_aKleLdMB-ckZvvAHFTnmpFFtNf9Oxf8gvteJehdz3kR1xGWdn8PbiN7StDid7eQwiQtZQAK5VOA1w4loccepbblf6bd3jux0hQKxAgEyIZhABF8kxJQagwxojz5EubJEnhl4Xm6y1Jf5hs2zZo6sJL1NZn-RObag1krAg59k8nBmafAFG0YdDI_NC8wu8_4FvEMaMo_qHaO9COwM1HZIO5BtNrytGBjqG-SRApH7XbPDE1B8kOywbKhGu63IjjHagzVsnHTXSdDOB21pKZCM-iYQT7WKMfV3Jrqq_dwKNm04_XcG1ul3kboLCeA7_4e3_bTSJe3YRg0HPlnvo1IkPS-59Uv4fXgqHy9w8Umfs5LaA8jRrbUNbPW2oMNKCABRROY14krpKdWEG7n8b6urG1SD4_x3yUu5c6cWu4iJpuymAI7q2RhT_8Nm1QOJRP10NZ5wBF_Nz7_wVUsJ7K2oIbMeRjXMTAGrdctm4NC6IAS6X4PMLVWdfHWoklmocN9yD9K4xdgkqetb1G0-wjzPqLynfcnQysfL9i2SDgQ7tlmfPo3muonOKy_QgFCDdk52BLqUCNWyt1_6eC9GN36Ls5q0aNiZsr7k2rSRJmyYoILPXh8FDsbbdTxRHl7j1sUoYJVoSysCqfom-qxq8XEODsk1JXbazLNkUHyfbngzyYhnt8JgqY0dB67B_7mif_mgkFV-SflzJ6yfcuaXW85Jg0sfHcq1SwjEdP5tkaRrHiaJ9ZAjFYI324G_avaBOdJ6MrEv5DIripp0vnB0Kki0p4PJClXr43PEVoXqdGL8gfZ4gCQ4VhwGsENdgd43o_fRJWBrQmeDGgQo9i1qmnFgd7SCvlGBlRyx5CgMTeBRnhtodBJV6x1OqeoLy6gagK7CEGewvMJ8mGRqQe8YnvSz4haC6ODEaoV3OKd15Qupcm7VPIflvZlNMUXWp-LW09m1ocLn-4APvOczWI6RLH9W-7OYYofIzyKQHVovThnDIgM8dFYe4J2XwhbCd_xftcv9c_iErBDW_WP2hNw9Tc_eQHocXy81KQyuB5v-CIUuFxwnPu_tWbeulF8Vd52BN4az-CfvcHP0=",
+        "provider": "openai",
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "item": {
+            "content": [],
+            "encrypted_content": "gAAAAABqh917oGBSME158SOaV7iuu6UBFyvnSPr6RjgC-TDTbw3ELRWwLGSK4g3kOjVaPCDh3w2eyGJMHOlZraG6rxDa0k1_FbBTr4HcT7yr-kBY22juuOfpDtSrKbpgBdx6ufMMjHauW00zD8Rs3f0FH9JjYb2dCKix0UqWKJ8rIRhwPfyMzMtReGImXq_xj2tUdjj2Ro43FzTSumiOd-g5HisVrQ6Yv-vzo-sqFmChaD_aKleLdMB-ckZvvAHFTnmpFFtNf9Oxf8gvteJehdz3kR1xGWdn8PbiN7StDid7eQwiQtZQAK5VOA1w4loccepbblf6bd3jux0hQKxAgEyIZhABF8kxJQagwxojz5EubJEnhl4Xm6y1Jf5hs2zZo6sJL1NZn-RObag1krAg59k8nBmafAFG0YdDI_NC8wu8_4FvEMaMo_qHaO9COwM1HZIO5BtNrytGBjqG-SRApH7XbPDE1B8kOywbKhGu63IjjHagzVsnHTXSdDOB21pKZCM-iYQT7WKMfV3Jrqq_dwKNm04_XcG1ul3kboLCeA7_4e3_bTSJe3YRg0HPlnvo1IkPS-59Uv4fXgqHy9w8Umfs5LaA8jRrbUNbPW2oMNKCABRROY14krpKdWEG7n8b6urG1SD4_x3yUu5c6cWu4iJpuymAI7q2RhT_8Nm1QOJRP10NZ5wBF_Nz7_wVUsJ7K2oIbMeRjXMTAGrdctm4NC6IAS6X4PMLVWdfHWoklmocN9yD9K4xdgkqetb1G0-wjzPqLynfcnQysfL9i2SDgQ7tlmfPo3muonOKy_QgFCDdk52BLqUCNWyt1_6eC9GN36Ls5q0aNiZsr7k2rSRJmyYoILPXh8FDsbbdTxRHl7j1sUoYJVoSysCqfom-qxq8XEODsk1JXbazLNkUHyfbngzyYhnt8JgqY0dB67B_7mif_mgkFV-SflzJ6yfcuaXW85Jg0sfHcq1SwjEdP5tkaRrHiaJ9ZAjFYI324G_avaBOdJ6MrEv5DIripp0vnB0Kki0p4PJClXr43PEVoXqdGL8gfZ4gCQ4VhwGsENdgd43o_fRJWBrQmeDGgQo9i1qmnFgd7SCvlGBlRyx5CgMTeBRnhtodBJV6x1OqeoLy6gagK7CEGewvMJ8mGRqQe8YnvSz4haC6ODEaoV3OKd15Qupcm7VPIflvZlNMUXWp-LW09m1ocLn-4APvOczWI6RLH9W-7OYYofIzyKQHVovThnDIgM8dFYe4J2XwhbCd_xftcv9c_iErBDW_WP2hNw9Tc_eQHocXy81KQyuB5v-CIUuFxwnPu_tWbeulF8Vd52BN4az-CfvcHP0=",
+            "id": "rs_fixture0002",
+            "summary": [],
+            "type": "reasoning",
+          },
+        },
+      },
+      "text": "",
+      "type": "reasoning",
+    },
+    {
+      "id": "ws_fixture0003",
+      "input": {
+        "type": "json",
+        "value": {
+          "action": {
+            "queries": [
+              "time: {"utc_offset":"+00:00"}",
+            ],
+            "query": "time: {"utc_offset":"+00:00"}",
+            "type": "search",
+          },
+          "id": "ws_fixture0003",
+          "status": "completed",
+          "type": "web_search_call",
+        },
+      },
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerExecuted": true,
+      "providerMetadata": {
+        "openai": {
+          "item": {
+            "action": {
+              "queries": [
+                "time: {"utc_offset":"+00:00"}",
+              ],
+              "query": "time: {"utc_offset":"+00:00"}",
+              "type": "search",
+            },
+            "id": "ws_fixture0003",
+            "status": "completed",
+            "type": "web_search_call",
+          },
+        },
+      },
+      "toolCallId": "ws_fixture0003",
+      "toolName": "web_search",
+      "type": "toolCall",
+    },
+    {
+      "id": "msg_fixture0004",
+      "origin": {
+        "model": "gpt-5.6-luna",
+        "provider": "openai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "openai": {
+          "itemId": "msg_fixture0004",
+        },
+      },
+      "text": "The current UTC date is **August 21, 2026**. ",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gpt-5.6-luna",
+    "provider": "openai",
+    "surface": "responses",
+  },
+  "providerRequestId": "resp_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 4410,
+      "noCache": 157,
+      "total": 4567,
+    },
+    "output": {
+      "reasoning": 59,
+      "text": 33,
+      "total": 92,
+    },
+    "raw": {
+      "input_tokens": 4567,
+      "input_tokens_details": {
+        "cache_write_tokens": 4410,
+        "cached_tokens": 0,
+      },
+      "output_tokens": 92,
+      "output_tokens_details": {
+        "reasoning_tokens": 59,
+      },
+      "total_tokens": 4659,
+    },
+    "totalTokens": 4659,
+  },
+  "warnings": [],
+}
+`;

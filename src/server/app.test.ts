@@ -101,7 +101,7 @@ describe("POST /v0/responses (비스트림)", () => {
 
   it("라우팅 불가 모델은 404", async () => {
     const app = createApp(deps("text"));
-    const res = await post(app, { ...textRequest, model: "gpt-99" });
+    const res = await post(app, { ...textRequest, model: "unrouted-model-99" });
     expect(res.status).toBe(404);
   });
 });

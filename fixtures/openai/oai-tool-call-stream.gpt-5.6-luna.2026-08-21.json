@@ -1,0 +1,53 @@
+{
+  "case": "oai-tool-call-stream",
+  "recordedAt": "2026-08-21",
+  "model": "gpt-5.6-luna",
+  "stream": true,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "gpt-5.6-luna",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "What's the weather in Tokyo and Seoul?"
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "name": "get_weather",
+          "description": "Get the current weather for a city.",
+          "strict": true,
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "city"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ],
+      "tool_choice": "required",
+      "store": false,
+      "max_output_tokens": 800,
+      "stream": true
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream; charset=utf-8"
+  },
+  "chunksFile": "oai-tool-call-stream.gpt-5.6-luna.2026-08-21.chunks.txt"
+}

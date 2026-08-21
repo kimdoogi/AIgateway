@@ -33,5 +33,6 @@ OpenAI는 텍스트 생성에 두 API 표면을 제공한다: Chat Completions(C
 
 - OpenAI 어댑터는 이중 경로: `responses.ts`(주) + `chat-completions.ts`(보조, openai-compat base 상속). 경로 선택은 요청 기능 기반 자동 + 명시 오버라이드 옵션.
 - **표면 안정성 규칙 (2026-08-20 리뷰 반영)**: 표면 선택은 **대화 단위로 sticky**하다 — 같은 대화의 후속 요청은 이전 표면을 유지하고, 전환은 명시 옵트인 또는 warning 동반으로만 한다. 대화 중간 무통보 전환은 프로바이더 프롬프트 캐시 전체 미스와 reasoning 연속성 소실을 유발하기 때문. 이 규칙은 이중 표면을 가진 모든 프로바이더(Gemini generateContent/Interactions, xAI chat/responses)의 표면 라우팅에 공통 적용된다. **판별 메커니즘**: 코어는 stateless(ADR-0006 §2)이므로 직전 assistant 턴의 `Origin.surface`(ir-v0 §4.0)를 재타게팅 패스가 읽어 표면을 고정한다 — compat 인바운드는 origin 복원 규약(ir-v0 §13.4)에 의존.
+- **표면 선택의 구현 형태 (2026-08-21 확정)**: 표면은 레지스트리의 1급 축이다 — provider당 어댑터 복수 등록 + 프로바이더가 소유한 선택자(요청 기능 + 직전 `Origin.surface` sticky → 표면 + warning)를 통해 고른다. 선택 기준은 프로바이더 지식이므로 코어에 두지 않는다(D4). 모델별 표면 접근성(pro 계열 = Responses 전용, audio = CC 전용)과 파라미터 게이트(reasoning 모델의 sampling 400)는 레지스트리가 capability 힌트로 공급한다. 근거·간극 분석: [OpenAI 어댑터 착수 전 간극 점검](../plan/openai-adapter-gaps.md)
 - IR reasoning 블록은 opaque 상태(`encrypted_content`, Anthropic `signature`)를 보존하는 구조가 확정적으로 필요 — IR v0에서 공통 슬롯 `opaqueState`(ir-v0 §4.10)로 구체화 완료.
 - 재타게팅 패스: OpenAI→타사 교체 시 reasoning drop/강등 정책은 ADR-0001 D6 그대로; 타사→OpenAI 교체 시 외래 reasoning은 스킵하되 보고.

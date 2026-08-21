@@ -296,4 +296,7 @@ describe("골든셋 ① IR → anthropic wire", () => {
   });
 });
 
-describeAdapterConformance(anthropicAdapter, CASES[0]!.request, ctx);
+describeAdapterConformance(anthropicAdapter, CASES[0]!.request, ctx, {
+  id: "msg_conf", model: "claude-haiku-4-5", content: [{ type: "text", text: "ok" }],
+  stop_reason: "end_turn", usage: { input_tokens: 1, output_tokens: 1 },
+});

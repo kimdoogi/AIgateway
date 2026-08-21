@@ -1,0 +1,18 @@
+data: {"id":"chatcmpl_fixture0001","object":"chat.completion.chunk","created":1787289008,"model":"gpt-5.6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"call_fixture0002","type":"function","function":{"name":"get_weather","arguments":""}}],"refusal":null},"finish_reason":null}],"usage":null,"obfuscation":"Fq77bnQ2o"}
+
+data: {"id":"chatcmpl_fixture0001","object":"chat.completion.chunk","created":1787289008,"model":"gpt-5.6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\""}}]},"finish_reason":null}],"usage":null,"obfuscation":"cnW"}
+
+data: {"id":"chatcmpl_fixture0001","object":"chat.completion.chunk","created":1787289008,"model":"gpt-5.6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"city"}}]},"finish_reason":null}],"usage":null,"obfuscation":"y6"}
+
+data: {"id":"chatcmpl_fixture0001","object":"chat.completion.chunk","created":1787289008,"model":"gpt-5.6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\":\""}}]},"finish_reason":null}],"usage":null,"obfuscation":"p"}
+
+data: {"id":"chatcmpl_fixture0001","object":"chat.completion.chunk","created":1787289008,"model":"gpt-5.6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"Tokyo"}}]},"finish_reason":null}],"usage":null,"obfuscation":"m"}
+
+data: {"id":"chatcmpl_fixture0001","object":"chat.completion.chunk","created":1787289008,"model":"gpt-5.6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"}"}}]},"finish_reason":null}],"usage":null,"obfuscation":"Ydf"}
+
+data: {"id":"chatcmpl_fixture0001","object":"chat.completion.chunk","created":1787289008,"model":"gpt-5.6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":null,"obfuscation":"W4bP"}
+
+data: {"id":"chatcmpl_fixture0001","object":"chat.completion.chunk","created":1787289008,"model":"gpt-5.6-luna","service_tier":"default","system_fingerprint":null,"choices":[],"usage":{"prompt_tokens":132,"completion_tokens":17,"total_tokens":149,"prompt_tokens_details":{"cached_tokens":0,"cache_write_tokens":0,"audio_tokens":0},"completion_tokens_details":{"reasoning_tokens":0,"audio_tokens":0,"accepted_prediction_tokens":0,"rejected_prediction_tokens":0}},"obfuscation":"LWzHBC"}
+
+data: [DONE]
+

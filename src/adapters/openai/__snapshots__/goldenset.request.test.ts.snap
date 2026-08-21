@@ -1,0 +1,977 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든셋 ① IR → openai chat-completions wire > cc-audio — 오디오 입력(input_audio) + PO audio/modalities 1`] = `
+{
+  "request": {
+    "body": {
+      "audio": {
+        "format": "wav",
+        "voice": "alloy",
+      },
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "transcribe",
+              "type": "text",
+            },
+            {
+              "input_audio": {
+                "data": "AAAA",
+                "format": "wav",
+              },
+              "type": "input_audio",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "modalities": [
+        "text",
+        "audio",
+      ],
+      "model": "gpt-5.6-luna",
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/chat/completions",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai chat-completions wire > cc-reasoning-drop — reasoning 블록은 CC 왕복 불가 (드롭 + warning) 1`] = `
+{
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "content": "hello",
+          "role": "assistant",
+        },
+        {
+          "content": [
+            {
+              "text": "again",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "seed": 1,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/chat/completions",
+  },
+  "warnings": [
+    {
+      "code": "reasoning-dropped",
+      "message": "CC는 reasoning 왕복 불가 — 드롭 (ADR-0002 §4)",
+      "path": "messages[1].blocks[0]",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → openai chat-completions wire > cc-stream — stream_options.include_usage 자동 1`] = `
+{
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "seed": 7,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true,
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/chat/completions",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai chat-completions wire > cc-text — CC 전용 파라미터(seed/penalties/stop) 통과 1`] = `
+{
+  "request": {
+    "body": {
+      "frequency_penalty": 0.2,
+      "max_completion_tokens": 100,
+      "messages": [
+        {
+          "content": "Be brief.",
+          "role": "system",
+        },
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "presence_penalty": 0.1,
+      "seed": 42,
+      "stop": [
+        "END",
+      ],
+      "temperature": 0.5,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/chat/completions",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai chat-completions wire > cc-tools — function 툴 + toolChoice + 툴콜 왕복 1`] = `
+{
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "weather?",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{"city":"Paris"}",
+                "name": "get_weather",
+              },
+              "id": "call_f1",
+              "type": "function",
+            },
+          ],
+        },
+        {
+          "content": "21C",
+          "role": "tool",
+          "tool_call_id": "call_f1",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "tool_choice": "auto",
+      "tools": [
+        {
+          "function": {
+            "description": "Get weather.",
+            "name": "get_weather",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "city": {
+                  "type": "string",
+                },
+              },
+              "required": [
+                "city",
+              ],
+              "type": "object",
+            },
+            "strict": true,
+          },
+          "type": "function",
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/chat/completions",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > capability-gate — reasoning 모델은 temperature/topP 드롭 (레지스트리 공급) 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "max_output_tokens": 50,
+      "model": "gpt-5.6-luna",
+      "store": false,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [
+    {
+      "code": "parameter-dropped",
+      "message": "openai 모델이 temperature를 거부 — 드롭 (모델 capability 게이트)",
+      "path": "temperature",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "openai 모델이 topP를 거부 — 드롭 (모델 capability 게이트)",
+      "path": "topP",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > effort-clamp — supportedEfforts 밖 값은 최근접 클램프 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "reasoning": {
+        "effort": "none",
+      },
+      "store": false,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [
+    {
+      "code": "parameter-clamped",
+      "message": "effort 'minimal' → 'none' 클램프",
+      "path": "reasoning.effort",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > json-schema — text.format + strict 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "extract",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "store": false,
+      "text": {
+        "format": {
+          "name": "person",
+          "schema": {
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "name",
+            ],
+            "type": "object",
+          },
+          "strict": true,
+          "type": "json_schema",
+        },
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > metadata — userId → safety_identifier, 문자열 키만 metadata 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "metadata": {
+        "tenant": "t1",
+      },
+      "model": "gpt-5.6-luna",
+      "safety_identifier": "u1",
+      "store": false,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [
+    {
+      "code": "parameter-dropped",
+      "message": "openai metadata는 string 값만 — metadata.n 드롭",
+      "path": "metadata.n",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > multimodal — 이미지(base64)·PDF(file_data) 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "look",
+              "type": "input_text",
+            },
+            {
+              "image_url": "data:image/png;base64,AAAA",
+              "type": "input_image",
+            },
+            {
+              "file_data": "data:application/pdf;base64,BBBB",
+              "filename": "doc.pdf",
+              "type": "input_file",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "store": false,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > po-full — 서버상태 opt-in(override warning)·reasoning 옵션·serviceTier 1`] = `
+{
+  "request": {
+    "body": {
+      "input": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "previous_response_id": "resp_fixture0001",
+      "prompt_cache_key": "tenant-1",
+      "reasoning": {
+        "context": "all_turns",
+        "effort": "high",
+        "summary": "auto",
+      },
+      "service_tier": "flex",
+      "store": true,
+      "text": {
+        "verbosity": "low",
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [
+    {
+      "code": "provider-option-override",
+      "message": "providerOptions.openai.store가 표준 필드의 wire 슬롯 'store'을 덮어씀 (게이트웨이 기본 store:false를 opt-in으로 해제)",
+      "path": "store",
+      "type": "compatibility",
+    },
+    {
+      "code": "server-state-unmanaged",
+      "message": "store:true — 서버측 상태는 게이트웨이 관리 밖 (리소스 레지스트리는 로드맵 5)",
+      "type": "other",
+    },
+    {
+      "code": "server-state-unmanaged",
+      "message": "previous_response_id passthrough — 서버측 상태 참조",
+      "type": "other",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > provider-tool — openai.web_search 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "news?",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "store": false,
+      "tools": [
+        {
+          "type": "web_search",
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > reasoning-foreign — 외래(anthropic) reasoning은 retarget 정책 (기본 drop) 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+        {
+          "content": [
+            {
+              "text": "hello",
+              "type": "output_text",
+            },
+          ],
+          "role": "assistant",
+          "type": "message",
+        },
+        {
+          "content": [
+            {
+              "text": "again",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "store": false,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [
+    {
+      "code": "reasoning-dropped",
+      "message": "외래 reasoning 블록 드롭 (retarget: drop)",
+      "path": "messages[1].blocks[0]",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > reasoning-roundtrip — item 원문 우선 복원 (§4.2 무손실) 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "Is 91 prime?",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+        {
+          "encrypted_content": "ENCRYPTED_FIXTURE",
+          "id": "rs_fixture0001",
+          "summary": [
+            {
+              "text": "91 = 7 × 13.",
+              "type": "summary_text",
+            },
+          ],
+          "type": "reasoning",
+        },
+        {
+          "content": [
+            {
+              "text": "No, 91 = 7 × 13.",
+              "type": "output_text",
+            },
+          ],
+          "role": "assistant",
+          "type": "message",
+        },
+        {
+          "content": [
+            {
+              "text": "and 97?",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "reasoning": {
+        "effort": "low",
+      },
+      "store": false,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > sampling — Responses 미지원(topK/seed/penalties/stop)은 드롭 + warning 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "max_output_tokens": 100,
+      "model": "gpt-5.6-luna",
+      "store": false,
+      "temperature": 0.5,
+      "top_p": 0.9,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [
+    {
+      "code": "parameter-dropped",
+      "message": "openai responses 미지원 파라미터 topK 드롭",
+      "path": "topK",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "openai responses 미지원 파라미터 seed 드롭",
+      "path": "seed",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "openai responses 미지원 파라미터 presencePenalty 드롭",
+      "path": "presencePenalty",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "openai responses 미지원 파라미터 frequencyPenalty 드롭",
+      "path": "frequencyPenalty",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "openai responses 미지원 파라미터 stopSequences 드롭",
+      "path": "stopSequences",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > stream — stream:true 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "store": false,
+      "stream": true,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > system — 선두 system은 instructions, 중간 system은 input item 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+        {
+          "content": [
+            {
+              "text": "Now be verbose.",
+              "type": "input_text",
+            },
+          ],
+          "role": "system",
+          "type": "message",
+        },
+        {
+          "content": [
+            {
+              "text": "more",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "instructions": "Be brief.",
+      "model": "gpt-5.6-luna",
+      "store": false,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > text-minimal — store:false 강제 + encrypted_content include 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "store": false,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > tool-roundtrip — toolCall(item 보존)·toolResult 재전송 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "weather in Paris?",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+        {
+          "arguments": "{"city":"Paris"}",
+          "call_id": "call_fixture0001",
+          "id": "fc_fixture0001",
+          "name": "get_weather",
+          "type": "function_call",
+        },
+        {
+          "call_id": "call_fixture0001",
+          "output": "{"temp_c":21}",
+          "type": "function_call_output",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "store": false,
+      "tools": [
+        {
+          "description": "Get weather.",
+          "name": "get_weather",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "city": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "city",
+            ],
+            "type": "object",
+          },
+          "strict": true,
+          "type": "function",
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → openai responses wire > tools — function + 지정 toolChoice + 병렬 off 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "weather?",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "gpt-5.6-luna",
+      "parallel_tool_calls": false,
+      "store": false,
+      "tool_choice": {
+        "name": "get_weather",
+        "type": "function",
+      },
+      "tools": [
+        {
+          "description": "Get weather.",
+          "name": "get_weather",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "city": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "city",
+            ],
+            "type": "object",
+          },
+          "strict": true,
+          "type": "function",
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;

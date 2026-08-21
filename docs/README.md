@@ -54,6 +54,23 @@
 - **Walking skeleton 착수** (계획 승인 + API 키·원격 저장소·pnpm 확인) — 1단계 스캐폴딩 + 2단계 IR zod 스키마 완료 (`src/ir/` 14개 모듈, 테스트 21개 통과: 직렬화 결정론·role-블록 허용·signature-only 스트림 이벤트·히스토리 편입 계약 검증). 진행 현황은 [실행 계획](plan/walking-skeleton.md)
 - 다음 단계: Anthropic 어댑터(3단계) + 골든셋 캡처 하네스(4단계)
 
+### 2026-08-21 — Walking skeleton 완료, OpenAI 착수 전 계약 간극 점검
+
+- **Walking skeleton(로드맵 3) 완료** — 3~8단계 전부 + 고강도 리뷰 5라운드. Anthropic 어댑터·캡처 하네스·골든셋(실 녹화 24케이스)·native 인바운드 서버·정책/상태/관측성·실 E2E 스모크. DoD 6항목 충족. 상세는 [실행 계획](plan/walking-skeleton.md)
+- **[OpenAI 어댑터 착수 전 간극 점검](plan/openai-adapter-gaps.md)** — 현행 어댑터 계약이 Responses API를 못 담는 지점 9건 분류(차단 3·패치 4·노트 2). 사용자 결정 3건: ① 표면(surface)을 레지스트리 1급 축으로 도입(이중 표면 처음부터), ② `AdapterCapabilities`에 `unsupportedParams`·`surfaces` 추가, ③ providerOptions가 표준 필드와 같은 wire 슬롯을 다투면 **PO 우선 + `provider-option-override` warning**
+- 결정에 따른 스펙 패치: ir-v0 §2(PO 충돌 규범)·§5(warning 코드)·§4.0(응답 방향 `origin.surface` 필수)·§4.2(reasoning 보존 키 PO 등재)·§10.2(refusal·서버툴 진행 이벤트)·§15(image_generation 범위 밖) + [폴백 매트릭스](decisions/fallback-interaction-matrix.md) 표면×폴백 행 + ADR-0002 결과 절 + [problem log](problems/problem-log.md)
+- 다음 단계: 계약 변경(표면 축·capability 슬롯·conformance) → OpenAI Responses 어댑터 → 캡처·골든셋 → CC 보조 경로 → 재타게팅 패스 + 크로스 왕복
+
+### 2026-08-21 — 로드맵 4 구현: OpenAI 이중 표면 + 재타게팅 + compat 인바운드 (코드 완료, 실 녹화 대기)
+
+- **표면(surface)을 레지스트리 1급 축으로**: provider당 어댑터 복수 등록, 표면 결정 공통 규칙(명시 오버라이드 > 기능 required > sticky(직전 `Origin.surface`) > 기본) + 모델 capability(`surfaces`) 게이트. 선택 기준은 프로바이더 소유 선택자(D4). `AdapterCapabilities`에 `unsupportedParams`·`surfaces` 추가
+- **OpenAI 어댑터** (`src/adapters/openai/`, ADR-0002): Responses 주 표면(store:false 강제 + encrypted reasoning 왕복 + item 무손실 §4.2 + semantic events ~58종 상태 머신 + 서버툴 진행 passthrough) + CC 보조 표면(audio/seed/penalties/prediction, 툴콜 파편 조립, [DONE] 종결) + 에러/usage/finishReason 공통 매핑. conformance에 응답 `origin.surface` 검증 추가
+- **재타게팅 패스 v0** (`src/gateway/retarget.ts`, §13.3): 고아 tool 쌍 수리(D6-10, 마지막 assistant 툴콜 턴은 보존), 타깃 상이 서버 상태 PO 드롭 + `server-state-inapplicable`, `cache-breakpoint-ignored`. **크로스 왕복 골든셋** — anthropic 실픽스처→openai wire / openai→anthropic, 동일 타깃 item 원문 복원 검증
+- **[부록 (a)](specs/appendix-a-compat-inbound.md) 확정 + compat 인바운드 2종** (`src/inbound/`): openai-compat CC·anthropic-compat Messages — `gateway` 확장 필드(§13.4: `gateway.ir` 복원 1순위·strict 모드 헤더), finishReason/usage 다운컨버트 표, 스트림 재합성(CC chunk + gateway.ir chunk / Anthropic SSE 재합성). 서버 라우트 `/compat/openai/v1/chat/completions`·`/compat/anthropic/v1/messages` — 실행은 native와 동일 경로(G1 우회 없음). E2E: **openai-compat 포맷으로 claude 호출** 교차 검증
+- **캡처 하네스 멀티 프로바이더화**: 프로바이더 구성 데이터 테이블(분기문 없음), OpenAI 케이스 22종(무과금 게이트 5·manual 2 포함), 새니타이저 openai id(resp/rs/fc/call/chatcmpl-)·키 패턴 확장. 테스트 240개
+- **실 녹화 완료** (2026-08-21 — 21케이스, 총 ≈$0.045): encrypted reasoning·서버툴 web_search_call·게이트 400×3·401·404(pro-on-cc) 전부 확보, 골든셋 ② 자동 편입(스냅샷 21). 신선도 장치 검출 3건: ① `$.tool_usage` 신필드, ② **GPT-5.6 CC 함수 툴 = `reasoning_effort:'none'` 필수**(400 실측 — 케이스 반영), ③ 미지 모델은 404 아닌 400
+- **실 E2E 스모크 통과** (`pnpm smoke:roadmap4`): openai 비스트림·스트림 완주(seq 단조), **크로스 프로바이더 대화**(claude 1턴 → 히스토리 → gpt 2턴, 내용 연속성 실검증 — 목표 2), compat CC→claude, encrypted reasoning 왕복. 스모크가 **`input_tokens_details.cache_write_tokens` 신필드 검출** → 구 인벤토리의 "캐시 쓰기 미관측" 전제 폐기, convertUsage·ir-v0 §8 갱신. **로드맵 4 완료** — 테스트 261개
+
 ## 로드맵 (2026-08-20 확정)
 
 1. ~~IR 설계 게이트 + 운영 결정 클로즈~~ (완료) → 2. ~~IR 스키마 v0~~ (작성·검증·개정 완료 — 사용자 승인 대기) → 3. **Walking skeleton** ([실행 계획](plan/walking-skeleton.md) — native → Anthropic, stream 포함 + 골든셋 캡처 하네스 + docker-compose + 메타 로그·OTel) → 4. OpenAI 어댑터 + 재타게팅 패스 v0 + 크로스 왕복 골든셋 + **부록 (a) 선행 후** 호환 인바운드 2종 → 5. Gemini·xAI 확장 + **Batches/Files 브리지(부록 (b) 선행)** + 레지스트리·커버리지 CI + 운영 평면(가상 키·예산·정산, 서버 상태 레지스트리, 본문 로그 파이프라인)

@@ -1,0 +1,173 @@
+{
+  "case": "oai-json-schema",
+  "recordedAt": "2026-08-21",
+  "model": "gpt-5.6-luna",
+  "stream": false,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "gpt-5.6-luna",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Extract: 'Alice is 30 years old.'"
+            }
+          ]
+        }
+      ],
+      "text": {
+        "format": {
+          "type": "json_schema",
+          "name": "person",
+          "strict": true,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "age": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "name",
+              "age"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "store": false,
+      "max_output_tokens": 200
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "resp_fixture0001",
+    "object": "response",
+    "created_at": 1787288948,
+    "status": "completed",
+    "background": false,
+    "billing": {
+      "payer": "developer"
+    },
+    "completed_at": 1787288949,
+    "error": null,
+    "frequency_penalty": 0,
+    "incomplete_details": null,
+    "instructions": null,
+    "max_output_tokens": 200,
+    "max_tool_calls": null,
+    "model": "gpt-5.6-luna",
+    "moderation": null,
+    "output": [
+      {
+        "id": "rs_fixture0002",
+        "type": "reasoning",
+        "content": [],
+        "encrypted_content": "gAAAAABqh911ZzD-KdyBd6_DZ_WTvVQ0mCX6tj8WfgGixv9VYRetVzc5NM0965mX0Aqb4NRuPNTbCIbDGOUzpPuwmjlNtSMH6vUb4wtkom0LPkimGW97o8hCzBp3Q0bfMZDoyBofZg1_YMX7JD4BzyQo050MYrZ2MufitcP1PhMGr0Ha5d2f_ckG_R36Fw0idblsEMHbBdHKhBXz4XywO89JbhUVLLKaaSdirIDxi91Lo6MmVbkjBx6UzR2dOJxYd1HaazP9K-2mOqz2dwIlQ3d_p-YwNDt_V-30ENRp1HzJGdVYxiTYzXQcsemSg55001oLBe6Eh8vnX-VBC1N4G1ZQbztLyE-Q268Mh0SPhPo6EK4yc4i9TKr4o1Srl6YDMixkgJuA8D0PZ1CX7uVj6hq1ihQfvPVJmWdC6tyBmYMZp41Y-ktpu6g1szYndjfzHy9gk6_GlenOnpL0taEsoKylYVc12m06m2CbcuK0C5rMRFnhg8thh9Qtlq3EWUNfgk8d2G1XRZxHT1cO5S3LBJRLU4hU8JU-BJKih-eRVP1KZ_hbSV4TLW8WAd5J1Nl60vW0t6W5jMAFcngbZUhOtMNzLCeffDO7furEommfUa4lO6U7o_i8eSVwTf7_Y1ei4geSJLliHHBRK7u7dsQh8zvFDe1eLwEPZDYXNzPDQ5MoG3umFIUtX71gAfjeiDCFsZn0ZK46pKJsyEjlXnjvEXV2eYZHhBt395wGgqkzQibSaoqr0KS7QtDmzEsOouVIbxUzmqe21o9J9N4MFIJhUgt1AptVMD29kNlGYo_Y5i_EmZFUyCrX8WubHAqxEE_cjYn0QDkiKfLIGYOR2ZkeYj_ATzOsopxeLiUpTyqchMqGSB_RHZ-lVozF30CioD9jDZmn3GKqZ3VM38aZyoZV7CNRO4Vi_nIbPbRXpYK074lrDRoFTACtHrxqOrizl8UjxBuFYVIVyzN5AUieLEvZn-LMXErXtp0CSvTDlHsgLjWHSvmuuAs8XGSeeUbIa2FPfHdHJM0PX_RRzNX5cYI_3F1ySaTNdzU_J5aMInXQVlv0yHnYyhyFhx1quKbd3Ct0xWyTfenx1eCq80puP1eyAUJw8vg02KRBJt_PLzRipe7HKFfX_jwr0H2oUATwysNW9cPcGfLihHxDGwWsWbh48WcQ2xXhX5o36wE9lJaPfm6je7PCiItVoEY_7pVfzjyIViKXWclvSpt7HRTNFof0QAJxIHf1SLFsyKcnza96f0GiYUikQmkxJoI=",
+        "summary": []
+      },
+      {
+        "id": "msg_fixture0003",
+        "type": "message",
+        "status": "completed",
+        "content": [
+          {
+            "type": "output_text",
+            "annotations": [],
+            "logprobs": [],
+            "text": "{\"name\":\"Alice\",\"age\":30}"
+          }
+        ],
+        "phase": "final_answer",
+        "role": "assistant"
+      }
+    ],
+    "parallel_tool_calls": true,
+    "presence_penalty": 0,
+    "previous_response_id": null,
+    "prompt_cache_key": null,
+    "prompt_cache_retention": "24h",
+    "reasoning": {
+      "context": "all_turns",
+      "effort": "medium",
+      "mode": "standard",
+      "summary": null
+    },
+    "safety_identifier": null,
+    "service_tier": "default",
+    "store": false,
+    "temperature": 1,
+    "text": {
+      "format": {
+        "type": "json_schema",
+        "description": null,
+        "name": "person",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "age": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "name",
+            "age"
+          ],
+          "additionalProperties": false
+        },
+        "strict": true
+      },
+      "verbosity": "medium"
+    },
+    "tool_choice": "auto",
+    "tool_usage": {
+      "image_gen": {
+        "input_tokens": 0,
+        "input_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 0
+        },
+        "output_tokens": 0,
+        "output_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 0
+        },
+        "total_tokens": 0
+      },
+      "web_search": {
+        "num_requests": 0
+      }
+    },
+    "tools": [],
+    "top_logprobs": 0,
+    "top_p": 0.98,
+    "truncation": "disabled",
+    "usage": {
+      "input_tokens": 44,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0
+      },
+      "output_tokens": 32,
+      "output_tokens_details": {
+        "reasoning_tokens": 14
+      },
+      "total_tokens": 76
+    },
+    "user": null,
+    "metadata": {}
+  }
+}

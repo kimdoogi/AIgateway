@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "build": "tsc -p tsconfig.build.json",
     "capture": "tsx tools/capture/capture.ts",
+    "smoke:roadmap4": "tsx tools/smoke-roadmap4.ts",
     "dev": "tsx src/server/index.ts"
   },
   "dependencies": {

@@ -51,6 +51,7 @@ export const WARNING_CODES = [
   "surface-switched",
   "system-repositioned",
   "unknown-provider-option-passed",
+  "provider-option-override",
   "unknown-block-passthrough",
   "parameter-defaulted",
   "server-state-unmanaged",

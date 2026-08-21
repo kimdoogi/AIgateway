@@ -4,12 +4,19 @@
 // thinking signature는 유지: 비밀이 아니라 왕복(opaqueState) 검증에 필요한 페이로드다.
 
 const ID_PREFIXES = [
+  // anthropic
   "msg", "toolu", "srvtoolu", "mcptoolu", "req", "file", "container", "compaction", "batch",
+  // openai (responses item·call id — chatcmpl은 하이픈형이라 별도 패턴)
+  "resp", "rs", "fc", "call", "ws", "fs", "ci", "ig", "cu", "sh", "lsh", "ap", "mcp", "item", "conv",
 ];
 const ID_PATTERN = new RegExp(`(?<=")(${ID_PREFIXES.join("|")})_[A-Za-z0-9_]{6,}(?=")`, "g");
+// openai CC 응답 id (chatcmpl-abc123 하이픈형) — 결정론 치환은 sanitizeText에서 별도 처리
+const CHATCMPL_PATTERN = /(?<=")chatcmpl-[A-Za-z0-9_-]{6,}(?=")/g;
 const PLACEHOLDER = /_fixture\d{4,}$/;
 const KEY_PATTERNS: Array<[RegExp, string]> = [
   [/sk-ant-[A-Za-z0-9_-]{10,}/g, "sk-ant-REDACTED"],
+  [/sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{10,}/g, "sk-proj-REDACTED"],
+  [/sk-[A-Za-z0-9_-]{20,}/g, "sk-REDACTED"],
   [/Bearer\s+[A-Za-z0-9._-]{10,}/g, "Bearer REDACTED"],
 ];
 
@@ -26,6 +33,20 @@ export type IdMap = Map<string, string>;
 export function sanitizeText(text: string, idMap: IdMap = new Map()): string {
   let out = text;
   for (const [pattern, replacement] of KEY_PATTERNS) out = out.replace(pattern, replacement);
+  out = out.replace(CHATCMPL_PATTERN, (match) => {
+    const existing = idMap.get(match);
+    if (existing) return existing;
+    if (PLACEHOLDER.test(match)) {
+      idMap.set(match, match);
+      return match;
+    }
+    const used = new Set(idMap.values());
+    let n = idMap.size + 1;
+    let placeholder = `chatcmpl_fixture${String(n).padStart(4, "0")}`;
+    while (used.has(placeholder)) placeholder = `chatcmpl_fixture${String(++n).padStart(4, "0")}`;
+    idMap.set(match, placeholder);
+    return placeholder;
+  });
   return out.replace(ID_PATTERN, (match, prefix: string) => {
     const existing = idMap.get(match);
     if (existing) return existing;
@@ -47,7 +68,7 @@ export function sanitizeText(text: string, idMap: IdMap = new Map()): string {
  * (자동 치환하면 base64 오염 위험이 있어 사람 검토로 넘긴다 — 리뷰 F9-r3)
  */
 export function findResidualIds(text: string): string[] {
-  const loose = new RegExp(`\\b(${ID_PREFIXES.join("|")})_[A-Za-z0-9]{8,}`, "g");
+  const loose = new RegExp(`\\b((${ID_PREFIXES.join("|")})_[A-Za-z0-9]{8,}|chatcmpl-[A-Za-z0-9_-]{6,})`, "g");
   const found = new Set<string>();
   for (const match of text.matchAll(loose)) {
     if (!PLACEHOLDER.test(match[0])) found.add(match[0]);

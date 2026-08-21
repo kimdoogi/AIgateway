@@ -1,0 +1,234 @@
+import type { JSONObject, JSONValue } from "../../ir/json.js";
+import type { Block } from "../../ir/blocks.js";
+import type { Message } from "../../ir/message.js";
+import type { IRRequest } from "../../ir/request.js";
+import { IRRequestSchema } from "../../ir/request.js";
+import type { Tool } from "../../ir/tools.js";
+import { OriginSchema } from "../../ir/common.js";
+import { GatewayError, irError } from "../../gateway/errors.js";
+
+// anthropic-compat Messages 인바운드: wire 요청 → IRRequest (부록 (a) §3.2).
+// 블록 구조가 IR과 1:1 — cache_control은 PO.anthropic으로, thinking signature는 opaqueState로.
+
+const KNOWN_TOP_KEYS = new Set([
+  "model", "max_tokens", "system", "messages", "tools", "tool_choice", "temperature", "top_p",
+  "top_k", "stop_sequences", "output_config", "metadata", "thinking", "service_tier", "stream",
+]);
+
+function invalid(message: string): GatewayError {
+  return new GatewayError(irError("invalid_request", 400, message));
+}
+
+function withCachePO(block: Block, raw: Record<string, unknown>): Block {
+  const cc = raw["cache_control"];
+  if (!cc || typeof cc !== "object") return block;
+  return { ...block, providerOptions: { anthropic: { cacheControl: cc as JSONObject } } };
+}
+
+type FileData = (Block & { type: "file" })["data"];
+function sourceToFileData(source: Record<string, unknown>, path: string): { mediaType: string; data: FileData } {
+  const type = source["type"];
+  if (type === "base64") {
+    return {
+      mediaType: String(source["media_type"] ?? "application/octet-stream"),
+      data: { type: "base64", data: String(source["data"] ?? "") },
+    };
+  }
+  if (type === "url") return { mediaType: "application/octet-stream", data: { type: "url", url: String(source["url"] ?? "") } };
+  if (type === "file") return { mediaType: "application/octet-stream", data: { type: "reference", refs: { anthropic: String(source["file_id"] ?? "") } } };
+  if (type === "text") return { mediaType: String(source["media_type"] ?? "text/plain"), data: { type: "text", text: String(source["data"] ?? "") } };
+  throw invalid(`${path}: 미지의 source type '${String(type)}'`);
+}
+
+export function wireBlockToIRBlock(raw: Record<string, unknown>, path: string): Block {
+  const type = raw["type"];
+  switch (type) {
+    case "text":
+      return withCachePO({ type: "text", text: String(raw["text"] ?? "") }, raw);
+    case "image": {
+      const { mediaType, data } = sourceToFileData((raw["source"] ?? {}) as Record<string, unknown>, path);
+      return withCachePO({ type: "file", mediaType: mediaType === "application/octet-stream" ? "image/*" : mediaType, data }, raw);
+    }
+    case "document": {
+      const { mediaType, data } = sourceToFileData((raw["source"] ?? {}) as Record<string, unknown>, path);
+      const citations = (raw["citations"] ?? {}) as Record<string, unknown>;
+      return withCachePO(
+        {
+          type: "file",
+          mediaType,
+          data,
+          ...(typeof raw["title"] === "string" ? { title: raw["title"] } : {}),
+          ...(typeof raw["context"] === "string" ? { context: raw["context"] } : {}),
+          ...(typeof citations["enabled"] === "boolean" ? { citationsEnabled: citations["enabled"] } : {}),
+        },
+        raw,
+      );
+    }
+    case "tool_use": {
+      return withCachePO(
+        {
+          type: "toolCall",
+          toolCallId: String(raw["id"] ?? ""),
+          toolName: String(raw["name"] ?? ""),
+          input: { type: "json", value: (raw["input"] ?? {}) as JSONValue },
+        },
+        raw,
+      );
+    }
+    case "tool_result": {
+      const content = raw["content"];
+      let output: (Block & { type: "toolResult" })["output"];
+      if (typeof content === "string") output = { type: "text", text: content };
+      else if (Array.isArray(content)) {
+        output = {
+          type: "content",
+          blocks: content.map((c, i) => wireBlockToIRBlock((c ?? {}) as Record<string, unknown>, `${path}.content[${i}]`)) as never,
+        };
+      } else output = { type: "json", value: (content ?? null) as JSONValue };
+      if (raw["is_error"] === true && output.type === "text") output = { type: "errorText", text: output.text };
+      return withCachePO(
+        {
+          type: "toolResult",
+          toolCallId: String(raw["tool_use_id"] ?? ""),
+          toolName: "tool", // wire에 이름 없음 — IR 필수 필드는 스텁 (재타게팅 시 toolCall에서 복원 가능)
+          output,
+        },
+        raw,
+      );
+    }
+    case "thinking": {
+      const sig = raw["signature"];
+      return {
+        type: "reasoning",
+        text: String(raw["thinking"] ?? ""),
+        ...(typeof sig === "string" && sig.length > 0 ? { opaqueState: { provider: "anthropic", data: sig } } : {}),
+      };
+    }
+    case "redacted_thinking":
+      return { type: "reasoning", text: "", redacted: true, opaqueState: { provider: "anthropic", data: String(raw["data"] ?? "") } };
+    case "search_result":
+      return { type: "custom", kind: "anthropic.search_result", payload: raw as JSONValue };
+    default:
+      // 미지 블록 — passthrough 수납 (§13.4-3 최선 복원, G1)
+      return { type: "passthrough", provider: "anthropic", raw: raw as JSONValue };
+  }
+}
+
+function contentToBlocks(content: unknown, path: string): Block[] {
+  if (typeof content === "string") return [{ type: "text", text: content }];
+  if (Array.isArray(content)) return content.map((c, i) => wireBlockToIRBlock((c ?? {}) as Record<string, unknown>, `${path}[${i}]`));
+  return [];
+}
+
+export function compatMessagesToIR(
+  wire: unknown,
+  allowUnknown: boolean,
+  betaHeader?: string,
+): IRRequest {
+  if (!wire || typeof wire !== "object" || Array.isArray(wire)) throw invalid("JSON 객체 body가 아닙니다");
+  const w = wire as Record<string, unknown>;
+  if (!allowUnknown) {
+    const unknown = Object.keys(w).filter((k) => !KNOWN_TOP_KEYS.has(k));
+    if (unknown.length > 0) {
+      throw invalid(`미지의 파라미터: ${unknown.join(", ")} (D5 — x-gateway-allow-unknown: true로 통과 가능)`);
+    }
+  }
+
+  const messages: Message[] = [];
+  if (w["system"] !== undefined) {
+    messages.push({ role: "system", blocks: contentToBlocks(w["system"], "system") });
+  }
+  const rawMessages = Array.isArray(w["messages"]) ? w["messages"] : [];
+  rawMessages.forEach((raw, mi) => {
+    const m = (raw ?? {}) as Record<string, unknown>;
+    const role = String(m["role"] ?? "");
+    if (role !== "user" && role !== "assistant" && role !== "system") throw invalid(`messages[${mi}]: 미지의 role '${role}'`);
+    const blocks = contentToBlocks(m["content"], `messages[${mi}].content`);
+    if (blocks.length === 0) return;
+    const msg: Message = { role, blocks };
+    // gateway.origin — 표면 sticky 복원 (§2.2)
+    const gw = m["gateway"];
+    if (gw && typeof gw === "object") {
+      const origin = OriginSchema.safeParse((gw as Record<string, unknown>)["origin"]);
+      if (origin.success) msg.origin = origin.data;
+    }
+    messages.push(msg);
+  });
+
+  const tools: Tool[] | undefined = Array.isArray(w["tools"])
+    ? w["tools"].map((raw) => {
+        const t = (raw ?? {}) as Record<string, unknown>;
+        const name = String(t["name"] ?? "");
+        if (t["input_schema"] !== undefined) {
+          const { name: _n, description, input_schema, strict, input_examples, cache_control, ...rest } = t;
+          void rest;
+          const tool: Tool = {
+            type: "function",
+            name,
+            ...(typeof description === "string" ? { description } : {}),
+            inputSchema: input_schema as JSONObject,
+            ...(typeof strict === "boolean" ? { strict } : {}),
+            ...(Array.isArray(input_examples) ? { inputExamples: input_examples as JSONObject[] } : {}),
+          };
+          return cache_control && typeof cache_control === "object"
+            ? { ...tool, providerOptions: { anthropic: { cacheControl: cache_control as JSONObject } } }
+            : tool;
+        }
+        // 서버 툴 정의 ({type: "web_search_20250305", name: "web_search", ...}) → provider 툴
+        const { name: _n2, ...args } = t;
+        return { type: "provider", id: `anthropic.${name}`, args: args as JSONObject };
+      })
+    : undefined;
+
+  let toolChoice: IRRequest["toolChoice"];
+  let parallelToolCalls: boolean | undefined;
+  const tc = w["tool_choice"];
+  if (tc && typeof tc === "object") {
+    const t = tc as Record<string, unknown>;
+    if (t["disable_parallel_tool_use"] === true) parallelToolCalls = false;
+    if (t["type"] === "auto") toolChoice = "auto";
+    else if (t["type"] === "any") toolChoice = "required";
+    else if (t["type"] === "none") toolChoice = "none";
+    else if (t["type"] === "tool" && typeof t["name"] === "string") toolChoice = { type: "tool", toolName: t["name"] };
+  }
+
+  const po: JSONObject = {};
+  if (w["thinking"] !== undefined) po["thinking"] = w["thinking"] as JSONValue;
+  if (typeof w["service_tier"] === "string") po["serviceTier"] = w["service_tier"];
+  if (betaHeader) po["betas"] = betaHeader.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+
+  const outputConfig = (w["output_config"] ?? {}) as Record<string, unknown>;
+
+  const ir: JSONObject = { version: "0", model: String(w["model"] ?? ""), messages: messages as unknown as JSONValue };
+  if (tools) ir["tools"] = tools as unknown as JSONValue;
+  if (toolChoice !== undefined) ir["toolChoice"] = toolChoice as JSONValue;
+  if (parallelToolCalls !== undefined) ir["parallelToolCalls"] = parallelToolCalls;
+  if (typeof w["max_tokens"] === "number") ir["maxOutputTokens"] = w["max_tokens"];
+  for (const [wireKey, irKey] of [["temperature", "temperature"], ["top_p", "topP"], ["top_k", "topK"]] as const) {
+    if (typeof w[wireKey] === "number") ir[irKey] = w[wireKey];
+  }
+  if (Array.isArray(w["stop_sequences"])) ir["stopSequences"] = w["stop_sequences"] as JSONValue;
+  if (typeof outputConfig["effort"] === "string") ir["reasoning"] = { effort: outputConfig["effort"] };
+  const fmt = outputConfig["format"];
+  if (fmt && typeof fmt === "object") {
+    const f = fmt as Record<string, unknown>;
+    ir["responseFormat"] = {
+      type: "json",
+      ...(f["schema"] !== undefined ? { schema: f["schema"] as JSONValue } : {}),
+      ...(typeof f["name"] === "string" ? { name: f["name"] } : {}),
+      ...(typeof f["description"] === "string" ? { description: f["description"] } : {}),
+      ...(typeof f["strict"] === "boolean" ? { strict: f["strict"] } : {}),
+    };
+  }
+  const meta = (w["metadata"] ?? {}) as Record<string, unknown>;
+  if (typeof meta["user_id"] === "string") ir["metadata"] = { userId: meta["user_id"] };
+  if (w["stream"] === true) ir["stream"] = true;
+  if (Object.keys(po).length > 0) ir["providerOptions"] = { anthropic: po };
+  if (allowUnknown) ir["allowUnknownProviderOptions"] = true;
+
+  const parsed = IRRequestSchema.safeParse(ir);
+  if (!parsed.success) {
+    throw invalid(`IR 변환 실패: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
+  }
+  return parsed.data;
+}

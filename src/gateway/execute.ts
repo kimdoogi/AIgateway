@@ -4,10 +4,11 @@ import type { IRRequest } from "../ir/request.js";
 import type { Attempt, IRResponse } from "../ir/response.js";
 import { TERMINAL_EVENT_SET } from "../ir/stream.js";
 import type { Usage } from "../ir/usage.js";
-import type { AdapterStreamEvent, RequestContext, WireRequest } from "../adapters/types.js";
+import type { AdapterStreamEvent, OutboundAdapter, RequestContext, WireRequest } from "../adapters/types.js";
 import { AdapterInvalidRequestError, makeWarning } from "../adapters/shared.js";
 import { parseSSEStream } from "../stream/sse.js";
-import { getProvider, resolveModel, type ProviderRuntime } from "./registry.js";
+import { getProvider, resolveModel, selectSurface, type ProviderRuntime } from "./registry.js";
+import { retargetRequest } from "./retarget.js";
 import { GatewayError, irError, providerError, toIRError } from "./errors.js";
 import { SessionStore, type StreamSession, type StreamEventDraft } from "./session.js";
 import type { LedgerRow, UsageLedger } from "../state/types.js";
@@ -83,16 +84,18 @@ function credentialHeaders(rt: ProviderRuntime): Record<string, string> {
   if (!secret) {
     // 설정 결함 = 게이트웨이 내부 결함
     throw new GatewayError(
-      irError("auth", 500, `${rt.auth.envVar} 미설정 — ${rt.adapter.provider} 자격증명 없음`, {
+      irError("auth", 500, `${rt.auth.envVar} 미설정 — ${rt.provider} 자격증명 없음`, {
         gatewayException: true,
       }),
     );
   }
-  return { [rt.auth.header]: secret };
+  return { [rt.auth.header]: `${rt.auth.prefix ?? ""}${secret}` };
 }
 
 interface PreparedCall {
   rt: ProviderRuntime;
+  /** 표면 선택 결과 — 이 호출이 쓰는 어댑터 (ADR-0002 결과 절) */
+  adapter: OutboundAdapter;
   ctx: RequestContext & { requestedModel: string };
   wire: WireRequest;
   transformWarnings: Warning[];
@@ -102,6 +105,11 @@ interface PreparedCall {
 function prepare(req: IRRequest, deps: ExecuteDeps): PreparedCall {
   const route = resolveModel(req.model);
   const rt = getProvider(route.provider);
+  // 재타게팅 패스 (ir-v0 §13.3) — 고아 tool 쌍·타깃 상이 서버 상태 PO 정규화, 어댑터 진입 전
+  const { request: retargeted, warnings: retargetWarnings } = retargetRequest(req, route.provider);
+  req = retargeted;
+  // 표면 결정은 레지스트리 공통 규칙 + 프로바이더 소유 선택자 (D4 — 코어에 분기문 없음)
+  const { adapter, warnings: surfaceWarnings } = selectSurface(rt, req, route);
   const ctx = {
     requestId: genRequestId(deps),
     modelId: route.modelId,
@@ -109,8 +117,15 @@ function prepare(req: IRRequest, deps: ExecuteDeps): PreparedCall {
     ...(route.capabilities ? { capabilities: route.capabilities } : {}),
   };
   try {
-    const { request, warnings } = rt.adapter.transformRequest(req, ctx);
-    return { rt, ctx, wire: request, transformWarnings: warnings, created: (deps.now?.() ?? new Date()).toISOString() };
+    const { request, warnings } = adapter.transformRequest(req, ctx);
+    return {
+      rt,
+      adapter,
+      ctx,
+      wire: request,
+      transformWarnings: [...retargetWarnings, ...surfaceWarnings, ...warnings],
+      created: (deps.now?.() ?? new Date()).toISOString(),
+    };
   } catch (err) {
     if (err instanceof AdapterInvalidRequestError) throw new GatewayError(err.irError);
     throw err;
@@ -128,9 +143,9 @@ function rowBase(
   return {
     requestId: call.ctx.requestId,
     attempt,
-    provider: call.rt.adapter.provider,
+    provider: call.adapter.provider,
     model: call.ctx.modelId,
-    surface: call.rt.adapter.surface,
+    surface: call.adapter.surface,
     stream,
     durationMs,
     createdAt: (deps.now?.() ?? new Date()).toISOString(),
@@ -174,7 +189,7 @@ async function dispatch(
 async function mapHttpErrorResponse(call: PreparedCall, response: Response): Promise<GatewayError> {
   const body: unknown = await response.json().catch(() => undefined); // 에러 body는 비JSON 허용
   return new GatewayError(
-    call.rt.adapter.mapHttpError(response.status, body, Object.fromEntries(response.headers)),
+    call.adapter.mapHttpError(response.status, body, Object.fromEntries(response.headers)),
   );
 }
 
@@ -198,7 +213,7 @@ async function dispatchWithRetry(
   const policy = deps.retry ?? DEFAULT_RETRY;
   const sleep = deps.sleep ?? defaultSleep;
   const attempts: Attempt[] = [];
-  const target = { provider: call.rt.adapter.provider, model: call.ctx.modelId };
+  const target = { provider: call.adapter.provider, model: call.ctx.modelId };
   for (let attempt = 1; ; attempt++) {
     const attemptStart = Date.now();
     let error: IRError | undefined;
@@ -267,7 +282,7 @@ export async function executeNonStream(
   const span = tracer.startSpan("gateway.request", {
     attributes: {
       "gateway.request_id": call.ctx.requestId,
-      "gateway.provider": call.rt.adapter.provider,
+      "gateway.provider": call.adapter.provider,
       "gateway.model": call.ctx.modelId,
       "gateway.stream": false,
     },
@@ -301,17 +316,17 @@ export async function executeNonStream(
     } catch (err) {
       if (signal?.aborted) throw new GatewayError(irError("gateway_error", 499, "클라이언트 취소로 응답 수신 중단"));
       throw new GatewayError(
-        providerError(`응답 body 읽기 실패: ${err instanceof Error ? err.message : String(err)}`, call.rt.adapter.provider, 200),
+        providerError(`응답 body 읽기 실패: ${err instanceof Error ? err.message : String(err)}`, call.adapter.provider, 200),
       );
     }
 
-    let t: ReturnType<typeof call.rt.adapter.transformResponse>;
+    let t: ReturnType<typeof call.adapter.transformResponse>;
     try {
-      t = call.rt.adapter.transformResponse(body, call.ctx);
+      t = call.adapter.transformResponse(body, call.ctx);
     } catch (err) {
       if (err instanceof AdapterInvalidRequestError) throw new GatewayError(err.irError);
       throw new GatewayError(
-        providerError(`응답 변환 실패: ${err instanceof Error ? err.message : String(err)}`, call.rt.adapter.provider, 200),
+        providerError(`응답 변환 실패: ${err instanceof Error ? err.message : String(err)}`, call.adapter.provider, 200),
       );
     }
 
@@ -337,7 +352,7 @@ export async function executeNonStream(
       created: call.created,
       model: {
         requested: call.ctx.requestedModel,
-        resolved: { provider: t.origin.provider, model: t.origin.model, surface: t.origin.surface ?? call.rt.adapter.surface },
+        resolved: { provider: t.origin.provider, model: t.origin.model, surface: t.origin.surface ?? call.adapter.surface },
       },
       message: { role: "assistant", blocks: t.blocks, origin: t.origin },
       finishReason: t.finishReason,
@@ -412,7 +427,7 @@ export async function* executeStream(
   const span = tracer.startSpan("gateway.stream", {
     attributes: {
       "gateway.request_id": call.ctx.requestId,
-      "gateway.provider": call.rt.adapter.provider,
+      "gateway.provider": call.adapter.provider,
       "gateway.model": call.ctx.modelId,
       "gateway.stream": true,
     },
@@ -483,7 +498,7 @@ export async function* executeStream(
     return;
   }
 
-  const transformer = call.rt.adapter.createStreamTransformer({
+  const transformer = call.adapter.createStreamTransformer({
     modelId: call.ctx.modelId,
     ...(req.streamOptions?.includeRaw ? { includeRaw: true } : {}),
     ...(call.ctx.capabilities ? { capabilities: call.ctx.capabilities } : {}),

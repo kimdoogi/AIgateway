@@ -1,0 +1,38 @@
+{
+  "case": "oai-gate-401",
+  "recordedAt": "2026-08-21",
+  "model": "gpt-5.6-luna",
+  "stream": false,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "gpt-5.6-luna",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "hi"
+            }
+          ]
+        }
+      ],
+      "store": false
+    }
+  },
+  "status": 401,
+  "headers": {
+    "content-type": "text/plain"
+  },
+  "body": {
+    "error": {
+      "message": "Incorrect API key provided: sk-proj-**************************0000. You can find your API key at https://platform.openai.com/account/api-keys.",
+      "type": "invalid_request_error",
+      "code": "invalid_api_key",
+      "param": null
+    },
+    "status": 401
+  }
+}

@@ -7,9 +7,27 @@ import type { JSONObject } from "../../src/ir/json.js";
 
 export const HAIKU = "claude-haiku-4-5";
 export const SONNET = "claude-sonnet-4-6";
+export const OAI_CHEAP = "gpt-5.6-luna"; // GPT-5.6 저비용 (인벤토리 §H)
+
+const OAI_WEATHER_TOOL: JSONObject = {
+  type: "function",
+  name: "get_weather",
+  description: "Get the current weather for a city.",
+  strict: true,
+  parameters: {
+    type: "object",
+    properties: { city: { type: "string" } },
+    required: ["city"],
+    additionalProperties: false,
+  },
+};
 
 export interface CaptureCase {
   name: string;
+  /** 기본 anthropic */
+  provider?: "anthropic" | "openai";
+  /** 프로바이더 기본 path 오버라이드 (openai: /v1/responses | /v1/chat/completions) */
+  path?: string;
   model: string;
   body: JSONObject;
   stream?: boolean;
@@ -427,6 +445,340 @@ export const CASES: CaptureCase[] = [
       max_tokens: 2000,
       stream: true,
       messages: [{ role: "user", content: "Write a long story about the sea." }],
+    },
+  },
+
+  // ══ OpenAI (로드맵 4) — Responses 주 표면 + CC 보조 (ADR-0002) ══════════
+  // 저비용 모델(gpt-5.6-luna)로 wire 포맷 검증. store:false 강제 재현 (게이트웨이와 동일 body).
+
+  {
+    name: "oai-text",
+    provider: "openai",
+    model: OAI_CHEAP,
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: `What is the capital of France? ${SHORT}` }] }],
+      store: false,
+      include: ["reasoning.encrypted_content"],
+      max_output_tokens: 100,
+    },
+  },
+  {
+    name: "oai-text-stream",
+    provider: "openai",
+    model: OAI_CHEAP,
+    stream: true,
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: `Count from 1 to 5. ${SHORT}` }] }],
+      store: false,
+      include: ["reasoning.encrypted_content"],
+      max_output_tokens: 200,
+      stream: true,
+    },
+  },
+  {
+    name: "oai-system",
+    provider: "openai",
+    model: OAI_CHEAP,
+    body: {
+      model: OAI_CHEAP,
+      instructions: "You are a pirate. Answer in pirate speak.",
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: `Say hello. ${SHORT}` }] }],
+      store: false,
+      max_output_tokens: 100,
+    },
+  },
+  {
+    name: "oai-tool-call",
+    provider: "openai",
+    model: OAI_CHEAP,
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "What's the weather in Paris?" }] }],
+      tools: [OAI_WEATHER_TOOL],
+      tool_choice: "required",
+      store: false,
+      max_output_tokens: 500,
+    },
+  },
+  {
+    name: "oai-tool-call-stream",
+    provider: "openai",
+    model: OAI_CHEAP,
+    stream: true,
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "What's the weather in Tokyo and Seoul?" }] }],
+      tools: [OAI_WEATHER_TOOL],
+      tool_choice: "required",
+      store: false,
+      max_output_tokens: 800,
+      stream: true,
+    },
+  },
+  {
+    name: "oai-tool-result-roundtrip",
+    provider: "openai",
+    model: OAI_CHEAP,
+    body: {
+      model: OAI_CHEAP,
+      input: [
+        { type: "message", role: "user", content: [{ type: "input_text", text: "What's the weather in Paris?" }] },
+        { type: "function_call", call_id: "call_fixture0001", name: "get_weather", arguments: '{"city":"Paris"}' },
+        { type: "function_call_output", call_id: "call_fixture0001", output: '{"temp_c":21,"sky":"clear"}' },
+      ],
+      tools: [OAI_WEATHER_TOOL],
+      store: false,
+      max_output_tokens: 150,
+    },
+  },
+  {
+    name: "oai-reasoning",
+    provider: "openai",
+    model: OAI_CHEAP,
+    note: "encrypted_content 왕복 페이로드 확보 (opaqueState 검증)",
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Is 91 prime? Think it through." }] }],
+      reasoning: { effort: "low", summary: "auto" },
+      store: false,
+      include: ["reasoning.encrypted_content"],
+      max_output_tokens: 2000,
+    },
+  },
+  {
+    name: "oai-reasoning-stream",
+    provider: "openai",
+    model: OAI_CHEAP,
+    stream: true,
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Is 133 prime? Think it through." }] }],
+      reasoning: { effort: "low", summary: "auto" },
+      store: false,
+      include: ["reasoning.encrypted_content"],
+      max_output_tokens: 2000,
+      stream: true,
+    },
+  },
+  {
+    name: "oai-json-schema",
+    provider: "openai",
+    model: OAI_CHEAP,
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Extract: 'Alice is 30 years old.'" }] }],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "person",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: { name: { type: "string" }, age: { type: "integer" } },
+            required: ["name", "age"],
+            additionalProperties: false,
+          },
+        },
+      },
+      store: false,
+      max_output_tokens: 200,
+    },
+  },
+  {
+    name: "oai-multimodal-image",
+    provider: "openai",
+    model: OAI_CHEAP,
+    body: {
+      model: OAI_CHEAP,
+      input: [
+        {
+          type: "message",
+          role: "user",
+          content: [
+            { type: "input_text", text: `What color is this image? ${SHORT}` },
+            { type: "input_image", image_url: `data:image/png;base64,${PNG_1X1}` },
+          ],
+        },
+      ],
+      store: false,
+      max_output_tokens: 100,
+    },
+  },
+  {
+    name: "oai-pdf",
+    provider: "openai",
+    model: OAI_CHEAP,
+    body: {
+      model: OAI_CHEAP,
+      input: [
+        {
+          type: "message",
+          role: "user",
+          content: [
+            { type: "input_text", text: `What does the PDF say? ${SHORT}` },
+            { type: "input_file", filename: "fixture.pdf", file_data: `data:application/pdf;base64,${minimalPdfBase64()}` },
+          ],
+        },
+      ],
+      store: false,
+      max_output_tokens: 150,
+    },
+  },
+  {
+    name: "oai-web-search",
+    provider: "openai",
+    model: OAI_CHEAP,
+    note: "서버 툴 item wire 확보 (web_search_call) — 소액 추가 과금",
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "What is the current UTC date? Use web search." }] }],
+      tools: [{ type: "web_search" }],
+      store: false,
+      max_output_tokens: 600,
+    },
+  },
+  // ── 무과금 게이트 (400/404/401) ──
+  {
+    name: "oai-gate-sampling-reasoning",
+    provider: "openai",
+    model: OAI_CHEAP,
+    expectStatus: 400,
+    note: "reasoning 모델의 temperature 거부 — unsupportedParams 게이트 근거 실증",
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      temperature: 0.5,
+      store: false,
+      max_output_tokens: 50,
+    },
+  },
+  {
+    name: "oai-gate-bad-schema",
+    provider: "openai",
+    model: OAI_CHEAP,
+    expectStatus: 400,
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      text: { format: { type: "json_schema", name: "bad", strict: true, schema: { type: "object", properties: { x: { allOf: [] } } } } },
+      store: false,
+      max_output_tokens: 50,
+    },
+  },
+  {
+    name: "oai-gate-unknown-model",
+    provider: "openai",
+    model: "gpt-nonexistent-model",
+    expectStatus: 400, // Responses는 미지 모델을 404가 아닌 400으로 (2026-08-21 실측)
+    body: {
+      model: "gpt-nonexistent-model",
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      store: false,
+    },
+  },
+  {
+    name: "oai-gate-401",
+    provider: "openai",
+    model: OAI_CHEAP,
+    expectStatus: 401,
+    invalidKey: true,
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      store: false,
+    },
+  },
+  {
+    name: "oai-gate-pro-on-cc",
+    provider: "openai",
+    path: "/v1/chat/completions",
+    model: "gpt-5-pro",
+    expectStatus: 404,
+    note: "Responses 전용 모델의 CC 호출 404 — surfaces capability 근거 실증 (ADR-0002)",
+    body: { model: "gpt-5-pro", messages: [{ role: "user", content: "hi" }], max_completion_tokens: 50 },
+  },
+  // ── Chat Completions 보조 표면 ──
+  {
+    name: "oai-cc-text",
+    provider: "openai",
+    path: "/v1/chat/completions",
+    model: OAI_CHEAP,
+    body: {
+      model: OAI_CHEAP,
+      messages: [{ role: "user", content: `What is the capital of Japan? ${SHORT}` }],
+      max_completion_tokens: 100,
+    },
+  },
+  {
+    name: "oai-cc-stream",
+    provider: "openai",
+    path: "/v1/chat/completions",
+    model: OAI_CHEAP,
+    stream: true,
+    body: {
+      model: OAI_CHEAP,
+      messages: [{ role: "user", content: `Count from 1 to 5. ${SHORT}` }],
+      max_completion_tokens: 200,
+      stream: true,
+      stream_options: { include_usage: true },
+    },
+  },
+  {
+    name: "oai-cc-tool-call",
+    provider: "openai",
+    path: "/v1/chat/completions",
+    model: OAI_CHEAP,
+    note: "GPT-5.6 CC 함수 툴은 reasoning_effort none 필수 (2026-08-21 실측 400)",
+    body: {
+      model: OAI_CHEAP,
+      reasoning_effort: "none",
+      messages: [{ role: "user", content: "What's the weather in Paris?" }],
+      tools: [{ type: "function", function: { name: "get_weather", description: "Get the current weather for a city.", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"], additionalProperties: false } } }],
+      tool_choice: "required",
+      max_completion_tokens: 500,
+    },
+  },
+  {
+    name: "oai-cc-tool-call-stream",
+    provider: "openai",
+    path: "/v1/chat/completions",
+    model: OAI_CHEAP,
+    stream: true,
+    body: {
+      model: OAI_CHEAP,
+      reasoning_effort: "none",
+      messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
+      tools: [{ type: "function", function: { name: "get_weather", description: "Get the current weather for a city.", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"], additionalProperties: false } } }],
+      tool_choice: "required",
+      max_completion_tokens: 500,
+      stream: true,
+      stream_options: { include_usage: true },
+    },
+  },
+  // ── manual (기회 채집) ──
+  {
+    name: "oai-429",
+    provider: "openai",
+    model: OAI_CHEAP,
+    manual: true,
+    expectStatus: 429,
+    body: { model: OAI_CHEAP, input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }], store: false },
+  },
+  {
+    name: "oai-stream-truncation",
+    provider: "openai",
+    model: OAI_CHEAP,
+    manual: true,
+    stream: true,
+    note: "response.completed 없는 절단 — 만났을 때만",
+    body: {
+      model: OAI_CHEAP,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Write a long story about the sea." }] }],
+      store: false,
+      max_output_tokens: 2000,
+      stream: true,
     },
   },
 ];

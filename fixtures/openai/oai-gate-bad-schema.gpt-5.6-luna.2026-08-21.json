@@ -1,0 +1,53 @@
+{
+  "case": "oai-gate-bad-schema",
+  "recordedAt": "2026-08-21",
+  "model": "gpt-5.6-luna",
+  "stream": false,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "gpt-5.6-luna",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "hi"
+            }
+          ]
+        }
+      ],
+      "text": {
+        "format": {
+          "type": "json_schema",
+          "name": "bad",
+          "strict": true,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "allOf": []
+              }
+            }
+          }
+        }
+      },
+      "store": false,
+      "max_output_tokens": 50
+    }
+  },
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": {
+      "message": "Invalid schema for response_format 'bad': [] should be non-empty.",
+      "type": "invalid_request_error",
+      "param": "text.format.schema",
+      "code": "invalid_json_schema"
+    }
+  }
+}

@@ -1,0 +1,461 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > citations — drop 기본 + demote 정책 각 1회 > demote 1`] = `
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content",
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "Haiku 4.5 records fixtures.",
+            "type": "output_text",
+          },
+        ],
+        "role": "assistant",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+    ],
+    "model": "gpt-5.6-luna",
+    "store": false,
+  },
+  "retargetWarnings": [],
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > citations — drop 기본 + demote 정책 각 1회 > drop 1`] = `
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content",
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "Haiku 4.5 records fixtures.",
+            "type": "output_text",
+          },
+        ],
+        "role": "assistant",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+    ],
+    "model": "gpt-5.6-luna",
+    "store": false,
+  },
+  "retargetWarnings": [],
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > text — drop 기본 + demote 정책 각 1회 > demote 1`] = `
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content",
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "The capital of France is Paris.",
+            "type": "output_text",
+          },
+        ],
+        "role": "assistant",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+    ],
+    "model": "gpt-5.6-luna",
+    "store": false,
+  },
+  "retargetWarnings": [],
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > text — drop 기본 + demote 정책 각 1회 > drop 1`] = `
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content",
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "The capital of France is Paris.",
+            "type": "output_text",
+          },
+        ],
+        "role": "assistant",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+    ],
+    "model": "gpt-5.6-luna",
+    "store": false,
+  },
+  "retargetWarnings": [],
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > thinking — drop 기본 + demote 정책 각 1회 > demote 1`] = `
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content",
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "This is a classic trick question or question that tests understanding of proportional reasoning.
+
+If 3 shirts dry in 2 hours, the question is asking how long for 9 shirts.
+
+The key insight is whether drying time depends on the NUMBER of shirts or not.
+
+If the shirts are drying simultaneously (hung out side by side), then all shirts take the same amount of time to dry regardless of how many there are. So 9 shirts would also take 2 hours.
+
+If the shirts must dry sequentially (one after another), then:
+- 3 shirts take 2 hours
+- 9 shirts (which is 3 times as many) would take 3 × 2 = 6 hours
+
+In reality, most drying scenarios (air drying, using a dryer) the shirts dry simultaneously, so the answer would be 2 hours.
+
+However, this problem is likely meant to test if people blindly assume proportional scaling. The most likely intended answer is that it still takes 2 hours because the shirts dry at the same time.
+
+Let me be brief as requested.",
+            "type": "output_text",
+          },
+        ],
+        "role": "assistant",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "2 hours.
+
+Shirts dry simultaneously, not sequentially. Adding more shirts doesn't extend drying time if they're hanging together.",
+            "type": "output_text",
+          },
+        ],
+        "role": "assistant",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+    ],
+    "model": "gpt-5.6-luna",
+    "store": false,
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "reasoning-demoted",
+      "message": "외래 reasoning을 텍스트로 강등",
+      "path": "messages[1].blocks[0]",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > thinking — drop 기본 + demote 정책 각 1회 > drop 1`] = `
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content",
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "2 hours.
+
+Shirts dry simultaneously, not sequentially. Adding more shirts doesn't extend drying time if they're hanging together.",
+            "type": "output_text",
+          },
+        ],
+        "role": "assistant",
+        "type": "message",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+    ],
+    "model": "gpt-5.6-luna",
+    "store": false,
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "reasoning-dropped",
+      "message": "외래 reasoning 블록 드롭 (retarget: drop)",
+      "path": "messages[1].blocks[0]",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > tool-call — drop 기본 + demote 정책 각 1회 > demote 1`] = `
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content",
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+      {
+        "arguments": "{"city":"Seoul"}",
+        "call_id": "toolu_fixture0002",
+        "name": "get_weather",
+        "type": "function_call",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+    ],
+    "model": "gpt-5.6-luna",
+    "store": false,
+  },
+  "retargetWarnings": [],
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > tool-call — drop 기본 + demote 정책 각 1회 > drop 1`] = `
+{
+  "body": {
+    "include": [
+      "reasoning.encrypted_content",
+    ],
+    "input": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+      {
+        "arguments": "{"city":"Seoul"}",
+        "call_id": "toolu_fixture0002",
+        "name": "get_weather",
+        "type": "function_call",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "input_text",
+          },
+        ],
+        "role": "user",
+        "type": "message",
+      },
+    ],
+    "model": "gpt-5.6-luna",
+    "store": false,
+  },
+  "retargetWarnings": [],
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: openai 응답 → anthropic 요청 > reasoning(encrypted)+toolCall — 외래 reasoning drop, tool 쌍은 결과와 함께 보존 1`] = `
+{
+  "body": {
+    "max_tokens": 100,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "weather in Paris?",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "content": [
+          {
+            "text": "Let me check.",
+            "type": "text",
+          },
+          {
+            "id": "call_c1",
+            "input": {
+              "city": "Paris",
+            },
+            "name": "get_weather",
+            "type": "tool_use",
+          },
+        ],
+        "role": "assistant",
+      },
+      {
+        "content": [
+          {
+            "content": "{"temp_c":21}",
+            "tool_use_id": "call_c1",
+            "type": "tool_result",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+    "model": "claude-haiku-4-5",
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "reasoning-dropped",
+      "message": "외래 reasoning 블록 드롭 (retarget: drop)",
+      "path": "messages[1].blocks[0]",
+      "type": "unsupported",
+    },
+  ],
+}
+`;

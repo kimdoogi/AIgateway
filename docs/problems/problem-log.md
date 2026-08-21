@@ -82,3 +82,36 @@
 - **회계 수정**: 200 수신 후 body/변환 실패도 billed 원장 행 기록(과금 유출 차단), attempt 번호 전 경로 전파(충돌 행 제거), `gateway.attempts`/`finish.attempts` 스펙 좌석 구현(리트라이 이력 클라이언트 노출), TTFT·warnings·surface 메타 로그 배선.
 - **신뢰성**: pg Pool error 리스너(유휴 단절 크래시 방지), PG/Redis 캐시된 거부 프라미스 리셋, Redis expire 터미널 경합 — persistTail 직렬화로 해소, append 실패 시 버퍼 무효화(틀린 재생 대신 410), RUNNING_TTL 7200(heartbeat 최대 주기와 경계 분리).
 - **로드맵 4 좌석 (기록)**: 폴백 트리에서 attempt는 타깃별로 재시작 — LedgerRow에 targetIndex 열 추가 필요. recordTerminal은 willRetry:true error-partial에도 발화 — 트리 구현 시 판정 이전 기록 금지.
+
+
+## 2026-08-21 — 로드맵 4 착수 전 간극 점검: 어댑터 계약이 Responses API를 못 담는 지점 3건 (차단급)
+
+- **증상**: OpenAI 어댑터 코드 착수 전 계약 점검([간극 문서](../plan/openai-adapter-gaps.md))에서 결정 없이는 진행 불가한 구멍 3건 검출. ① **표면 축 부재** — `registerProvider()`가 `adapter.provider` 키의 1:1 맵이고 `OutboundAdapter.surface`는 인스턴스 상수라, ADR-0002/0004가 요구하는 이중 표면(Responses/CC, chat/responses)과 sticky 선택을 실을 자리가 없음. ② **capability 힌트 부족** — reasoning 모델의 sampling 400 거부, pro 계열 Responses 전용(CC 404) 같은 모델별 게이트를 레지스트리가 공급할 슬롯 없음(`AdapterCapabilities` 3필드). ③ **PO 우선순위 규범 없음** — `store` 강제 false vs `providerOptions.openai.store`, 표준 `toolChoice` vs `allowed_tools`처럼 같은 wire 슬롯을 다투는 경우의 승자가 ir-v0 §2에 미정의.
+- **처리** (사용자 결정 3건 확정): ① 표면을 레지스트리 1급 축으로 도입(ADR-0002 결과 절에 구현 형태 기록, 매트릭스에 표면 전환×폴백 행 추가), ② `AdapterCapabilities`에 `unsupportedParams`·`surfaces` 추가(레지스트리 공급 유지), ③ ir-v0 §2에 **PO 우선 + `provider-option-override` warning** 규범 신설(§5·`src/ir/common.ts` 동기화).
+- **동반 패치**: §4.0 응답 방향 `origin.surface` 필수 계약(sticky의 전제), §4.2 reasoning 원문 보존 키의 요청측 PO 스키마 등재 의무(미등재 시 D5가 4xx로 왕복 불변식 파괴), §10.2 refusal의 스트림 표현·서버 실행 툴 진행 이벤트 처리(조용한 드롭 금지), §15 `image_generation`(partial_image)은 이미지 출력 블록 부재로 v0 범위 밖.
+- **잔여 한계 (기록만)**: OpenAI usage에 캐시 **쓰기** 카운트가 없어(`cached_tokens`=읽기만) GPT-5.6+ 캐시 쓰기 1.25× 단가를 usage로부터 산정 불가 — `input.cacheWrite`는 0 고정, 정산 정확도 한계로 남긴다(로드맵 5 단가표에서 재검토).
+- **교훈**: 계약 간극 점검을 코드 앞에 두니 스펙 패치 6곳이 구현 전에 정리됨. 두 번째 프로바이더는 첫 어댑터가 굳혀놓은 암묵 가정(1 provider = 1 표면)을 드러내는 자리 — 세 번째(Gemini) 착수 전에도 같은 점검을 반복할 것.
+
+
+## 2026-08-21 — 로드맵 4 구현 중 확정한 스펙 레벨 세부 (부록 (a) 동시 작성으로 소급 없음)
+
+- **부록 (a)를 코드보다 먼저 작성** — §13.4의 "compat 인바운드 착수 전 완료" 차단 조건을 지켰고, 이번에는 소급 문서화가 발생하지 않았다. 구현 중 확정한 세부: ① `gateway.ir` 검증 실패는 4xx(조용한 절반 복원 금지), ② strict 모드는 요청 헤더 `x-gateway-compat: strict`, ③ 미지 키 opt-in은 `x-gateway-allow-unknown: true`, ④ CC 스트림의 gateway.ir은 [DONE] 직전 전용 chunk, ⑤ `cache-breakpoint-ignored` 발동 지점은 재타게팅 패스(인바운드는 라우팅 결과를 모름).
+- **OpenAI 스트림 구현 노트**: 진행 이벤트(`response.queued/in_progress`)는 Anthropic `ping`과 동급으로 무시(§10.2 미지 요소 아님 — 알려진 무의미 이벤트). `mcp_call_arguments.delta`는 블록 미개설 상태라 delta 방출 생략, 완성 item에서 tool-call로 확정. reasoning 요약 파트 경계는 `\n\n` 구분자.
+- **CC 절단의 이중 경로**: `[DONE]` 없는 절단에서 finish_reason을 이미 받았으면 finish로 종결(정상 종료 근사), 미수신이면 provider-error — 절단 오탐으로 폴백 트리를 오염시키지 않기 위함.
+- **재타게팅 D6-10 예외**: 마지막 assistant 툴콜 턴의 결과 없는 toolCall은 제거하지 않는다 — 진행 중 툴 루프(결과가 이번 요청에 실림)를 수리로 오인하면 정상 루프가 망가진다.
+- **잔여**: OpenAI 실 녹화(키 대기) 전까지 골든셋 ②는 todo 자리표시. `oai-gate-pro-on-cc`(404)·`oai-gate-sampling-reasoning`(400)이 녹화되면 registry capability 데이터의 실증 근거가 된다.
+
+
+## 2026-08-21 — OpenAI 첫 녹화 + 스모크: 신선도 장치·실측이 문서 전제 4건 갱신
+
+- **`input_tokens_details.cache_write_tokens` 존재** — 인벤토리(2026-08-20)와 간극 문서 G 항목의 "OpenAI는 캐시 쓰기 카운트 미노출, cacheWrite=0 고정, 정산 한계" 전제가 실 API에서 이미 낡았음. convertUsage에 반영(noCache = total − cached − cache_write), ir-v0 §8 표 갱신, 간극 문서 G 폐기 표기. GPT-5.6 캐시 쓰기 1.25× 단가 산정이 usage만으로 가능해짐.
+- **GPT-5.6 CC + 함수 툴 = `reasoning_effort: "none"` 필수** — 기본(effort medium)으로 tools를 보내면 400 ("use /v1/responses or set reasoning_effort to 'none'"). 게이트웨이는 v0에서 400 패스스루(명시적 실패 — 조용한 effort 주입은 D5 위반 소지). CC 표면으로 툴+reasoning을 함께 쓰려는 요청은 구조적으로 불가 → 표면 선택자의 Responses 우선 원칙(ADR-0002)이 실측으로 재확인됨. 캡처 케이스에 `reasoning_effort:"none"` 반영.
+- **미지 모델 = 400** (404 아님) — Responses의 모델 미존재 응답. expectStatus 갱신. mapOpenAIError는 code 기반(`model_not_found`→404 매핑 유지)이라 영향 없음 — 실 응답은 code 없이 400이라 invalid_request로 분류(수용).
+- **`$.tool_usage` 신필드 + `response.output_text.done` 미처리** — tool_usage는 known-fields 등재(서버 툴 사용량 요약 — billing 라인아이템 후보, 로드맵 5). output_text.done/refusal.done은 완성본 재통지라 무시 처리(오탐 제거). known-fields가 CC 응답 형태(choices)를 Responses 키셋으로 스캔하던 오탐도 수정(형태 자동 판별).
+- **스모크 스크립트**: `pnpm smoke:roadmap4` (실 과금 소액, opt-in — walking skeleton 8단계와 동일 지위). 크로스 프로바이더 대화 연속성(claude→gpt 같은 숫자 유지)이 목표 2의 첫 실증.
+
+## 2026-08-21 — 캐시 히트 스모크: 프로바이더 우회 후 캐시 보존 실증 (D10)
+
+- **시나리오**: claude(cache_control 프리픽스 ≈8.4k토큰) → openai 우회(동일 히스토리) → claude 복귀. **3턴이 1턴 캐시 8402토큰 전량 히트** (`cache_read_input_tokens=8402`, 신규 과금 52토큰) — 직렬화 결정론(D10) + §13.1 히스토리 편입 + 재타게팅 패스의 참조 보존이 실 API에서 합격. 우회 구간에는 `cache-breakpoint-ignored` warning 정상 발화.
+- **부수 실측**: Haiku 4.5 최소 캐시 프리픽스 — 3377토큰에서 write 0, 8402토큰에서 write 성공. 최소 단위가 구세대 문서값(2048)보다 큰 4096으로 추정. 캡처/스모크 필러 산정 시 참고.
+- **비용**: 스모크 1회 ≈ $0.04 (필러 재전송 3회 + openai 우회 전액).

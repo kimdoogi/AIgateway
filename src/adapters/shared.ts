@@ -79,6 +79,40 @@ export function partitionProviderOptions<S extends z.ZodObject>(
   return { known: schema.parse(ns), extra }; // strip 모드 — 미지 키는 parse 결과에서 제외
 }
 
+/**
+ * 모델 capability 게이트 (레지스트리 공급 `unsupportedParams`) — 값이 있는데 모델이 거부하는
+ * 파라미터를 드롭하고 보고한다. strictParameters면 4xx (D5). 프로바이더 지식 없음 —
+ * 목록은 레지스트리가 공급하므로 코어/어댑터 어디서 불러도 분기문이 생기지 않는다.
+ */
+export function gateUnsupportedParams<T extends Record<string, unknown>>(
+  values: T,
+  unsupported: readonly string[] | undefined,
+  strict: boolean | undefined,
+  providerLabel: string,
+  warnings: Warning[],
+): T {
+  if (!unsupported || unsupported.length === 0) return values;
+  const out = { ...values };
+  for (const key of unsupported) {
+    if (out[key] === undefined) continue;
+    if (strict) {
+      throw new AdapterInvalidRequestError(
+        `${providerLabel} 모델이 ${key}를 지원하지 않습니다 (strictParameters)`,
+      );
+    }
+    warnings.push(
+      makeWarning(
+        "unsupported",
+        "parameter-dropped",
+        `${providerLabel} 모델이 ${key}를 거부 — 드롭 (모델 capability 게이트)`,
+        key,
+      ),
+    );
+    delete out[key];
+  }
+  return out;
+}
+
 /** 프로바이더 미지원 파라미터의 D5 처리: strict면 4xx, 아니면 드롭 + warning */
 export function dropUnsupportedParams(
   values: Record<string, unknown>,

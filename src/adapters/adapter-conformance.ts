@@ -10,6 +10,8 @@ export function describeAdapterConformance(
   adapter: OutboundAdapter,
   sampleRequest: IRRequest,
   ctx: RequestContext,
+  /** 200 wire 응답 샘플 — 제공 시 응답 방향 origin.surface 계약(ir-v0 §4.0)을 검증 */
+  sampleWireResponse?: unknown,
 ): void {
   describe(`conformance: ${adapter.provider}/${adapter.surface}`, () => {
     it("provider/surface 식별자가 있다 (D4 — 코어는 이 속성만 본다)", () => {
@@ -50,6 +52,16 @@ export function describeAdapterConformance(
       expect(first.length).toBeGreaterThan(0);
       expect(transformer.onStreamEnd()).toEqual([]);
     });
+
+    if (sampleWireResponse !== undefined) {
+      it("응답 origin.surface는 항상 채워진다 — 표면 sticky의 전제 (ir-v0 §4.0)", () => {
+        const t = adapter.transformResponse(sampleWireResponse, { ...ctx, requestedModel: ctx.modelId });
+        expect(t.origin.surface).toBe(adapter.surface);
+        for (const block of t.blocks) {
+          expect(block.origin?.surface, `${block.type} 블록 origin.surface`).toBe(adapter.surface);
+        }
+      });
+    }
 
     it("mapHttpError는 전달된 status를 보존하고 IRError 형태를 지킨다", () => {
       const error = adapter.mapHttpError(500, { error: { type: "api_error", message: "x" } });

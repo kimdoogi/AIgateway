@@ -1,0 +1,31 @@
+{
+  "case": "oai-gate-pro-on-cc",
+  "recordedAt": "2026-08-21",
+  "model": "gpt-5-pro",
+  "stream": false,
+  "request": {
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "gpt-5-pro",
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ],
+      "max_completion_tokens": 50
+    }
+  },
+  "status": 404,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": {
+      "message": "This model is only supported in v1/responses and not in v1/chat/completions.",
+      "type": "invalid_request_error",
+      "param": "model",
+      "code": null
+    }
+  }
+}

@@ -1,0 +1,143 @@
+{
+  "case": "oai-reasoning",
+  "recordedAt": "2026-08-21",
+  "model": "gpt-5.6-luna",
+  "stream": false,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "gpt-5.6-luna",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Is 91 prime? Think it through."
+            }
+          ]
+        }
+      ],
+      "reasoning": {
+        "effort": "low",
+        "summary": "auto"
+      },
+      "store": false,
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "max_output_tokens": 2000
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "resp_fixture0001",
+    "object": "response",
+    "created_at": 1787288942,
+    "status": "completed",
+    "background": false,
+    "billing": {
+      "payer": "developer"
+    },
+    "completed_at": 1787288944,
+    "error": null,
+    "frequency_penalty": 0,
+    "incomplete_details": null,
+    "instructions": null,
+    "max_output_tokens": 2000,
+    "max_tool_calls": null,
+    "model": "gpt-5.6-luna",
+    "moderation": null,
+    "output": [
+      {
+        "id": "rs_fixture0002",
+        "type": "reasoning",
+        "content": [],
+        "encrypted_content": "gAAAAABqh91w_whpGtDGVU-JBVUv2ho11GKAfCRmbOH34WSBVnABg7-LfGLqXI0cvrOlfR3MNORf5rBsbATi2IQ8ik0jPZSn3rdixdD9yWpOXRpBhvlgj9QFcErNVJaXQFoE24eaO1cwgvpri7FZ7lNfhT28OD003ZOiMDHUqiLWLOU4IbnA3-5hirU7gUE7C9C_KAIVEct4ouEizAeEZAASkH456-Parr2tsx1_QPtLe3axuH-qkaJ4-S7UAx45QodPhzDFAlWtQdrQPbTf_fgEghnASyW3qthd8YrR9UDo0QIpbljN6dYKcU13uZ8jzNuBL8sRHLk8F_C39JGfkgnOkd4-IoEqMjv15-A8Uavnhr2_KmHcWZwyxZeO454SCGqQaLYmy4Qw0_9MkaYT0Q4G_qn-pJ1sde-Z-E6AzSrtaMAVThkrSZHVHAA1iHKLJ9G1esxtDzhBg-SHEcByASqIYmGAcKpanbVayjqOn_HfJXMXqeaAZ83pSM7kW7e8KjEoVaaJUn8deBhAzwXmCsRsO_gaN-cIx9bMDgy-87cAt3-uVGpWQwPZClItrdZ_XDMbhxo1jsORcmOc6JJcmy0DGsSBZkcpIY64eCOuYQKtQbP2-R-BVhaq_1lu1s74D6H2wpxz4eEsfcDl2yMig76NyqWGCUjTXJZUCL04j0Hbvv1ApvDoQzdqsD8XfvsW5c2leQIj0aORX-6GgA-LZ2iXmPb3UzDfRfORYXsqZX95aH6AF9w6oKqiRRDrKPY7m5LvdhmKUtDNbRWg1kiwKregdIzTAoFPGjDxqBfrvsSVZFpOzX0SpBA9E6bXN7eGvHTp_dHN04zCZsuPjcMMR4V46KA85fxrLSVspS5zWzRIToITAsGXiESYVZXRxyLnGWoBZT-DP2DGR7956M5JrrkcGkMrI5OUGSeIKd69SyCIEg3_lImlBBRaMUO-zCJbSTVV0iCccTic3U9X_TMpJSxUhHDo9KSSWHRDUrVdcaFVBQEzRBjqy0eftEXPAOVkbBmcVTDcNmzi6MNjbJxmcIKfvS84m4HakSuh62PQmN1SIh5l9zvkYSt_k3YmC9hvEFYSdRQAPpxD6KjRJCgfMVat-GzAwBmnFEJzw1FMs6Doo-2fmb-aR7iOTkCOo2-b0yHoLblh4EWZ1d345we8kep-AQCu0TIYvwEr3oG2Ap8nAyOivKROKP9R4iVGoUt9E_-NOG0dofxgx3p8FRQ8TjlXO2THHm4_xG7SOrJEDJ4qMenJmhrqFj5wy9Ys5q1_4KCGVjIWWnDtZ8lgFYXw7g_ERNXk8Q61oWLm2dVhjjuYeQXfOV-CWKs=",
+        "summary": [
+          {
+            "type": "summary_text",
+            "text": "**Calculating factors of 91**\n\nI need to explain why 91 isn't prime. It's actually 7 times 13, which means it's composite. To check this, I think about the square root of 91, which is about 9.5. So I can test if it’s divisible by small primes like 2, 3, 5, and 7. I found out it is divisible by 7, confirming that 91 is definitely not a prime number!"
+          }
+        ]
+      },
+      {
+        "id": "msg_fixture0003",
+        "type": "message",
+        "status": "completed",
+        "content": [
+          {
+            "type": "output_text",
+            "annotations": [],
+            "logprobs": [],
+            "text": "No. \\(91\\) is not prime because it factors as\n\n\\[\n91 = 7 \\times 13.\n\\]\n\nSince it has factors other than \\(1\\) and itself, \\(91\\) is composite."
+          }
+        ],
+        "phase": "final_answer",
+        "role": "assistant"
+      }
+    ],
+    "parallel_tool_calls": true,
+    "presence_penalty": 0,
+    "previous_response_id": null,
+    "prompt_cache_key": null,
+    "prompt_cache_retention": "24h",
+    "reasoning": {
+      "context": "all_turns",
+      "effort": "low",
+      "mode": "standard",
+      "summary": "detailed"
+    },
+    "safety_identifier": null,
+    "service_tier": "default",
+    "store": false,
+    "temperature": 1,
+    "text": {
+      "format": {
+        "type": "text"
+      },
+      "verbosity": "medium"
+    },
+    "tool_choice": "auto",
+    "tool_usage": {
+      "image_gen": {
+        "input_tokens": 0,
+        "input_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 0
+        },
+        "output_tokens": 0,
+        "output_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 0
+        },
+        "total_tokens": 0
+      },
+      "web_search": {
+        "num_requests": 0
+      }
+    },
+    "tools": [],
+    "top_logprobs": 0,
+    "top_p": 0.98,
+    "truncation": "disabled",
+    "usage": {
+      "input_tokens": 15,
+      "input_tokens_details": {
+        "cache_write_tokens": 0,
+        "cached_tokens": 0
+      },
+      "output_tokens": 95,
+      "output_tokens_details": {
+        "reasoning_tokens": 42
+      },
+      "total_tokens": 110
+    },
+    "user": null,
+    "metadata": {}
+  }
+}

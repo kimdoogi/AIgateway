@@ -1,0 +1,51 @@
+{
+  "case": "oai-cc-tool-call-stream",
+  "recordedAt": "2026-08-21",
+  "model": "gpt-5.6-luna",
+  "stream": true,
+  "request": {
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "none",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What's the weather in Tokyo?"
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "get_weather",
+            "description": "Get the current weather for a city.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "city": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "city"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      ],
+      "tool_choice": "required",
+      "max_completion_tokens": 500,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream; charset=utf-8"
+  },
+  "chunksFile": "oai-cc-tool-call-stream.gpt-5.6-luna.2026-08-21.chunks.txt"
+}

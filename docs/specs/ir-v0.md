@@ -41,6 +41,7 @@ type NS<T = JSONObject> = { [providerKey: string]: T };
 - 부착 지점: 요청 envelope, 메시지, 모든 블록, 툴 정의 (`providerOptions`); 응답 envelope, 응답 블록, finish 이벤트 (`providerMetadata`).
 - **어댑터 규칙**: 자기 네임스페이스만 스키마 검증 후 소비. 타 네임스페이스는 무시(에러 아님).
 - **미지 키 정책** (D5): 자기 네임스페이스 안의 스키마에 없는 키는 기본 4xx 거부. 요청 envelope의 `allowUnknownProviderOptions: true` 또는 테넌트 설정으로 통과 허용 — 통과 시 `warning(code: "unknown-provider-option-passed")`.
+- **표준 필드와의 충돌** (2026-08-21 확정): PO 키가 표준 IR 필드와 **같은 wire 슬롯**을 지정하면 **PO가 우선**하고, 어댑터는 `warning(code: "provider-option-override")`를 반드시 낸다 — 조용한 우선은 D5 위반. 게이트웨이 강제 정책도 이 규칙을 따른다(예: OpenAI `store: false` 강제 — ADR-0002 §2 — 를 명시 PO가 뒤집는 것은 opt-in passthrough로 허용하되 warning 동반). 게이트웨이가 값이 **없어서 주입**한 경우는 충돌이 아니라 `parameter-defaulted`다.
 - **왕복 불변식** (G1): 어댑터가 응답 `providerMetadata`로 방출하는 모든 키는 자기 요청측 `providerOptions` 스키마가 수용해야 한다. 히스토리 편입 시 게이트웨이/클라이언트는 블록의 `providerMetadata`를 `providerOptions`로 복사한다 (라운드트립 계약 — D2).
 - **승격 사이클** (D3): 2개 이상 프로바이더가 공유하게 된 개념은 IR 표준 필드로 승격 + ADR 기록.
 
@@ -78,6 +79,8 @@ type BlockBase = {
 type Origin = { provider: string; model: string; surface?: string };
 ```
 
+- **응답 방향의 `origin.surface`는 필수 계약** (2026-08-21 확정): 이중 표면 프로바이더의 표면 sticky 판별(ADR-0002 결과 절)이 여기에 의존한다. 어댑터는 응답·스트림 origin에 자기 표면을 항상 채운다 (타입은 optional 유지 — 요청/히스토리 방향은 미상 허용, 미상이면 기본 표면 + warning). `adapter-conformance`가 검증한다.
+
 ### 4.1 text
 
 ```ts
@@ -99,7 +102,7 @@ type ReasoningBlock = BlockBase & {
 ```
 
 - 서명/암호화 상태는 `opaqueState`에 (Anthropic signature, OpenAI encrypted_content, Gemini thoughtSignature — 4사 공통 개념의 공통 슬롯). OpenAI `itemId`류 참조는 `providerMetadata.openai`.
-- **OpenAI reasoning item 무손실 규칙**: summary 복수 파트·content 채널 등 item 원문 구조를 `providerMetadata.openai`에 통째로 보존하고, 동일 타깃(OpenAI) 재전송 시 단일 `text`가 아니라 **보존된 원문 구조를 우선 복원**한다 ("item을 손대지 않고 그대로 재전송" 왕복 규칙 충족).
+- **OpenAI reasoning item 무손실 규칙**: summary 복수 파트·content 채널 등 item 원문 구조를 `providerMetadata.openai`에 통째로 보존하고, 동일 타깃(OpenAI) 재전송 시 단일 `text`가 아니라 **보존된 원문 구조를 우선 복원**한다 ("item을 손대지 않고 그대로 재전송" 왕복 규칙 충족). 보존 키(`providerOptions.openai.item` 등)는 **요청측 PO 스키마에 정식 등재**해야 한다 — 미등재 키는 D5 미지 키 정책이 4xx로 막아 왕복 불변식(G1)이 깨진다.
 - 타 프로바이더로의 이식은 요청 `retarget.reasoning` 정책 적용 (D6-2: `drop` 기본 / `demote-to-text` / `strip-and-annotate`).
 
 ### 4.3 toolCall
@@ -226,7 +229,7 @@ type Warning = {
 };
 ```
 
-표준 코드 (초기 집합): `parameter-dropped` · `parameter-clamped` · `reasoning-dropped` · `reasoning-demoted` · `reasoning-annotated` · `block-dropped` · `passthrough-dropped` · `passthrough-params-dropped` · `signature-synthesized` · `tool-pair-repaired` · `tool-input-demoted` · `surface-switched` · `system-repositioned` · `unknown-provider-option-passed` · `unknown-block-passthrough`(어댑터가 응답에서 만난 미지 블록/청크를 보존하며 보고 — §4.9 (b). 보존 수단이 없는 파싱 실패는 warning `details`에 원문을 실어 보존 의무를 이행) · `parameter-defaulted`(프로바이더 필수 필드에 게이트웨이 기본값 주입 시 — 예: Anthropic max_tokens) · `server-state-unmanaged` · `server-state-inapplicable` · `cache-breakpoint-ignored` · `budget-soft-warning` · `budget-exhausted-next-request-blocked`.
+표준 코드 (초기 집합): `parameter-dropped` · `parameter-clamped` · `reasoning-dropped` · `reasoning-demoted` · `reasoning-annotated` · `block-dropped` · `passthrough-dropped` · `passthrough-params-dropped` · `signature-synthesized` · `tool-pair-repaired` · `tool-input-demoted` · `surface-switched` · `system-repositioned` · `unknown-provider-option-passed` · `unknown-block-passthrough`(어댑터가 응답에서 만난 미지 블록/청크를 보존하며 보고 — §4.9 (b). 보존 수단이 없는 파싱 실패는 warning `details`에 원문을 실어 보존 의무를 이행) · `parameter-defaulted`(프로바이더 필수 필드에 게이트웨이 기본값 주입 시 — 예: Anthropic max_tokens) · `provider-option-override`(PO가 표준 필드와 같은 wire 슬롯을 덮어씀 — §2) · `server-state-unmanaged` · `server-state-inapplicable` · `cache-breakpoint-ignored` · `budget-soft-warning` · `budget-exhausted-next-request-blocked`.
 
 ## 6. 요청 envelope
 
@@ -333,7 +336,7 @@ type Usage = {
 | 프로바이더 | input.total | input.noCache | input.cacheRead/Write | output.total | output.reasoning |
 |---|---|---|---|---|---|
 | Anthropic | `input_tokens + cache_read + cache_creation` (합성) | `input_tokens` | 각 필드. TTL별 분해는 PM | `output_tokens` | 미제공 → 0, text=total |
-| OpenAI | `input_tokens` | `input − cached` (역산) | `cached_tokens` / 0 | `output_tokens` | `reasoning_tokens` |
+| OpenAI | `input_tokens` | `input − cached − cache_write` (역산) | `cached_tokens` / `cache_write_tokens` (2026-08-21 wire 확인 — 과거 미제공 전제 폐기) | `output_tokens` | `reasoning_tokens` |
 | Gemini | `promptTokenCount` | `prompt − cachedContent` | `cachedContentTokenCount` / 0 | **`candidates + thoughts`** (합산) | `thoughtsTokenCount` |
 | xAI | `prompt_tokens` | `prompt − cached` | `cached_tokens` / 0 | `completion_tokens` | `reasoning_tokens` |
 
@@ -396,6 +399,8 @@ citation-delta  { id, citation: Citation }      // id = 대상 text 블록
 
 추가 규칙 (2026-08-20 리뷰 반영):
 - **미지 스트림 요소의 보존**: 미지 블록 타입의 시작 스냅샷뿐 아니라 **후속 delta들도** `passthrough` 이벤트(원문 청크)로 방출한다. 알려진 블록에 도착한 미지 delta 타입, 미지 top-level 이벤트도 동일. warning(`unknown-block-passthrough`)은 미지 타입별 1회만 (스팸 방지).
+- **refusal의 스트림 표현** (2026-08-21 확정): 프로바이더 refusal 파트(OpenAI `response.refusal.delta/done`)는 전용 이벤트 없이 **text 블록으로 강등**해 방출하고(`text-start`/`text-delta`), `text-end`의 `providerMetadata`에 refusal 표식을 싣는다 (비스트림 §14와 동일 규약). finishReason `refusal`과는 별개 축이다.
+- **서버 실행 툴의 진행 이벤트** (2026-08-21 확정): `providerExecuted` 툴의 중간 상태(OpenAI `web_search_call.in_progress/searching`, `code_interpreter_call.*`, `mcp_call.*` 등)는 IR에 대응 이벤트가 없다. 조용한 드롭은 금지(D5) — `passthrough` 이벤트로 원문을 방출하거나(기본), 방출하지 않을 경우 스트림당 1회 `warning(unknown-block-passthrough)`로 보고한다. 확정된 툴 호출·결과는 기존대로 `tool-call`/`tool-result`로 방출한다.
 - **터미널 이후 프로바이더 이벤트**: 터미널 방출 후 도착하는 프로바이더 이벤트는 **무시(방출 금지)** — "모든 스트림은 터미널 하나로 끝난다"를 어댑터 레벨에서 보장.
 
 ### 10.3 운영 (게이트웨이 발신)
@@ -513,7 +518,7 @@ compat 포맷(openai-compat CC, anthropic-compat)에는 IR 전용 필드(`origin
 
 ## 15. v0에서 의도적으로 제외 (2차)
 
-다중 후보(G2), 오디오/이미지 **출력** 블록(v1 범위 밖 — 단 블록 union은 확장 가능하게 설계됨), Live/Realtime(WebSocket) 표면, 임베딩, IR 버전 협상.
+다중 후보(G2), 오디오/이미지 **출력** 블록(v1 범위 밖 — 단 블록 union은 확장 가능하게 설계됨. 따라서 출력 블록을 전제하는 빌트인 툴 — OpenAI `image_generation`의 `partial_image` 등 — 도 v0 범위 밖이며, 요청 시 4xx 또는 tool 제거+warning), Live/Realtime(WebSocket) 표면, 임베딩, IR 버전 협상.
 
 **본 스펙의 범위 밖 (v1 범위이지만 별도 부록에서 정의)**: count_tokens·Batches·Files 프록시 envelope, **비동기 실행 핸들**(xAI deferred, OpenAI background — "잡 수리됨 + 핸들 + 폴링" 응답 형태와 잡 상태 모델). 본 스펙은 동기 생성 envelope만 다룬다 — §16-2.
 

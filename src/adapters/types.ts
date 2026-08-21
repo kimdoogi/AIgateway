@@ -45,7 +45,40 @@ export interface AdapterCapabilities {
   supportedEfforts?: readonly string[];
   /** 필수 max tokens 부재 시 주입할 모델별 기본값 */
   defaultMaxTokens?: number;
+  /**
+   * 모델이 400으로 거부하는 IR 표준 파라미터 이름 (예: OpenAI reasoning 모델의
+   * temperature/topP/penalties). 어댑터는 wire 조립 전 드롭 + warning(parameter-dropped),
+   * strictParameters면 4xx (shared.gateUnsupportedParams).
+   */
+  unsupportedParams?: readonly string[];
+  /**
+   * 모델이 접근 가능한 표면 집합 (예: gpt-5-pro = ["responses"], gpt-audio-* = ["chat-completions"]).
+   * 미지정이면 프로바이더의 전 표면 허용. 표면 선택자의 게이트 입력 (ADR-0002 결과 절).
+   */
+  surfaces?: readonly string[];
 }
+
+/**
+ * 표면 선택자 (ADR-0002/0004 — 이중 표면 프로바이더).
+ * 선택 기준(어떤 기능이 어느 표면 전용인가)은 프로바이더 지식이므로 어댑터 쪽이 소유하고,
+ * 코어는 결과만 소비한다 (D4). sticky·capability 게이트·warning 조립은 코어(registry) 소관.
+ */
+export interface SurfaceChoiceInput {
+  request: IRRequest;
+  modelId: string;
+  capabilities?: AdapterCapabilities;
+}
+
+export interface SurfaceChoice {
+  /** 이 요청에 적합한 표면 */
+  surface: string;
+  /** true = 요청 기능이 이 표면을 강제한다 (sticky보다 우선, 전환 시 warning) */
+  required?: boolean;
+  /** 강제 사유 — warning 메시지에 실린다 */
+  reason?: string;
+}
+
+export type SurfaceSelector = (input: SurfaceChoiceInput) => SurfaceChoice;
 
 export interface RequestContext {
   requestId: string;

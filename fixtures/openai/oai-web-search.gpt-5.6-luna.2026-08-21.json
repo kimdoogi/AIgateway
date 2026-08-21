@@ -1,0 +1,164 @@
+{
+  "case": "oai-web-search",
+  "recordedAt": "2026-08-21",
+  "model": "gpt-5.6-luna",
+  "stream": false,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "gpt-5.6-luna",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "What is the current UTC date? Use web search."
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "type": "web_search"
+        }
+      ],
+      "store": false,
+      "max_output_tokens": 600
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "resp_fixture0001",
+    "object": "response",
+    "created_at": 1787288953,
+    "status": "completed",
+    "background": false,
+    "billing": {
+      "payer": "developer"
+    },
+    "completed_at": 1787288955,
+    "error": null,
+    "frequency_penalty": 0,
+    "incomplete_details": null,
+    "instructions": null,
+    "max_output_tokens": 600,
+    "max_tool_calls": null,
+    "model": "gpt-5.6-luna",
+    "moderation": null,
+    "output": [
+      {
+        "id": "rs_fixture0002",
+        "type": "reasoning",
+        "content": [],
+        "encrypted_content": "gAAAAABqh917oGBSME158SOaV7iuu6UBFyvnSPr6RjgC-TDTbw3ELRWwLGSK4g3kOjVaPCDh3w2eyGJMHOlZraG6rxDa0k1_FbBTr4HcT7yr-kBY22juuOfpDtSrKbpgBdx6ufMMjHauW00zD8Rs3f0FH9JjYb2dCKix0UqWKJ8rIRhwPfyMzMtReGImXq_xj2tUdjj2Ro43FzTSumiOd-g5HisVrQ6Yv-vzo-sqFmChaD_aKleLdMB-ckZvvAHFTnmpFFtNf9Oxf8gvteJehdz3kR1xGWdn8PbiN7StDid7eQwiQtZQAK5VOA1w4loccepbblf6bd3jux0hQKxAgEyIZhABF8kxJQagwxojz5EubJEnhl4Xm6y1Jf5hs2zZo6sJL1NZn-RObag1krAg59k8nBmafAFG0YdDI_NC8wu8_4FvEMaMo_qHaO9COwM1HZIO5BtNrytGBjqG-SRApH7XbPDE1B8kOywbKhGu63IjjHagzVsnHTXSdDOB21pKZCM-iYQT7WKMfV3Jrqq_dwKNm04_XcG1ul3kboLCeA7_4e3_bTSJe3YRg0HPlnvo1IkPS-59Uv4fXgqHy9w8Umfs5LaA8jRrbUNbPW2oMNKCABRROY14krpKdWEG7n8b6urG1SD4_x3yUu5c6cWu4iJpuymAI7q2RhT_8Nm1QOJRP10NZ5wBF_Nz7_wVUsJ7K2oIbMeRjXMTAGrdctm4NC6IAS6X4PMLVWdfHWoklmocN9yD9K4xdgkqetb1G0-wjzPqLynfcnQysfL9i2SDgQ7tlmfPo3muonOKy_QgFCDdk52BLqUCNWyt1_6eC9GN36Ls5q0aNiZsr7k2rSRJmyYoILPXh8FDsbbdTxRHl7j1sUoYJVoSysCqfom-qxq8XEODsk1JXbazLNkUHyfbngzyYhnt8JgqY0dB67B_7mif_mgkFV-SflzJ6yfcuaXW85Jg0sfHcq1SwjEdP5tkaRrHiaJ9ZAjFYI324G_avaBOdJ6MrEv5DIripp0vnB0Kki0p4PJClXr43PEVoXqdGL8gfZ4gCQ4VhwGsENdgd43o_fRJWBrQmeDGgQo9i1qmnFgd7SCvlGBlRyx5CgMTeBRnhtodBJV6x1OqeoLy6gagK7CEGewvMJ8mGRqQe8YnvSz4haC6ODEaoV3OKd15Qupcm7VPIflvZlNMUXWp-LW09m1ocLn-4APvOczWI6RLH9W-7OYYofIzyKQHVovThnDIgM8dFYe4J2XwhbCd_xftcv9c_iErBDW_WP2hNw9Tc_eQHocXy81KQyuB5v-CIUuFxwnPu_tWbeulF8Vd52BN4az-CfvcHP0=",
+        "summary": []
+      },
+      {
+        "id": "ws_fixture0003",
+        "type": "web_search_call",
+        "status": "completed",
+        "action": {
+          "type": "search",
+          "queries": [
+            "time: {\"utc_offset\":\"+00:00\"}"
+          ],
+          "query": "time: {\"utc_offset\":\"+00:00\"}"
+        }
+      },
+      {
+        "id": "msg_fixture0004",
+        "type": "message",
+        "status": "completed",
+        "content": [
+          {
+            "type": "output_text",
+            "annotations": [],
+            "logprobs": [],
+            "text": "The current UTC date is **August 21, 2026**. "
+          }
+        ],
+        "phase": "final_answer",
+        "role": "assistant"
+      }
+    ],
+    "parallel_tool_calls": true,
+    "presence_penalty": 0,
+    "previous_response_id": null,
+    "prompt_cache_key": null,
+    "prompt_cache_retention": "24h",
+    "reasoning": {
+      "context": "all_turns",
+      "effort": "medium",
+      "mode": "standard",
+      "summary": null
+    },
+    "safety_identifier": null,
+    "service_tier": "default",
+    "store": false,
+    "temperature": 1,
+    "text": {
+      "format": {
+        "type": "text"
+      },
+      "verbosity": "medium"
+    },
+    "tool_choice": "auto",
+    "tool_usage": {
+      "image_gen": {
+        "input_tokens": 0,
+        "input_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 0
+        },
+        "output_tokens": 0,
+        "output_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 0
+        },
+        "total_tokens": 0
+      },
+      "web_search": {
+        "num_requests": 1
+      }
+    },
+    "tools": [
+      {
+        "type": "web_search",
+        "return_token_budget": "default",
+        "search_content_types": [
+          "text"
+        ],
+        "search_context_size": "medium",
+        "user_location": {
+          "type": "approximate",
+          "city": null,
+          "country": "US",
+          "region": null,
+          "timezone": null
+        }
+      }
+    ],
+    "top_logprobs": 0,
+    "top_p": 0.98,
+    "truncation": "disabled",
+    "usage": {
+      "input_tokens": 4567,
+      "input_tokens_details": {
+        "cache_write_tokens": 4410,
+        "cached_tokens": 0
+      },
+      "output_tokens": 92,
+      "output_tokens_details": {
+        "reasoning_tokens": 59
+      },
+      "total_tokens": 4659
+    },
+    "user": null,
+    "metadata": {}
+  }
+}

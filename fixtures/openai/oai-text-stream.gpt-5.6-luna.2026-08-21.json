@@ -1,0 +1,35 @@
+{
+  "case": "oai-text-stream",
+  "recordedAt": "2026-08-21",
+  "model": "gpt-5.6-luna",
+  "stream": true,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "gpt-5.6-luna",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Count from 1 to 5. Answer in one short sentence."
+            }
+          ]
+        }
+      ],
+      "store": false,
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "max_output_tokens": 200,
+      "stream": true
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream; charset=utf-8"
+  },
+  "chunksFile": "oai-text-stream.gpt-5.6-luna.2026-08-21.chunks.txt"
+}

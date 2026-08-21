@@ -5,7 +5,17 @@ import { IRRequestSchema } from "../ir/request.js";
 import type { IRError } from "../ir/error.js";
 import type { JSONValue } from "../ir/json.js";
 import { executeNonStream, genRequestId, startStreamSession, type ExecuteDeps } from "../gateway/execute.js";
-import { irError, toIRError } from "../gateway/errors.js";
+import { GatewayError, irError, toIRError } from "../gateway/errors.js";
+import type { IRRequest } from "../ir/request.js";
+import type { IRResponse } from "../ir/response.js";
+import type { StreamEvent } from "../ir/stream.js";
+import type { JSONObject } from "../ir/json.js";
+import { compatChatToIR } from "../inbound/openai-compat/request.js";
+import { toChatError, toChatResponse } from "../inbound/openai-compat/response.js";
+import { createChatDownconverter } from "../inbound/openai-compat/stream.js";
+import { compatMessagesToIR } from "../inbound/anthropic-compat/request.js";
+import { toMessagesError, toMessagesResponse } from "../inbound/anthropic-compat/response.js";
+import { createMessagesDownconverter } from "../inbound/anthropic-compat/stream.js";
 import { SessionStore, type StreamSession } from "../gateway/session.js";
 import type { SessionPersistence } from "../state/types.js";
 
@@ -123,6 +133,88 @@ export function createApp(deps: AppDeps = {}): Hono {
       }
     });
   });
+
+  // ── compat 인바운드 2종 (부록 (a)) — 실행 경로는 native와 동일 (G1 우회 없음) ──
+  interface CompatFormat {
+    toIR(body: unknown, allowUnknown: boolean, c: Context): IRRequest;
+    toWireResponse(response: IRResponse, strict: boolean): JSONObject;
+    toWireError(error: import("../ir/error.js").IRError): JSONObject;
+    downconverter(strict: boolean): (event: StreamEvent) => Array<{ event?: string; data: string; comment?: string }>;
+  }
+
+  const compatFormats: Record<string, CompatFormat> = {
+    "/compat/openai/v1/chat/completions": {
+      toIR: (body, allowUnknown) => compatChatToIR(body, allowUnknown),
+      toWireResponse: toChatResponse,
+      toWireError: toChatError,
+      downconverter: createChatDownconverter,
+    },
+    "/compat/anthropic/v1/messages": {
+      toIR: (body, allowUnknown, c) => compatMessagesToIR(body, allowUnknown, c.req.header("anthropic-beta")),
+      toWireResponse: toMessagesResponse,
+      toWireError: toMessagesError,
+      downconverter: createMessagesDownconverter,
+    },
+  };
+
+  for (const [path, format] of Object.entries(compatFormats)) {
+    app.post(path, async (c) => {
+      const compatErr = (error: import("../ir/error.js").IRError) => {
+        const status = Math.min(599, Math.max(200, error.httpStatus));
+        return c.json(format.toWireError(error), status as 400);
+      };
+      let json: unknown;
+      try {
+        json = await c.req.json();
+      } catch {
+        return compatErr(irError("invalid_request", 400, "JSON body가 아닙니다"));
+      }
+      const allowUnknown = c.req.header("x-gateway-allow-unknown") === "true";
+      const strict = c.req.header("x-gateway-compat") === "strict"; // §2 — gateway 확장 미부가
+      let req: IRRequest;
+      try {
+        req = format.toIR(json, allowUnknown, c);
+      } catch (err) {
+        if (err instanceof GatewayError) return compatErr(err.irError);
+        throw err;
+      }
+
+      if (!req.stream) {
+        const id = genRequestId(deps);
+        c.header("x-gateway-request-id", id);
+        try {
+          const response = await executeNonStream(req, { ...deps, genId: () => id }, c.req.raw.signal);
+          return c.json(format.toWireResponse(response, strict));
+        } catch (err) {
+          return compatErr(toIRError(err));
+        }
+      }
+
+      const session = startStreamSession(req, { ...deps, sessions });
+      c.header("x-gateway-request-id", session.id);
+      const downconvert = format.downconverter(strict);
+      return streamSSE(c, async (stream) => {
+        session.attach();
+        try {
+          for await (const stored of session.read(-1, c.req.raw.signal)) {
+            if (c.req.raw.signal.aborted) break;
+            const event = JSON.parse(stored.json) as StreamEvent;
+            for (const frame of downconvert(event)) {
+              if (frame.comment !== undefined) {
+                await stream.write(`: ${frame.comment}\n\n`);
+              } else if (frame.event !== undefined) {
+                await stream.writeSSE({ event: frame.event, data: frame.data });
+              } else {
+                await stream.writeSSE({ data: frame.data });
+              }
+            }
+          }
+        } finally {
+          session.detach();
+        }
+      });
+    });
+  }
 
   app.post("/v0/streams/:id/cancel", (c) => {
     const session = sessions.get(c.req.param("id"));

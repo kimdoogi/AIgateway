@@ -1,4 +1,5 @@
 import { anthropicAdapter } from "../adapters/anthropic/index.js";
+import { openaiAdapters, selectOpenAISurface } from "../adapters/openai/index.js";
 import { registerProvider } from "./registry.js";
 
 // 조립 루트 — 프로바이더 등록은 여기서만 (코어 모듈은 어댑터를 import하지 않는다, D4).
@@ -6,8 +7,15 @@ import { registerProvider } from "./registry.js";
 
 export function bootstrapProviders(): void {
   registerProvider({
-    adapter: anthropicAdapter,
+    adapters: [anthropicAdapter],
     baseUrl: "https://api.anthropic.com",
     auth: { envVar: "ANTHROPIC_API_KEY", header: "x-api-key" },
+  });
+  registerProvider({
+    // 첫 원소 = 기본 표면 (ADR-0002: Responses 주 경로)
+    adapters: openaiAdapters,
+    baseUrl: "https://api.openai.com",
+    auth: { envVar: "OPENAI_API_KEY", header: "authorization", prefix: "Bearer " },
+    selectSurface: selectOpenAISurface,
   });
 }
