@@ -187,6 +187,22 @@ exports[`골든셋 ② anthropic 픽스처 → IR > citations-stream 1`] = `
         "surface": "messages",
       },
     },
+    "providerMetadata": {
+      "anthropic": {
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 603,
+          "output_tokens": 4,
+          "service_tier": "standard",
+        },
+      },
+    },
     "providerRequestId": "msg_fixture0001",
     "type": "response-metadata",
   },
@@ -642,6 +658,22 @@ exports[`골든셋 ② anthropic 픽스처 → IR > text-stream 1`] = `
         "surface": "messages",
       },
     },
+    "providerMetadata": {
+      "anthropic": {
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 18,
+          "output_tokens": 1,
+          "service_tier": "standard",
+        },
+      },
+    },
     "providerRequestId": "msg_fixture0001",
     "type": "response-metadata",
   },
@@ -911,6 +943,22 @@ exports[`골든셋 ② anthropic 픽스처 → IR > thinking-adaptive-stream 1`]
         "model": "claude-sonnet-4-6",
         "provider": "anthropic",
         "surface": "messages",
+      },
+    },
+    "providerMetadata": {
+      "anthropic": {
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "global",
+          "input_tokens": 45,
+          "output_tokens": 7,
+          "service_tier": "standard",
+        },
       },
     },
     "providerRequestId": "msg_fixture0001",
@@ -1231,6 +1279,22 @@ exports[`골든셋 ② anthropic 픽스처 → IR > thinking-stream 1`] = `
         "surface": "messages",
       },
     },
+    "providerMetadata": {
+      "anthropic": {
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 49,
+          "output_tokens": 8,
+          "service_tier": "standard",
+        },
+      },
+    },
     "providerRequestId": "msg_fixture0001",
     "type": "response-metadata",
   },
@@ -1510,6 +1574,22 @@ exports[`골든셋 ② anthropic 픽스처 → IR > tool-call-stream 1`] = `
         "model": "claude-haiku-4-5-20251001",
         "provider": "anthropic",
         "surface": "messages",
+      },
+    },
+    "providerMetadata": {
+      "anthropic": {
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0,
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 597,
+          "output_tokens": 26,
+          "service_tier": "standard",
+        },
       },
     },
     "providerRequestId": "msg_fixture0001",

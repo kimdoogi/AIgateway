@@ -131,10 +131,15 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
             type: "response-metadata",
             model: { resolved: { provider: "anthropic", model, surface: "messages" } },
             ...(providerRequestId ? { providerRequestId } : {}),
-            // container: 샌드박스 재사용 계약 (§10.1 PM — 2026-08-21)
-            ...(container && typeof container === "object"
-              ? { providerMetadata: { anthropic: { container: container as JSONValue } } }
-              : {}),
+            // §10.1 PM — wire 선두에서만 얻는 것들: container(샌드박스 재사용) +
+            // message_start usage 원문 (compat 재합성에서 input·cache 토큰의 유일한 소스 —
+            // 스텁 0이면 소비자 과금 집계가 0이 된다. 2026-08-21 neuro 실테스트 검출)
+            providerMetadata: {
+              anthropic: {
+                usage: wireUsage as JSONValue,
+                ...(container && typeof container === "object" ? { container: container as JSONValue } : {}),
+              },
+            },
           });
           return out;
         }

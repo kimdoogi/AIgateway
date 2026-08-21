@@ -43,14 +43,16 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
         if (started) return [];
         started = true;
         const container = event.providerMetadata?.["anthropic"]?.["container"];
+        // input·cache 토큰은 wire 계약상 message_start가 유일한 소스 — 스텁 0을 보내면
+        // 소비자(SDK·과금 집계)의 input이 0이 된다. PM 원문 우선 (2026-08-21 실테스트 검출)
+        const startUsage = event.providerMetadata?.["anthropic"]?.["usage"];
         return [
           frame("message_start", {
             message: {
               id: requestId, type: "message", role: "assistant", model, content: [],
               stop_reason: null, stop_sequence: null,
-              // container: SDK가 message_start에서 읽는다 (부록 (a) §2.2 — 2026-08-21)
               ...(container !== undefined ? { container } : {}),
-              usage: { input_tokens: 0, output_tokens: 0 }, // 최종 usage는 message_delta (§6.2)
+              usage: startUsage ?? { input_tokens: 0, output_tokens: 0 }, // 비 anthropic origin은 스텁 (최종은 message_delta)
             },
           }),
         ];

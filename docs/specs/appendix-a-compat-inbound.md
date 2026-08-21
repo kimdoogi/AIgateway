@@ -35,6 +35,7 @@
 - **strict 모드**: 동일 헤더.
 - **container 복원** (2026-08-21): 응답 `providerMetadata.anthropic.container`를 wire 최상위 `container`로, 스트림은 `response-metadata.providerMetadata`를 `message_start.message.container`로 복원 — 코드 실행 샌드박스 재사용 계약. **턴 중 생성·교체분**(Anthropic이 top-level/`message_delta.delta.container`로 후송 — 실관측)은 어댑터가 finish PM으로 실어 `message_delta` 최상위 `container`로 복원 (리뷰 G1).
 - **warnings** (2026-08-21 리뷰 G2): 비-strict 응답의 `gateway.warnings`에 IR warnings 전량. 스트림은 warning 이벤트를 누적해 finish의 `message_delta.gateway.warnings`로 — Anthropic SSE에 warning 이벤트 좌석이 없기 때문.
+- **message_start usage 원문** (2026-08-21 실테스트): input·cache 토큰은 Anthropic wire 계약상 message_start에서만 오므로, 어댑터가 message_start usage 원문을 `response-metadata.providerMetadata.anthropic.usage`로 실어 스트림 재합성 시 `message_start.message.usage`로 복원한다 — 스텁 0이면 소비자 과금 집계의 input이 0이 된다. 비 anthropic origin(gpt 크로스)은 선두 usage가 없어 스텁 유지 (최종 usage는 message_delta — 소비자가 input을 message_start에서만 읽으면 크로스 턴의 로컬 집계는 0, 정확한 소스는 게이트웨이 원장).
 - **usage raw 복원** (2026-08-21 리뷰 G3): `origin.provider == anthropic`이면 정규화 평면값 대신 `usage.raw` 원문을 복원한다 (비스트림 = wire 원문 그대로, 스트림 = message_start·message_delta 병합) — `cache_creation` TTL 내역(5m/1h) 등 정규화 밖 필드의 무손실 왕복. 타 origin은 평면 다운컨버트(§5 표).
 
 ## 3. 요청 방향 매핑표

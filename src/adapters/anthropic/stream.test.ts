@@ -62,6 +62,8 @@ describe("anthropic 스트림 상태 머신", () => {
       type: "response-metadata",
       model: { resolved: { provider: "anthropic", model: "claude-haiku-4-5", surface: "messages" } },
       providerRequestId: "msg_01",
+      // §10.1 PM — message_start usage 원문 (compat 재합성의 input 토큰 소스)
+      providerMetadata: { anthropic: { usage: { input_tokens: 20, cache_read_input_tokens: 4 } } },
     });
 
     const sigDelta = out[3] as Extract<AdapterStreamEvent, { type: "reasoning-delta" }>;
