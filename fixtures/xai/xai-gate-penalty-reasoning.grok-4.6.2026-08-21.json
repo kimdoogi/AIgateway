@@ -1,0 +1,28 @@
+{
+  "case": "xai-REDACTED",
+  "recordedAt": "2026-08-21",
+  "model": "grok-4.6",
+  "stream": false,
+  "request": {
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "grok-4.6",
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ],
+      "presence_penalty": 0.5,
+      "max_completion_tokens": 100
+    }
+  },
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "code": "invalid-argument",
+    "error": "Model grok-4.6 does not support parameter presencePenalty."
+  }
+}

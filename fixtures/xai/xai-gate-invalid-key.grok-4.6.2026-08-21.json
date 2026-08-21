@@ -1,0 +1,27 @@
+{
+  "case": "xai-gate-invalid-key",
+  "recordedAt": "2026-08-21",
+  "model": "grok-4.6",
+  "stream": false,
+  "request": {
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "grok-4.6",
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ],
+      "max_completion_tokens": 50
+    }
+  },
+  "status": 400,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "code": "invalid-argument",
+    "error": "Incorrect API key provided. You can obtain an API key from https://console.x.ai."
+  }
+}

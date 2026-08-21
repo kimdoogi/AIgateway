@@ -1,0 +1,120 @@
+{
+  "case": "xai-responses-text",
+  "recordedAt": "2026-08-21",
+  "model": "grok-4.6",
+  "stream": false,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "grok-4.6",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Is 97 prime? One word."
+            }
+          ]
+        }
+      ],
+      "store": false,
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "max_output_tokens": 4000
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "created_at": 1787311528,
+    "completed_at": 1787311530,
+    "id": "uuid_fixture0001",
+    "max_output_tokens": 4000,
+    "model": "grok-4.6",
+    "object": "response",
+    "output": [
+      {
+        "id": "rs_fixture0002",
+        "summary": [
+          {
+            "text": "The user asked: \"Is 97 prime? One word.\"\n",
+            "type": "summary_text"
+          }
+        ],
+        "type": "reasoning",
+        "status": "completed",
+        "encrypted_content": "tsvrGdwkRkUWNFyeSZDCN0SdAOnnpLzjaimb1W9eu2HvqqNZz7EbkfCeDsqYAKPH9z48PRJPMZAV0OD9Pz8JG0zQyreAeal+hWmq4ZKWKXl08wSHpJkvoWCOiizkPT721E/iu1oCe8d0NFrG1kJGAp6hFIozEWYr0ZuwvBMYpr9mZeaJ7tYAluU4Q/B4ZhsJEPPDdu0P4I1xWjcd4NyBp97ZsxANudrVd61j0ZPjtOYmPtJWhPIb/zKRjrmWvviiB+JxlI6nO9dTxcvv8RZFlU8O5WwiOlMHrs+Pdqx1rPR22HlPp4obpDynNk7Im4LsF3jdmLAlxJQnuLhwXtZ2YGmAp+9y9W/AEtmCew6GPMNb+DO7r3Q5PPzWyfOaQwVvNRWwFDErvQywalTXUyMxQcxOB/eFiQbRSLgLHB1i613n3Zg6IpUmuLWZswvwyL8GbJX3fDY7/BEm/PGJWnbNqC+TpI+8Oo28TakGgP2/PTHASdii1jML/8xxRjAoDB6tS1EYidDrChZ97SCAn5FV+LfjyR0TJHdiCnSLfnl2p+qdYX3LkjjzS7fVNzbiD1Scd3lhiQZBu8TFer65NMsbN7JhgGIX5nsf2fDwvrRDgEuvL3hpCU/lK7quFs4U9Gplvdid2OzhyLfikKrbGIvPFZUPCmDVv16ljJnDuKvsaVxhVOU7Ac2QEKgSOaWR2Lxy9H7B2wP+heDhrng8E63z9ky69KsBPeWVPKOpWP/5k9y4+zRA0bBvlGjEePSNr5JayV66m6ZLfYtJLbikifpcFq89+p3hC89+x6gR2bGUp+2oprX8qnGiCmPias3xhxSHJQsGJA4RdbIqCKe3z44+1KJfsmb0jEII1Nl+P5ewBJ9tBYFDExIJX59UT+gEE0QkwSUyeOI3"
+      },
+      {
+        "content": [
+          {
+            "type": "output_text",
+            "text": "Yes",
+            "logprobs": [],
+            "annotations": []
+          }
+        ],
+        "id": "msg_fixture0003",
+        "role": "assistant",
+        "type": "message",
+        "status": "completed"
+      }
+    ],
+    "parallel_tool_calls": true,
+    "previous_response_id": null,
+    "reasoning": {
+      "effort": "high",
+      "summary": "detailed"
+    },
+    "temperature": 0.7,
+    "text": {
+      "format": {
+        "type": "text"
+      }
+    },
+    "tool_choice": "auto",
+    "tools": [],
+    "top_p": 0.95,
+    "usage": {
+      "input_tokens": 214,
+      "input_tokens_details": {
+        "cached_tokens": 128
+      },
+      "output_tokens": 171,
+      "output_tokens_details": {
+        "reasoning_tokens": 170
+      },
+      "total_tokens": 385,
+      "num_sources_used": 0,
+      "num_server_side_tools_used": 0,
+      "cost_in_usd_ticks": 12620000,
+      "context_details": {
+        "input_tokens": 214,
+        "output_tokens": 171
+      }
+    },
+    "user": null,
+    "incomplete_details": null,
+    "status": "completed",
+    "store": false,
+    "metadata": {
+      "system_fingerprint": "fp_e41c6060b2628547"
+    },
+    "background": false,
+    "service_tier": "default",
+    "truncation": "disabled",
+    "top_logprobs": 0,
+    "presence_penalty": 0,
+    "frequency_penalty": 0,
+    "prompt_cache_key": null,
+    "max_tool_calls": null,
+    "safety_identifier": null,
+    "error": null,
+    "instructions": null
+  }
+}

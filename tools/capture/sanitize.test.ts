@@ -33,4 +33,39 @@ it("밑줄 포함 id도 통째로 치환한다 — 부분 치환 금지 (리뷰 
     const text = '{"signature":"ErUBCkYIBRgCIkAY0aBcDeFgHi=="}';
     expect(sanitizeText(text)).toBe(text);
   });
+
+  it("xai `접두사_UUID` id를 통째로 치환한다 (2026-08-21 실측)", () => {
+    const idMap = new Map<string, string>();
+    const out = sanitizeText(
+      '{"a":"rs_d7116326-ec9d-9a4a-bfd8-e61a6e3dbb99","b":"tco_d7116326-ec9d-9a4a-bfd8-e61a6e3dbb99"}',
+      idMap,
+    );
+    expect(out).toBe('{"a":"rs_fixture0001","b":"tco_fixture0002"}');
+    // 같은 id 재등장 → 같은 자리표시자
+    expect(sanitizeText('"rs_d7116326-ec9d-9a4a-bfd8-e61a6e3dbb99"', idMap)).toBe('"rs_fixture0001"');
+  });
+
+  it("bare UUID id(xai CC·responses body.id)는 uuid_ 자리표시자로 치환한다", () => {
+    expect(sanitizeText('{"id":"d6034b93-94a3-99b5-a347-7b198e443f89"}')).toBe('{"id":"uuid_fixture0001"}');
+  });
+
+  it("xai CC tool call id(call-UUID-n)와 서버툴 복합 id를 통째로 치환한다", () => {
+    const idMap = new Map<string, string>();
+    const out = sanitizeText(
+      '{"a":"call-72fb0fa5-9d09-4785-ad9c-d6fc82c9e425-0","b":"ws_f975c967-1af4-9856-8e64-a68fcab9a46c_call-e9a4188d-80a4-4850-a8a6-c90b738c6fbe-1"}',
+      idMap,
+    );
+    expect(out).toBe('{"a":"call_fixture0001","b":"ws_fixture0002"}');
+  });
+
+  it("UUID 치환은 멱등 — 재실행해도 자리표시자 유지", () => {
+    const once = sanitizeText('{"id":"rs_d7116326-ec9d-9a4a-bfd8-e61a6e3dbb99"}');
+    expect(sanitizeText(once)).toBe(once);
+  });
+
+  it("findResidualIds — 문자열 내부 잔류 UUID도 검출한다", () => {
+    expect(findResidualIds('{"m":"see item d7116326-ec9d-9a4a-bfd8-e61a6e3dbb99 later"}')).toEqual([
+      "d7116326-ec9d-9a4a-bfd8-e61a6e3dbb99",
+    ]);
+  });
 });

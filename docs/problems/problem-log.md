@@ -141,3 +141,11 @@
 - **warning 라벨 정정**: base가 만드는 warning 메시지의 "openai" 문자열을 "xai"로 치환(relabelWarning) — 무식하지만 정직. 라벨 오표기는 조용한 변조는 아니나 오진단 유발.
 - **미녹화 잔여**: XAI_API_KEY 대기. 게이트 케이스 4종이 인벤토리의 실측 주장(미지원 파라미터 400, 인증 오류 400, Live Search 410)을 검증할 것 — 특히 B2-2(문서 401 vs 실측 400)는 녹화가 판정.
 - **재검토 좌석**: 리맵 래퍼는 xai wire가 OpenAI 패턴과 갈라질수록 postprocess가 자람 — strip 목록이 10개를 넘으면 독립 어댑터로 전환 검토 (현재 CC 6·responses 6).
+
+## 2026-08-21 — xAI 실 녹화 12케이스: 게이트 판정 3확인·1반증 + id 4형 발견
+
+- **녹화**: 12케이스 전부 성공, 총 ≈$0.021 (web_search가 $0.017로 대부분). 골든셋 ② 자동 편입(스냅샷 12), `reasoning_content`→reasoning 블록·툴콜 파편 조립·responses encrypted reasoning 전부 실픽스처로 검증. 테스트 323개.
+- **게이트 판정** (전 항목의 "녹화가 판정" 예고에 대한 답): ① 인증 오류 = **400 확인** (B2-2 — 문서 401 반증, 이중 파서 휴리스틱 유효). ② penalty+reasoning = **400 확인** (B2-3). ③ Live Search = **410 확인** (B2-18). ④ **미지원 파라미터(store)는 400 아닌 200 묵살 — 인벤토리 B2-7 반증(드리프트)**. 응답은 정상 완성이라 store가 저장으로 이어졌는지는 wire만으로 불명. strip의 근거를 "400 회피"에서 **ADR-0004 store:false 정책**으로 이전(어댑터 주석·케이스 note 갱신, expectStatus 200 — 이제 무과금 게이트는 3종). metadata/audio 등 나머지 strip 키의 400 여부는 이번에 미검증 — 재녹화 시 개별 판정 좌석.
+- **xAI id 형태 4형 실측** — 인벤토리에 없던 세부: ① responses item `접두사_UUID`(rs_/msg_), ② body.id bare UUID(CC·responses 공통 — chatcmpl- 아님), ③ CC tool call `call-UUID-n`(하이픈형), ④ 서버툴 복합 `ws_UUID_call-UUID-n`·`tco_`(신규 접두사). 기존 새니타이저 앵커 패턴(hex형 가정)이 전부 미스 → **잔류 id 검출기(F9-r3)가 경고 5건으로 잡아냄** — 자동 치환 금지+사람 검토 설계가 의도대로 작동한 첫 사례. 새니타이저에 UUID 앵커 패턴 3형+tco 등재, 잔류 검출기에 UUID 추가, raw에서 단일 패스 재생성으로 번호 결정론 복구.
+- **usage 신필드 (기록만)**: `num_sources_used`·`cost_in_usd_ticks` — 프로바이더가 응답에 USD 비용을 직접 실어주는 사례(billing 라인아이템 대사 후보, ADR-0007 좌석). xai 미지 필드 검출은 의도적 no-op(신선도 하드 보장은 Anthropic 한정)이라 경고 없음 — 정상.
+- **잔여**: xAI 실 E2E 스모크는 스크립트 부재(smoke:roadmap4는 openai 한정) — 로드맵 5 후속.

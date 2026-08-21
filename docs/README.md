@@ -79,8 +79,9 @@
 
 - **xAI 어댑터** (`src/adapters/xai/`, ADR-0004): openai 어댑터를 **네임스페이스 리맵 래퍼**로 상속(D8 실현) — IR의 프로바이더 표식(PO/PM 키·origin·opaqueState·provider 툴 id)만 xai↔openai 왕복 변환해 변환 로직 재구현 0. 표면: **CC 주**(OpenAI와 반대) + 에이전트 툴·encrypted reasoning·stateful 트리거 시 responses 강제 + store:false
 - **오버라이드 14지점 반영**: 평면 에러 포맷(`{"code","error"}`) 이중 파서 + 400 인증 오류 휴리스틱 + 410 폐기 안내, 미지원 파라미터 strip(store/metadata/audio 등 — xAI는 무시가 아니라 400 거부), reasoning 모델 penalty/stop 게이트(레지스트리 공급 — base의 stop도 게이트 편입), `reasoning_content`(CC 응답·스트림 → reasoning 블록 — base 공용 지점 확장), `end_turn`→stop, metadata.userId→`user`, `x-grok-conv-id` 캐시 헤더
-- 레지스트리 grok 라우팅(4.6=xhigh 지원, non-reasoning 예외), 캡처 케이스 12종(무과금 게이트 4 — 400 거부·인증 400 실측·410 실증 포함), 골든셋 ① 스냅샷 + conformance 양표면. 테스트 306개
-- **잔여**: XAI_API_KEY 확보 후 `pnpm capture xai-...` 실 녹화 → 골든셋 ② 편입 + 실 스모크. Gemini 어댑터·Batches/Files 부록 (b)·운영 평면은 로드맵 5 후속
+- 레지스트리 grok 라우팅(4.6=xhigh 지원, non-reasoning 예외), 캡처 케이스 12종, 골든셋 ① 스냅샷 + conformance 양표면. 테스트 306개
+- **실 녹화 완료** (2026-08-21 — 12케이스, 총 ≈$0.021): 골든셋 ② 자동 편입(스냅샷 12). 게이트 판정 3확인(인증 400·penalty 400·Live Search 410)·**1반증(store: 400 거부 → 200 묵살 드리프트** — strip 근거를 ADR-0004 정책으로 이전, 무과금 게이트는 3종으로). xAI id 4형(접두사_UUID·bare UUID·call-UUID-n·서버툴 복합) 실측 → 잔류 검출기(F9-r3)가 경고로 잡아 새니타이저 UUID 패턴 확장. 상세는 [problem log](problems/problem-log.md). 테스트 323개
+- **잔여**: xAI 실 E2E 스모크(스크립트 신설 필요 — smoke:roadmap4는 openai 한정). Gemini 어댑터·Batches/Files 부록 (b)·운영 평면은 로드맵 5 후속
 
 ## 로드맵 (2026-08-20 확정)
 

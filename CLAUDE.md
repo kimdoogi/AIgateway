@@ -17,6 +17,6 @@
 
 ## 환경
 
-- pnpm 사용 (로컬: `/opt/homebrew/bin/pnpm` — PATH에 있음). Node 로컬 v20.17 (프로덕션 타깃 22).
+- pnpm 사용 — PATH에 없으니 `COREPACK_INTEGRITY_KEYS=0 corepack pnpm <cmd>`로 실행 (플래그 없이는 corepack 서명 키 버그로 실패. 버전은 package.json packageManager가 단일 소스). Node 로컬 v20.17 (프로덕션 타깃 22).
 - 시크릿은 `.env` (gitignore됨) — 코드·커밋·픽스처에 키 절대 금지. 픽스처는 새니타이저 통과 후 저장.
 - 상태 계층: docker-compose (Postgres+Redis). 커밋/푸시는 사용자가 요청할 때만.

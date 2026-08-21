@@ -1,0 +1,238 @@
+{
+  "case": "xai-REDACTED",
+  "recordedAt": "2026-08-21",
+  "model": "grok-4.6",
+  "stream": false,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "grok-4.6",
+      "input": [
+        {
+          "type": "message",
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "What is the current UTC date? Use web search."
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "type": "web_search"
+        }
+      ],
+      "store": false,
+      "max_output_tokens": 4000
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "created_at": 1787311543,
+    "completed_at": 1787311543,
+    "id": "uuid_fixture0001",
+    "max_output_tokens": 4000,
+    "model": "grok-4.6",
+    "object": "response",
+    "output": [
+      {
+        "id": "rs_fixture0002",
+        "summary": [
+          {
+            "text": "The question is: \"What is the current UTC date? Use web search.\"\n",
+            "type": "summary_text"
+          }
+        ],
+        "type": "reasoning",
+        "status": "completed"
+      },
+      {
+        "id": "ws_fixture0003",
+        "type": "web_search_call",
+        "status": "completed",
+        "action": {
+          "type": "search",
+          "query": "current UTC date",
+          "sources": [
+            {
+              "type": "url",
+              "url": "https://www.utctime.net/"
+            },
+            {
+              "type": "url",
+              "url": "https://www.timeanddate.com/worldclock/timezone/utc"
+            },
+            {
+              "type": "url",
+              "url": "https://time.is/UTC"
+            },
+            {
+              "type": "url",
+              "url": "https://en.wikipedia.org/wiki/Coordinated_Universal_Time"
+            },
+            {
+              "type": "url",
+              "url": "https://dateful.com/convert/utc"
+            }
+          ]
+        }
+      },
+      {
+        "id": "tco_fixture0004",
+        "summary": [],
+        "type": "reasoning",
+        "status": "completed"
+      },
+      {
+        "id": "ws_fixture0005",
+        "type": "web_search_call",
+        "status": "completed",
+        "action": {
+          "type": "open_page",
+          "url": "https://time.is/UTC"
+        }
+      },
+      {
+        "id": "ws_fixture0006",
+        "type": "web_search_call",
+        "status": "completed",
+        "action": {
+          "type": "open_page",
+          "url": "https://www.timeanddate.com/worldclock/timezone/utc"
+        }
+      },
+      {
+        "id": "tco_fixture0007",
+        "summary": [],
+        "type": "reasoning",
+        "status": "completed"
+      },
+      {
+        "id": "tco_fixture0008",
+        "summary": [],
+        "type": "reasoning",
+        "status": "completed"
+      },
+      {
+        "content": [
+          {
+            "type": "output_text",
+            "text": "The current UTC date is Friday, August 21, 2026.",
+            "logprobs": [],
+            "annotations": [
+              {
+                "type": "url_citation",
+                "url": "https://www.timeanddate.com/worldclock/timezone/utc",
+                "start_index": 0,
+                "end_index": 0,
+                "title": "https://www.timeanddate.com/worldclock/timezone/utc"
+              },
+              {
+                "type": "url_citation",
+                "url": "https://www.utctime.net/",
+                "start_index": 0,
+                "end_index": 0,
+                "title": "https://www.utctime.net/"
+              },
+              {
+                "type": "url_citation",
+                "url": "https://en.wikipedia.org/wiki/Coordinated_Universal_Time",
+                "start_index": 0,
+                "end_index": 0,
+                "title": "https://en.wikipedia.org/wiki/Coordinated_Universal_Time"
+              },
+              {
+                "type": "url_citation",
+                "url": "https://dateful.com/convert/utc",
+                "start_index": 0,
+                "end_index": 0,
+                "title": "https://dateful.com/convert/utc"
+              },
+              {
+                "type": "url_citation",
+                "url": "https://time.is/UTC",
+                "start_index": 0,
+                "end_index": 0,
+                "title": "https://time.is/UTC"
+              }
+            ]
+          }
+        ],
+        "id": "msg_fixture0009",
+        "role": "assistant",
+        "type": "message",
+        "status": "completed"
+      }
+    ],
+    "parallel_tool_calls": true,
+    "previous_response_id": null,
+    "reasoning": {
+      "effort": "high",
+      "summary": "detailed"
+    },
+    "temperature": 0.7,
+    "text": {
+      "format": {
+        "type": "text"
+      }
+    },
+    "tool_choice": "auto",
+    "tools": [
+      {
+        "type": "web_search",
+        "search_context_size": "medium"
+      }
+    ],
+    "top_p": 0.95,
+    "usage": {
+      "input_tokens": 7824,
+      "input_tokens_details": {
+        "cached_tokens": 1792
+      },
+      "output_tokens": 835,
+      "output_tokens_details": {
+        "reasoning_tokens": 816
+      },
+      "total_tokens": 8659,
+      "num_sources_used": 0,
+      "num_server_side_tools_used": 3,
+      "cost_in_usd_ticks": 329700000,
+      "server_side_tool_usage_details": {
+        "web_search_calls": 3,
+        "x_search_calls": 0,
+        "code_interpreter_calls": 0,
+        "file_fixture0018": 0,
+        "mcp_calls": 0,
+        "document_search_calls": 0,
+        "image_generation_calls": 0
+      },
+      "context_details": {
+        "input_tokens": 4417,
+        "output_tokens": 186
+      }
+    },
+    "user": null,
+    "incomplete_details": null,
+    "status": "completed",
+    "store": false,
+    "metadata": {
+      "system_fingerprint": "fp_e41c6060b2628547"
+    },
+    "background": false,
+    "service_tier": "default",
+    "truncation": "disabled",
+    "top_logprobs": 0,
+    "presence_penalty": 0,
+    "frequency_penalty": 0,
+    "prompt_cache_key": null,
+    "max_tool_calls": null,
+    "safety_identifier": null,
+    "error": null,
+    "instructions": null
+  }
+}

@@ -8,10 +8,21 @@ const ID_PREFIXES = [
   "msg", "toolu", "srvtoolu", "mcptoolu", "req", "file", "container", "compaction", "batch",
   // openai (responses item·call id — chatcmpl은 하이픈형이라 별도 패턴)
   "resp", "rs", "fc", "call", "ws", "fs", "ci", "ig", "cu", "sh", "lsh", "ap", "mcp", "item", "conv",
+  // xai responses (2026-08-21 실측 — id 형태는 `접두사_UUID`, 접두사는 openai와 공유 + tco 추가)
+  "tco",
 ];
 const ID_PATTERN = new RegExp(`(?<=")(${ID_PREFIXES.join("|")})_[A-Za-z0-9_]{6,}(?=")`, "g");
 // openai CC 응답 id (chatcmpl-abc123 하이픈형) — 결정론 치환은 sanitizeText에서 별도 처리
 const CHATCMPL_PATTERN = /(?<=")chatcmpl-[A-Za-z0-9_-]{6,}(?=")/g;
+// xai id (2026-08-21 실측 4형) — ① `접두사_UUID`(responses item) ② bare UUID(body.id)
+// ③ `call-UUID-n`(CC tool call) ④ `접두사_UUID_call-UUID-n`(responses 서버툴 복합).
+// UUID는 하이픈 필수라 base64 오염 불가(F9 예외 성립). 접두사 없으면 uuid_/call_ 자리표시자.
+const UUID_HEX = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+const CALL_ID = `call-${UUID_HEX}-\\d+`;
+const UUID_ID_PATTERN = new RegExp(
+  `(?<=")(?:(${ID_PREFIXES.join("|")})_${UUID_HEX}(?:_${CALL_ID})?|${CALL_ID}|${UUID_HEX})(?=")`,
+  "g",
+);
 const PLACEHOLDER = /_fixture\d{4,}$/;
 const KEY_PATTERNS: Array<[RegExp, string]> = [
   [/sk-ant-[A-Za-z0-9_-]{10,}/g, "sk-ant-REDACTED"],
@@ -31,37 +42,29 @@ export type IdMap = Map<string, string>;
  * 같은 자리표시자를 쓴다. 기존 자리표시자는 자기 자신으로 등록해 재실행 시 재번호·
  * 신규 id와의 번호 충돌을 모두 방지한다 (리뷰 F17/A5-r3).
  */
+function toPlaceholder(idMap: IdMap, match: string, prefix: string): string {
+  const existing = idMap.get(match);
+  if (existing) return existing;
+  if (PLACEHOLDER.test(match)) {
+    idMap.set(match, match); // 기존 자리표시자 — 번호 공간 예약
+    return match;
+  }
+  const used = new Set(idMap.values());
+  let n = idMap.size + 1;
+  let placeholder = `${prefix}_fixture${String(n).padStart(4, "0")}`;
+  while (used.has(placeholder)) placeholder = `${prefix}_fixture${String(++n).padStart(4, "0")}`;
+  idMap.set(match, placeholder);
+  return placeholder;
+}
+
 export function sanitizeText(text: string, idMap: IdMap = new Map()): string {
   let out = text;
   for (const [pattern, replacement] of KEY_PATTERNS) out = out.replace(pattern, replacement);
-  out = out.replace(CHATCMPL_PATTERN, (match) => {
-    const existing = idMap.get(match);
-    if (existing) return existing;
-    if (PLACEHOLDER.test(match)) {
-      idMap.set(match, match);
-      return match;
-    }
-    const used = new Set(idMap.values());
-    let n = idMap.size + 1;
-    let placeholder = `chatcmpl_fixture${String(n).padStart(4, "0")}`;
-    while (used.has(placeholder)) placeholder = `chatcmpl_fixture${String(++n).padStart(4, "0")}`;
-    idMap.set(match, placeholder);
-    return placeholder;
-  });
-  return out.replace(ID_PATTERN, (match, prefix: string) => {
-    const existing = idMap.get(match);
-    if (existing) return existing;
-    if (PLACEHOLDER.test(match)) {
-      idMap.set(match, match); // 기존 자리표시자 — 번호 공간 예약
-      return match;
-    }
-    const used = new Set(idMap.values());
-    let n = idMap.size + 1;
-    let placeholder = `${prefix}_fixture${String(n).padStart(4, "0")}`;
-    while (used.has(placeholder)) placeholder = `${prefix}_fixture${String(++n).padStart(4, "0")}`;
-    idMap.set(match, placeholder);
-    return placeholder;
-  });
+  out = out.replace(CHATCMPL_PATTERN, (match) => toPlaceholder(idMap, match, "chatcmpl"));
+  out = out.replace(UUID_ID_PATTERN, (match, prefix: string | undefined) =>
+    toPlaceholder(idMap, match, prefix ?? (match.startsWith("call-") ? "call" : "uuid")),
+  );
+  return out.replace(ID_PATTERN, (match, prefix: string) => toPlaceholder(idMap, match, prefix));
 }
 
 /**
@@ -69,7 +72,10 @@ export function sanitizeText(text: string, idMap: IdMap = new Map()): string {
  * (자동 치환하면 base64 오염 위험이 있어 사람 검토로 넘긴다 — 리뷰 F9-r3)
  */
 export function findResidualIds(text: string): string[] {
-  const loose = new RegExp(`\\b((${ID_PREFIXES.join("|")})_[A-Za-z0-9]{8,}|chatcmpl-[A-Za-z0-9_-]{6,})`, "g");
+  const loose = new RegExp(
+    `\\b((${ID_PREFIXES.join("|")})_[A-Za-z0-9]{8,}|chatcmpl-[A-Za-z0-9_-]{6,}|${UUID_HEX})`,
+    "g",
+  );
   const found = new Set<string>();
   for (const match of text.matchAll(loose)) {
     if (!PLACEHOLDER.test(match[0])) found.add(match[0]);

@@ -1,0 +1,1462 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-gate-invalid-key 1`] = `
+{
+  "billed": false,
+  "category": "auth",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "Incorrect API key provided. You can obtain an API key from https://console.x.ai.",
+  "provider": {
+    "code": "invalid-argument",
+    "key": "xai",
+    "raw": {
+      "code": "invalid-argument",
+      "error": "Incorrect API key provided. You can obtain an API key from https://console.x.ai.",
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-gate-live-search-410 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 410,
+  "message": "Live search is deprecated. Please switch to the Agent Tools API: https://docs.x.ai/docs/guides/tools/overview (폐기된 API — Live Search는 agent tools로 이관됨)",
+  "provider": {
+    "key": "xai",
+    "raw": {
+      "error": "Live search is deprecated. Please switch to the Agent Tools API: https://docs.x.ai/docs/guides/tools/overview",
+    },
+    "status": 410,
+  },
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-gate-penalty-reasoning 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "Model grok-4.6 does not support parameter presencePenalty.",
+  "provider": {
+    "code": "invalid-argument",
+    "key": "xai",
+    "raw": {
+      "code": "invalid-argument",
+      "error": "Model grok-4.6 does not support parameter presencePenalty.",
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-gate-unsupported-param 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The user said "hi". This is a simple greeting. I should respond in a friendly, conversational way.
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "Hey there! What's up? How can I help you today? 😊",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 128,
+      "cacheWrite": 0,
+      "noCache": 79,
+      "total": 207,
+    },
+    "output": {
+      "reasoning": 117,
+      "text": 0,
+      "total": 15,
+    },
+    "raw": {
+      "completion_tokens": 15,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 117,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 10140000,
+      "num_sources_used": 0,
+      "prompt_tokens": 207,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 128,
+        "image_tokens": 0,
+        "text_tokens": 207,
+      },
+      "total_tokens": 339,
+    },
+    "totalTokens": 222,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-reasoning 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The question is: "Is 91 prime? Think it through, then answer in one word."
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "No",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 128,
+      "cacheWrite": 0,
+      "noCache": 93,
+      "total": 221,
+    },
+    "output": {
+      "reasoning": 170,
+      "text": 0,
+      "total": 1,
+    },
+    "raw": {
+      "completion_tokens": 1,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 170,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 12760000,
+      "num_sources_used": 0,
+      "prompt_tokens": 221,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 128,
+        "image_tokens": 0,
+        "text_tokens": 221,
+      },
+      "total_tokens": 392,
+    },
+    "totalTokens": 222,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-reasoning-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+    },
+    "providerRequestId": "uuid_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_reasoning",
+    "type": "reasoning-start",
+  },
+  {
+    "delta": "The",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " question",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " is",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ":",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " "",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "Is",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "133",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " prime",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "?",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " Think",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " it",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " through",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ",",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " then",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " answer",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " in",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " one",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " word",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "."",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "
+",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "blk_text",
+    "type": "text-start",
+  },
+  {
+    "delta": "No",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "id": "blk_text",
+    "type": "text-end",
+  },
+  {
+    "id": "blk_reasoning",
+    "type": "reasoning-end",
+  },
+  {
+    "finishReason": {
+      "raw": "stop",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 128,
+        "cacheWrite": 0,
+        "noCache": 93,
+        "total": 221,
+      },
+      "output": {
+        "reasoning": 132,
+        "text": 0,
+        "total": 1,
+      },
+      "raw": {
+        "completion_tokens": 1,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 132,
+          "rejected_prediction_tokens": 0,
+        },
+        "cost_in_usd_ticks": 10480000,
+        "num_sources_used": 0,
+        "prompt_tokens": 221,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 128,
+          "image_tokens": 0,
+          "text_tokens": 221,
+        },
+        "total_tokens": 354,
+      },
+      "totalTokens": 222,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-responses-text 1`] = `
+{
+  "blocks": [
+    {
+      "id": "rs_fixture0002",
+      "opaqueState": {
+        "data": "tsvrGdwkRkUWNFyeSZDCN0SdAOnnpLzjaimb1W9eu2HvqqNZz7EbkfCeDsqYAKPH9z48PRJPMZAV0OD9Pz8JG0zQyreAeal+hWmq4ZKWKXl08wSHpJkvoWCOiizkPT721E/iu1oCe8d0NFrG1kJGAp6hFIozEWYr0ZuwvBMYpr9mZeaJ7tYAluU4Q/B4ZhsJEPPDdu0P4I1xWjcd4NyBp97ZsxANudrVd61j0ZPjtOYmPtJWhPIb/zKRjrmWvviiB+JxlI6nO9dTxcvv8RZFlU8O5WwiOlMHrs+Pdqx1rPR22HlPp4obpDynNk7Im4LsF3jdmLAlxJQnuLhwXtZ2YGmAp+9y9W/AEtmCew6GPMNb+DO7r3Q5PPzWyfOaQwVvNRWwFDErvQywalTXUyMxQcxOB/eFiQbRSLgLHB1i613n3Zg6IpUmuLWZswvwyL8GbJX3fDY7/BEm/PGJWnbNqC+TpI+8Oo28TakGgP2/PTHASdii1jML/8xxRjAoDB6tS1EYidDrChZ97SCAn5FV+LfjyR0TJHdiCnSLfnl2p+qdYX3LkjjzS7fVNzbiD1Scd3lhiQZBu8TFer65NMsbN7JhgGIX5nsf2fDwvrRDgEuvL3hpCU/lK7quFs4U9Gplvdid2OzhyLfikKrbGIvPFZUPCmDVv16ljJnDuKvsaVxhVOU7Ac2QEKgSOaWR2Lxy9H7B2wP+heDhrng8E63z9ky69KsBPeWVPKOpWP/5k9y4+zRA0bBvlGjEePSNr5JayV66m6ZLfYtJLbikifpcFq89+p3hC89+x6gR2bGUp+2oprX8qnGiCmPias3xhxSHJQsGJA4RdbIqCKe3z44+1KJfsmb0jEII1Nl+P5ewBJ9tBYFDExIJX59UT+gEE0QkwSUyeOI3",
+        "provider": "xai",
+      },
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "xai": {
+          "item": {
+            "encrypted_content": "tsvrGdwkRkUWNFyeSZDCN0SdAOnnpLzjaimb1W9eu2HvqqNZz7EbkfCeDsqYAKPH9z48PRJPMZAV0OD9Pz8JG0zQyreAeal+hWmq4ZKWKXl08wSHpJkvoWCOiizkPT721E/iu1oCe8d0NFrG1kJGAp6hFIozEWYr0ZuwvBMYpr9mZeaJ7tYAluU4Q/B4ZhsJEPPDdu0P4I1xWjcd4NyBp97ZsxANudrVd61j0ZPjtOYmPtJWhPIb/zKRjrmWvviiB+JxlI6nO9dTxcvv8RZFlU8O5WwiOlMHrs+Pdqx1rPR22HlPp4obpDynNk7Im4LsF3jdmLAlxJQnuLhwXtZ2YGmAp+9y9W/AEtmCew6GPMNb+DO7r3Q5PPzWyfOaQwVvNRWwFDErvQywalTXUyMxQcxOB/eFiQbRSLgLHB1i613n3Zg6IpUmuLWZswvwyL8GbJX3fDY7/BEm/PGJWnbNqC+TpI+8Oo28TakGgP2/PTHASdii1jML/8xxRjAoDB6tS1EYidDrChZ97SCAn5FV+LfjyR0TJHdiCnSLfnl2p+qdYX3LkjjzS7fVNzbiD1Scd3lhiQZBu8TFer65NMsbN7JhgGIX5nsf2fDwvrRDgEuvL3hpCU/lK7quFs4U9Gplvdid2OzhyLfikKrbGIvPFZUPCmDVv16ljJnDuKvsaVxhVOU7Ac2QEKgSOaWR2Lxy9H7B2wP+heDhrng8E63z9ky69KsBPeWVPKOpWP/5k9y4+zRA0bBvlGjEePSNr5JayV66m6ZLfYtJLbikifpcFq89+p3hC89+x6gR2bGUp+2oprX8qnGiCmPias3xhxSHJQsGJA4RdbIqCKe3z44+1KJfsmb0jEII1Nl+P5ewBJ9tBYFDExIJX59UT+gEE0QkwSUyeOI3",
+            "id": "rs_fixture0002",
+            "status": "completed",
+            "summary": [
+              {
+                "text": "The user asked: "Is 97 prime? One word."
+",
+                "type": "summary_text",
+              },
+            ],
+            "type": "reasoning",
+          },
+        },
+      },
+      "text": "The user asked: "Is 97 prime? One word."
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "msg_fixture0003",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "xai": {
+          "itemId": "msg_fixture0003",
+        },
+      },
+      "text": "Yes",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "responses",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 128,
+      "cacheWrite": 0,
+      "noCache": 86,
+      "total": 214,
+    },
+    "output": {
+      "reasoning": 170,
+      "text": 1,
+      "total": 171,
+    },
+    "raw": {
+      "context_details": {
+        "input_tokens": 214,
+        "output_tokens": 171,
+      },
+      "cost_in_usd_ticks": 12620000,
+      "input_tokens": 214,
+      "input_tokens_details": {
+        "cached_tokens": 128,
+      },
+      "num_server_side_tools_used": 0,
+      "num_sources_used": 0,
+      "output_tokens": 171,
+      "output_tokens_details": {
+        "reasoning_tokens": 170,
+      },
+      "total_tokens": 385,
+    },
+    "totalTokens": 385,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-responses-web-search 1`] = `
+{
+  "blocks": [
+    {
+      "id": "rs_fixture0002",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "xai": {
+          "item": {
+            "id": "rs_fixture0002",
+            "status": "completed",
+            "summary": [
+              {
+                "text": "The question is: "What is the current UTC date? Use web search."
+",
+                "type": "summary_text",
+              },
+            ],
+            "type": "reasoning",
+          },
+        },
+      },
+      "text": "The question is: "What is the current UTC date? Use web search."
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "ws_fixture0003",
+      "input": {
+        "type": "json",
+        "value": {
+          "action": {
+            "query": "current UTC date",
+            "sources": [
+              {
+                "type": "url",
+                "url": "https://www.utctime.net/",
+              },
+              {
+                "type": "url",
+                "url": "https://www.timeanddate.com/worldclock/timezone/utc",
+              },
+              {
+                "type": "url",
+                "url": "https://time.is/UTC",
+              },
+              {
+                "type": "url",
+                "url": "https://en.wikipedia.org/wiki/Coordinated_Universal_Time",
+              },
+              {
+                "type": "url",
+                "url": "https://dateful.com/convert/utc",
+              },
+            ],
+            "type": "search",
+          },
+          "id": "ws_fixture0003",
+          "status": "completed",
+          "type": "web_search_call",
+        },
+      },
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerExecuted": true,
+      "providerMetadata": {
+        "xai": {
+          "item": {
+            "action": {
+              "query": "current UTC date",
+              "sources": [
+                {
+                  "type": "url",
+                  "url": "https://www.utctime.net/",
+                },
+                {
+                  "type": "url",
+                  "url": "https://www.timeanddate.com/worldclock/timezone/utc",
+                },
+                {
+                  "type": "url",
+                  "url": "https://time.is/UTC",
+                },
+                {
+                  "type": "url",
+                  "url": "https://en.wikipedia.org/wiki/Coordinated_Universal_Time",
+                },
+                {
+                  "type": "url",
+                  "url": "https://dateful.com/convert/utc",
+                },
+              ],
+              "type": "search",
+            },
+            "id": "ws_fixture0003",
+            "status": "completed",
+            "type": "web_search_call",
+          },
+        },
+      },
+      "toolCallId": "ws_fixture0003",
+      "toolName": "web_search",
+      "type": "toolCall",
+    },
+    {
+      "id": "tco_fixture0004",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "xai": {
+          "item": {
+            "id": "tco_fixture0004",
+            "status": "completed",
+            "summary": [],
+            "type": "reasoning",
+          },
+        },
+      },
+      "text": "",
+      "type": "reasoning",
+    },
+    {
+      "id": "ws_fixture0005",
+      "input": {
+        "type": "json",
+        "value": {
+          "action": {
+            "type": "open_page",
+            "url": "https://time.is/UTC",
+          },
+          "id": "ws_fixture0005",
+          "status": "completed",
+          "type": "web_search_call",
+        },
+      },
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerExecuted": true,
+      "providerMetadata": {
+        "xai": {
+          "item": {
+            "action": {
+              "type": "open_page",
+              "url": "https://time.is/UTC",
+            },
+            "id": "ws_fixture0005",
+            "status": "completed",
+            "type": "web_search_call",
+          },
+        },
+      },
+      "toolCallId": "ws_fixture0005",
+      "toolName": "web_search",
+      "type": "toolCall",
+    },
+    {
+      "id": "ws_fixture0006",
+      "input": {
+        "type": "json",
+        "value": {
+          "action": {
+            "type": "open_page",
+            "url": "https://www.timeanddate.com/worldclock/timezone/utc",
+          },
+          "id": "ws_fixture0006",
+          "status": "completed",
+          "type": "web_search_call",
+        },
+      },
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerExecuted": true,
+      "providerMetadata": {
+        "xai": {
+          "item": {
+            "action": {
+              "type": "open_page",
+              "url": "https://www.timeanddate.com/worldclock/timezone/utc",
+            },
+            "id": "ws_fixture0006",
+            "status": "completed",
+            "type": "web_search_call",
+          },
+        },
+      },
+      "toolCallId": "ws_fixture0006",
+      "toolName": "web_search",
+      "type": "toolCall",
+    },
+    {
+      "id": "tco_fixture0007",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "xai": {
+          "item": {
+            "id": "tco_fixture0007",
+            "status": "completed",
+            "summary": [],
+            "type": "reasoning",
+          },
+        },
+      },
+      "text": "",
+      "type": "reasoning",
+    },
+    {
+      "id": "tco_fixture0008",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "xai": {
+          "item": {
+            "id": "tco_fixture0008",
+            "status": "completed",
+            "summary": [],
+            "type": "reasoning",
+          },
+        },
+      },
+      "text": "",
+      "type": "reasoning",
+    },
+    {
+      "citations": [
+        {
+          "location": {
+            "end": 0,
+            "start": 0,
+            "type": "outputRange",
+          },
+          "source": {
+            "title": "https://www.timeanddate.com/worldclock/timezone/utc",
+            "type": "url",
+            "url": "https://www.timeanddate.com/worldclock/timezone/utc",
+          },
+        },
+        {
+          "location": {
+            "end": 0,
+            "start": 0,
+            "type": "outputRange",
+          },
+          "source": {
+            "title": "https://www.utctime.net/",
+            "type": "url",
+            "url": "https://www.utctime.net/",
+          },
+        },
+        {
+          "location": {
+            "end": 0,
+            "start": 0,
+            "type": "outputRange",
+          },
+          "source": {
+            "title": "https://en.wikipedia.org/wiki/Coordinated_Universal_Time",
+            "type": "url",
+            "url": "https://en.wikipedia.org/wiki/Coordinated_Universal_Time",
+          },
+        },
+        {
+          "location": {
+            "end": 0,
+            "start": 0,
+            "type": "outputRange",
+          },
+          "source": {
+            "title": "https://dateful.com/convert/utc",
+            "type": "url",
+            "url": "https://dateful.com/convert/utc",
+          },
+        },
+        {
+          "location": {
+            "end": 0,
+            "start": 0,
+            "type": "outputRange",
+          },
+          "source": {
+            "title": "https://time.is/UTC",
+            "type": "url",
+            "url": "https://time.is/UTC",
+          },
+        },
+      ],
+      "id": "msg_fixture0009",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "responses",
+      },
+      "providerMetadata": {
+        "xai": {
+          "itemId": "msg_fixture0009",
+        },
+      },
+      "text": "The current UTC date is Friday, August 21, 2026.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "completed",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "responses",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 1792,
+      "cacheWrite": 0,
+      "noCache": 6032,
+      "total": 7824,
+    },
+    "output": {
+      "reasoning": 816,
+      "text": 19,
+      "total": 835,
+    },
+    "raw": {
+      "context_details": {
+        "input_tokens": 4417,
+        "output_tokens": 186,
+      },
+      "cost_in_usd_ticks": 329700000,
+      "input_tokens": 7824,
+      "input_tokens_details": {
+        "cached_tokens": 1792,
+      },
+      "num_server_side_tools_used": 3,
+      "num_sources_used": 0,
+      "output_tokens": 835,
+      "output_tokens_details": {
+        "reasoning_tokens": 816,
+      },
+      "server_side_tool_usage_details": {
+        "code_interpreter_calls": 0,
+        "document_search_calls": 0,
+        "file_fixture0018": 0,
+        "image_generation_calls": 0,
+        "mcp_calls": 0,
+        "web_search_calls": 3,
+        "x_search_calls": 0,
+      },
+      "total_tokens": 8659,
+    },
+    "totalTokens": 8659,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-text 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The user asked: "What is the capital of France? Answer in one short sentence."
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The capital of France is Paris.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 128,
+      "cacheWrite": 0,
+      "noCache": 91,
+      "total": 219,
+    },
+    "output": {
+      "reasoning": 137,
+      "text": 0,
+      "total": 7,
+    },
+    "raw": {
+      "completion_tokens": 7,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 137,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 11100000,
+      "num_sources_used": 0,
+      "prompt_tokens": 219,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 128,
+        "image_tokens": 0,
+        "text_tokens": 219,
+      },
+      "total_tokens": 363,
+    },
+    "totalTokens": 226,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-text-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+    },
+    "providerRequestId": "uuid_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_reasoning",
+    "type": "reasoning-start",
+  },
+  {
+    "delta": "The",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " user",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " said",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ":",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " "",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "Count",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " from",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "1",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " to",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "5",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ".",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " Answer",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " in",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " one",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " short",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " sentence",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "."",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "
+",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "blk_text",
+    "type": "text-start",
+  },
+  {
+    "delta": "The",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " numbers",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " from",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "1",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " to",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "5",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " are",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "1",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "2",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "3",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": ",",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "4",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " and",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": " ",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": "5",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "delta": ".",
+    "id": "blk_text",
+    "type": "text-delta",
+  },
+  {
+    "id": "blk_text",
+    "type": "text-end",
+  },
+  {
+    "id": "blk_reasoning",
+    "type": "reasoning-end",
+  },
+  {
+    "finishReason": {
+      "raw": "stop",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 128,
+        "cacheWrite": 0,
+        "noCache": 92,
+        "total": 220,
+      },
+      "output": {
+        "reasoning": 303,
+        "text": 0,
+        "total": 24,
+      },
+      "raw": {
+        "completion_tokens": 24,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 303,
+          "rejected_prediction_tokens": 0,
+        },
+        "cost_in_usd_ticks": 22100000,
+        "num_sources_used": 0,
+        "prompt_tokens": 220,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 128,
+          "image_tokens": 0,
+          "text_tokens": 220,
+        },
+        "total_tokens": 547,
+      },
+      "totalTokens": 244,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-tool-call 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The user asked: "What's the weather in Paris?"
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Paris",
+        },
+      },
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "toolCallId": "call_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+  ],
+  "finishReason": {
+    "raw": "tool_calls",
+    "unified": "tool_call",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 128,
+      "cacheWrite": 0,
+      "noCache": 179,
+      "total": 307,
+    },
+    "output": {
+      "reasoning": 149,
+      "text": 0,
+      "total": 12,
+    },
+    "raw": {
+      "completion_tokens": 12,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 149,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 13880000,
+      "num_sources_used": 0,
+      "prompt_tokens": 307,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 128,
+        "image_tokens": 0,
+        "text_tokens": 307,
+      },
+      "total_tokens": 468,
+    },
+    "totalTokens": 319,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-tool-call-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+    },
+    "providerRequestId": "uuid_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_reasoning",
+    "type": "reasoning-start",
+  },
+  {
+    "delta": "The",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " user",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " asked",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": ":",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " "",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "What's",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " the",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " weather",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " in",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": " Tokyo",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "?"",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "delta": "
+",
+    "id": "blk_reasoning",
+    "type": "reasoning-delta",
+  },
+  {
+    "id": "blk_tool_0",
+    "toolCallId": "call_fixture0002",
+    "toolName": "get_weather",
+    "type": "tool-input-start",
+  },
+  {
+    "delta": "{"city":"Tokyo"}",
+    "id": "blk_tool_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "id": "blk_reasoning",
+    "type": "reasoning-end",
+  },
+  {
+    "id": "blk_tool_0",
+    "type": "tool-input-end",
+  },
+  {
+    "block": {
+      "id": "blk_tool_0",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Tokyo",
+        },
+      },
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "toolCallId": "call_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+    "type": "tool-call",
+  },
+  {
+    "finishReason": {
+      "raw": "tool_calls",
+      "unified": "tool_call",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 256,
+        "cacheWrite": 0,
+        "noCache": 51,
+        "total": 307,
+      },
+      "output": {
+        "reasoning": 212,
+        "text": 0,
+        "total": 12,
+      },
+      "raw": {
+        "completion_tokens": 12,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 0,
+          "audio_tokens": 0,
+          "reasoning_tokens": 212,
+          "rejected_prediction_tokens": 0,
+        },
+        "cost_in_usd_ticks": 15740000,
+        "num_sources_used": 0,
+        "prompt_tokens": 307,
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cached_tokens": 256,
+          "image_tokens": 0,
+          "text_tokens": 307,
+        },
+        "total_tokens": 531,
+      },
+      "totalTokens": 319,
+    },
+  },
+]
+`;

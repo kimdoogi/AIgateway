@@ -20,6 +20,8 @@ import { eventFromBase, requestToBase, responseFromBase, relabelWarning, stripBo
 // 기능 트리거 시 responses 스위칭 + store:false 강제(base가 수행).
 
 /** xAI가 400으로 거부하는 OpenAI 파라미터 (오버라이드 #2 — 무시가 아니라 거부라 strip 필수) */
+// 2026-08-21 실측: store는 400 거부가 아니라 200 묵살로 드리프트(problem log) — strip은
+// ADR-0004 store:false 정책 근거로 유지. 나머지 키의 400 여부는 미재검증.
 const XAI_REJECTED_CC_KEYS = ["store", "metadata", "modalities", "audio", "prediction", "safety_identifier"] as const;
 const XAI_REJECTED_RESPONSES_KEYS = ["metadata", "safety_identifier", "prompt_cache_options", "prompt_cache_retention", "truncation", "moderation"] as const;
 

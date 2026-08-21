@@ -895,8 +895,8 @@ export const CASES: CaptureCase[] = [
     name: "xai-gate-unsupported-param",
     provider: "xai",
     model: XAI_MODEL,
-    expectStatus: 400,
-    note: "미지원 파라미터 400 거부 실증 (B2-7 — strip 필요 근거)",
+    expectStatus: 200, // 2026-08-21 실측: 400 거부(인벤토리 B2-7) → 200 묵살로 드리프트. 과금 발생(소액)
+    note: "미지원 파라미터 거동 실측 (B2-7 — 400 아닌 200 묵살, strip 근거는 ADR-0004 정책으로 이전)",
     body: {
       model: XAI_MODEL,
       messages: [{ role: "user", content: "hi" }],
