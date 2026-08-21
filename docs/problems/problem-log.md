@@ -132,3 +132,12 @@
 - **neuro 수정 6건**: ① isGatewayRoutedModel을 프리픽스에서 **CLAUDE_GATEWAY_MODELS 허용목록**으로(N2 — 기존 프로덕션 gpt 채팅의 sessionItems 히스토리를 Claude 경로가 못 읽어 resume 0건 사고 차단). ② 미지 모델 단가 폴백 유음화(N1). ③ gpt max_tokens 엔트리 + 낙하 error 로그 + effort 무캡 통과(N3 — 클램프는 게이트웨이 레지스트리 소관). ④ tool_search_tool_bm25 게이트 + gpt 타깃 allowed_callers/defer_loading 스트립(N6). ⑤ 컨테이너 복구 4경로 applyContainer 게이트(N4). ⑥ 장기 세션 gpt 전환 경고(N5 — 감축 수단은 게이트웨이 compaction 로드맵).
 - **미수정 잔여 (기록)**: G7 `pinned` 의미론은 폴백 트리 구현 시(문서화된 유예). G8 KNOWN 키 내부 부분 매핑(output_config/metadata/tool_choice의 미지 하위 키 무경고 증발)은 "미지 키는 어디서 발견되든 보존 또는 warning"으로 일반화 필요 — 로드맵 5 좌석. N5의 근본 해결(크로스 프로바이더 compaction)은 재타게팅 패스 확장 과제.
 - **교훈**: 드롭+warning 체계를 아무리 정교하게 만들어도 **출구가 warning을 버리면 전부 조용한 변조**가 된다 — warning의 전달 경로는 warning 생성만큼 1급 관심사. 테스트 273개.
+
+
+## 2026-08-21 — xAI 어댑터: base 상속을 "네임스페이스 리맵 래퍼"로 구현
+
+- **설계 선택**: ADR-0004의 "openai-compat base 상속"을 클래스 상속이나 복붙이 아니라 **순수 함수 리맵 래퍼**(`src/adapters/xai/remap.ts`)로 실현 — 요청은 xai 표식(PO/PM 네임스페이스 키, origin.provider, opaqueState.provider, `xai.*` 툴 id, passthrough provider)을 openai로 바꿔 base를 통과시키고, 응답·스트림 이벤트는 역방향 복원. wire가 OpenAI 패턴 호환(인벤토리 B-1)이라 가능한 구조. 어댑터 계약이 순수 변환 함수(D4)였기에 합성이 공짜로 됐다 — 클래스였으면 오버라이드 지옥.
+- **base 공용 지점 확장 3곳** (openai 모듈에 xai 주석 명시): CC `end_turn`→stop, `message.reasoning_content`→reasoning 블록, `delta.reasoning_content`→reasoning 이벤트. OpenAI는 발행하지 않는 필드라 무해. base의 파라미터 게이트에 stopSequences 편입(xAI reasoning 모델이 stop을 400 거부 — 레지스트리가 공급).
+- **warning 라벨 정정**: base가 만드는 warning 메시지의 "openai" 문자열을 "xai"로 치환(relabelWarning) — 무식하지만 정직. 라벨 오표기는 조용한 변조는 아니나 오진단 유발.
+- **미녹화 잔여**: XAI_API_KEY 대기. 게이트 케이스 4종이 인벤토리의 실측 주장(미지원 파라미터 400, 인증 오류 400, Live Search 410)을 검증할 것 — 특히 B2-2(문서 401 vs 실측 400)는 녹화가 판정.
+- **재검토 좌석**: 리맵 래퍼는 xai wire가 OpenAI 패턴과 갈라질수록 postprocess가 자람 — strip 목록이 10개를 넘으면 독립 어댑터로 전환 검토 (현재 CC 6·responses 6).

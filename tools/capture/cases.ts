@@ -8,6 +8,7 @@ import type { JSONObject } from "../../src/ir/json.js";
 export const HAIKU = "claude-haiku-4-5";
 export const SONNET = "claude-sonnet-4-6";
 export const OAI_CHEAP = "gpt-5.6-luna"; // GPT-5.6 저비용 (인벤토리 §H)
+export const XAI_MODEL = "grok-4.6"; // 권장 모델 (인벤토리 §G — $2/$6)
 
 const OAI_WEATHER_TOOL: JSONObject = {
   type: "function",
@@ -25,7 +26,7 @@ const OAI_WEATHER_TOOL: JSONObject = {
 export interface CaptureCase {
   name: string;
   /** 기본 anthropic */
-  provider?: "anthropic" | "openai";
+  provider?: "anthropic" | "openai" | "xai";
   /** 프로바이더 기본 path 오버라이드 (openai: /v1/responses | /v1/chat/completions) */
   path?: string;
   model: string;
@@ -779,6 +780,162 @@ export const CASES: CaptureCase[] = [
       store: false,
       max_output_tokens: 2000,
       stream: true,
+    },
+  },
+
+  // ══ xAI (로드맵 5) — CC 주 표면 + responses(에이전트 툴·encrypted reasoning) (ADR-0004) ══
+
+  {
+    name: "xai-text",
+    provider: "xai",
+    model: XAI_MODEL,
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: `What is the capital of France? ${SHORT}` }],
+      max_completion_tokens: 2000,
+    },
+  },
+  {
+    name: "xai-text-stream",
+    provider: "xai",
+    model: XAI_MODEL,
+    stream: true,
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: `Count from 1 to 5. ${SHORT}` }],
+      max_completion_tokens: 2000,
+      stream: true,
+      stream_options: { include_usage: true },
+    },
+  },
+  {
+    name: "xai-reasoning",
+    provider: "xai",
+    model: XAI_MODEL,
+    note: "reasoning_content 필드 wire 확보 (B2-6)",
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: "Is 91 prime? Think it through, then answer in one word." }],
+      reasoning_effort: "low",
+      max_completion_tokens: 4000,
+    },
+  },
+  {
+    name: "xai-reasoning-stream",
+    provider: "xai",
+    model: XAI_MODEL,
+    stream: true,
+    note: "delta.reasoning_content 스트림 확보",
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: "Is 133 prime? Think it through, then answer in one word." }],
+      reasoning_effort: "low",
+      max_completion_tokens: 4000,
+      stream: true,
+      stream_options: { include_usage: true },
+    },
+  },
+  {
+    name: "xai-tool-call",
+    provider: "xai",
+    model: XAI_MODEL,
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: "What's the weather in Paris?" }],
+      tools: [{ type: "function", function: { name: "get_weather", description: "Get the current weather for a city.", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"], additionalProperties: false } } }],
+      tool_choice: "required",
+      max_completion_tokens: 4000,
+    },
+  },
+  {
+    name: "xai-tool-call-stream",
+    provider: "xai",
+    model: XAI_MODEL,
+    stream: true,
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
+      tools: [{ type: "function", function: { name: "get_weather", description: "Get the current weather for a city.", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"], additionalProperties: false } } }],
+      tool_choice: "required",
+      max_completion_tokens: 4000,
+      stream: true,
+      stream_options: { include_usage: true },
+    },
+  },
+  {
+    name: "xai-responses-text",
+    provider: "xai",
+    path: "/v1/responses",
+    model: XAI_MODEL,
+    note: "responses 표면 + encrypted reasoning 왕복 페이로드",
+    body: {
+      model: XAI_MODEL,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "Is 97 prime? One word." }] }],
+      store: false,
+      include: ["reasoning.encrypted_content"],
+      max_output_tokens: 4000,
+    },
+  },
+  {
+    name: "xai-responses-web-search",
+    provider: "xai",
+    path: "/v1/responses",
+    model: XAI_MODEL,
+    note: "서버측 에이전트 툴 wire 확보 — 툴 호출 횟수 추가 과금 소액",
+    body: {
+      model: XAI_MODEL,
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "What is the current UTC date? Use web search." }] }],
+      tools: [{ type: "web_search" }],
+      store: false,
+      max_output_tokens: 4000,
+    },
+  },
+  // ── 무과금 게이트 ──
+  {
+    name: "xai-gate-unsupported-param",
+    provider: "xai",
+    model: XAI_MODEL,
+    expectStatus: 400,
+    note: "미지원 파라미터 400 거부 실증 (B2-7 — strip 필요 근거)",
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: "hi" }],
+      store: true,
+      max_completion_tokens: 100,
+    },
+  },
+  {
+    name: "xai-gate-penalty-reasoning",
+    provider: "xai",
+    model: XAI_MODEL,
+    expectStatus: 400,
+    note: "reasoning 모델 + presence_penalty 400 실증 (B2-3)",
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: "hi" }],
+      presence_penalty: 0.5,
+      max_completion_tokens: 100,
+    },
+  },
+  {
+    name: "xai-gate-invalid-key",
+    provider: "xai",
+    model: XAI_MODEL,
+    invalidKey: true,
+    note: "인증 오류 상태코드 실측 (문서 401 vs 실측 400 — B2-2)",
+    body: { model: XAI_MODEL, messages: [{ role: "user", content: "hi" }], max_completion_tokens: 50 },
+  },
+  {
+    name: "xai-gate-live-search-410",
+    provider: "xai",
+    model: XAI_MODEL,
+    expectStatus: 410,
+    note: "폐기 Live Search 410 실증 (B2-18)",
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: "hi" }],
+      search_parameters: { mode: "auto" },
+      max_completion_tokens: 50,
     },
   },
 ];

@@ -56,6 +56,7 @@ export function convertUsage(wire: OpenAIWireUsage | undefined): Usage {
 const CC_FINISH_MAP: Record<string, FinishReason["unified"]> = {
   stop: "stop",
   length: "length",
+  end_turn: "stop", // xAI CC (base 상속 — ADR-0004 D8. OpenAI는 미발행)
   tool_calls: "tool_call",
   function_call: "tool_call",
   content_filter: "content_filter",

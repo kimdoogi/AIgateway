@@ -271,6 +271,7 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
       topP: req.topP,
       presencePenalty: req.presencePenalty,
       frequencyPenalty: req.frequencyPenalty,
+      stopSequences: req.stopSequences, // xAI reasoning 모델은 stop도 400 거부 (base 상속 — 레지스트리 공급)
     },
     ctx.capabilities?.unsupportedParams,
     req.strictParameters,
@@ -282,7 +283,7 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   if (gated["presencePenalty"] !== undefined) body["presence_penalty"] = gated["presencePenalty"];
   if (gated["frequencyPenalty"] !== undefined) body["frequency_penalty"] = gated["frequencyPenalty"];
   if (req.maxOutputTokens !== undefined) body["max_completion_tokens"] = req.maxOutputTokens;
-  if (req.stopSequences) body["stop"] = req.stopSequences;
+  if (gated["stopSequences"] !== undefined) body["stop"] = gated["stopSequences"];
   if (req.seed !== undefined) body["seed"] = req.seed;
   dropUnsupportedParams({ topK: req.topK }, req.strictParameters, "openai chat-completions", warnings);
 

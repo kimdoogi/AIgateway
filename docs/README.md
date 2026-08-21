@@ -75,6 +75,13 @@
 
 - 실소비자 1호(neuro 에이전트 루프) 접속 사전 점검에서 compat 커버리지 구멍 3건 검출·수정: ① 미지 top-level 키 → `passthroughParams(pinned)` 원문 통과(부록 (a) §3.2 개정 — container·context_management·mcp_servers), ② 응답 `container` 유실 → `providerMetadata` + `response-metadata.providerMetadata` 신설(ir-v0 §10.1), ③ PTC `allowed_callers` 등 툴 비표준 키 → `wireExtras` 보존·재병합. neuro형 왕복 테스트 추가, 테스트 265개. 상세: [problem log](problems/problem-log.md)
 
+### 2026-08-21 — 로드맵 5 착수: xAI 어댑터 (openai-compat base 상속 — 코드 완료, 실 녹화 대기)
+
+- **xAI 어댑터** (`src/adapters/xai/`, ADR-0004): openai 어댑터를 **네임스페이스 리맵 래퍼**로 상속(D8 실현) — IR의 프로바이더 표식(PO/PM 키·origin·opaqueState·provider 툴 id)만 xai↔openai 왕복 변환해 변환 로직 재구현 0. 표면: **CC 주**(OpenAI와 반대) + 에이전트 툴·encrypted reasoning·stateful 트리거 시 responses 강제 + store:false
+- **오버라이드 14지점 반영**: 평면 에러 포맷(`{"code","error"}`) 이중 파서 + 400 인증 오류 휴리스틱 + 410 폐기 안내, 미지원 파라미터 strip(store/metadata/audio 등 — xAI는 무시가 아니라 400 거부), reasoning 모델 penalty/stop 게이트(레지스트리 공급 — base의 stop도 게이트 편입), `reasoning_content`(CC 응답·스트림 → reasoning 블록 — base 공용 지점 확장), `end_turn`→stop, metadata.userId→`user`, `x-grok-conv-id` 캐시 헤더
+- 레지스트리 grok 라우팅(4.6=xhigh 지원, non-reasoning 예외), 캡처 케이스 12종(무과금 게이트 4 — 400 거부·인증 400 실측·410 실증 포함), 골든셋 ① 스냅샷 + conformance 양표면. 테스트 306개
+- **잔여**: XAI_API_KEY 확보 후 `pnpm capture xai-...` 실 녹화 → 골든셋 ② 편입 + 실 스모크. Gemini 어댑터·Batches/Files 부록 (b)·운영 평면은 로드맵 5 후속
+
 ## 로드맵 (2026-08-20 확정)
 
 1. ~~IR 설계 게이트 + 운영 결정 클로즈~~ (완료) → 2. ~~IR 스키마 v0~~ (작성·검증·개정 완료 — 사용자 승인 대기) → 3. **Walking skeleton** ([실행 계획](plan/walking-skeleton.md) — native → Anthropic, stream 포함 + 골든셋 캡처 하네스 + docker-compose + 메타 로그·OTel) → 4. OpenAI 어댑터 + 재타게팅 패스 v0 + 크로스 왕복 골든셋 + **부록 (a) 선행 후** 호환 인바운드 2종 → 5. Gemini·xAI 확장 + **Batches/Files 브리지(부록 (b) 선행)** + 레지스트리·커버리지 CI + 운영 평면(가상 키·예산·정산, 서버 상태 레지스트리, 본문 로그 파이프라인)

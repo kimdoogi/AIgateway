@@ -123,6 +123,10 @@ describe("registry 표면 축", () => {
     expect(resolveModel("gpt-5-pro").capabilities?.surfaces).toEqual(["responses"]);
     expect(resolveModel("gpt-audio-1.5").capabilities?.surfaces).toEqual(["chat-completions"]);
     expect(resolveModel("claude-haiku-4-5").provider).toBe("anthropic");
+    expect(resolveModel("grok-4.6").provider).toBe("xai");
+    expect(resolveModel("grok-4.6").capabilities?.supportedEfforts).toContain("xhigh");
+    expect(resolveModel("grok-4.6").capabilities?.unsupportedParams).toContain("stopSequences");
+    expect(resolveModel("grok-4.20-non-reasoning").capabilities?.unsupportedParams).toBeUndefined();
     expect(() => resolveModel("unknown-99")).toThrow();
   });
 

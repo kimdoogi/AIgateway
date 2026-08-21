@@ -1,0 +1,117 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든셋 ① IR → xai chat-completions wire > reasoning 모델 게이트 — penalties·stop 드롭 + warning (인벤토리 B2-3) 1`] = `
+{
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "grok-4.6",
+      "seed": 7,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/chat/completions",
+  },
+  "warnings": [
+    {
+      "code": "parameter-dropped",
+      "message": "xai 모델이 presencePenalty를 거부 — 드롭 (모델 capability 게이트)",
+      "path": "presencePenalty",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "xai 모델이 frequencyPenalty를 거부 — 드롭 (모델 capability 게이트)",
+      "path": "frequencyPenalty",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "xai 모델이 stopSequences를 거부 — 드롭 (모델 capability 게이트)",
+      "path": "stopSequences",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → xai chat-completions wire > text + effort xhigh — CC 주 표면, reasoning_effort 통과 1`] = `
+{
+  "request": {
+    "body": {
+      "max_completion_tokens": 100,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "grok-4.6",
+      "reasoning_effort": "xhigh",
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/chat/completions",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → xai responses wire > 에이전트 툴(xai.web_search) — id 리맵 + store:false 강제 1`] = `
+{
+  "request": {
+    "body": {
+      "include": [
+        "reasoning.encrypted_content",
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "news?",
+              "type": "input_text",
+            },
+          ],
+          "role": "user",
+          "type": "message",
+        },
+      ],
+      "model": "grok-4.6",
+      "store": false,
+      "tools": [
+        {
+          "allowed_domains": [
+            "x.com",
+          ],
+          "type": "web_search",
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/responses",
+  },
+  "warnings": [],
+}
+`;

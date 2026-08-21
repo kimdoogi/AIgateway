@@ -33,6 +33,8 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
 
   const TEXT_ID = "blk_text";
   const REFUSAL_ID = "blk_refusal";
+  const REASONING_ID = "blk_reasoning";
+  let reasoningOpen = false;
 
   function warnOnce(kindKey: string, message: string, details?: JSONValue): AdapterStreamEvent[] {
     if (warnedUnknown.has(kindKey)) return [];
@@ -52,6 +54,10 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
     if (refusalOpen) {
       out.push({ type: "text-end", id: REFUSAL_ID, providerMetadata: { openai: { refusal: true } } });
       refusalOpen = false;
+    }
+    if (reasoningOpen) {
+      out.push({ type: "reasoning-end", id: REASONING_ID });
+      reasoningOpen = false;
     }
     for (const [, tool] of [...tools.entries()].sort(([a], [b]) => a - b)) {
       out.push({ type: "tool-input-end", id: tool.irId });
@@ -144,6 +150,16 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
         out.push({ type: "text-delta", id: TEXT_ID, delta: content });
       }
 
+      // xAI CC 확장 (base 상속): reasoning 요약 delta. OpenAI CC는 미발행
+      const reasoning = delta["reasoning_content"];
+      if (typeof reasoning === "string" && reasoning.length > 0) {
+        if (!reasoningOpen) {
+          reasoningOpen = true;
+          out.push({ type: "reasoning-start", id: REASONING_ID });
+        }
+        out.push({ type: "reasoning-delta", id: REASONING_ID, delta: reasoning });
+      }
+
       const refusal = delta["refusal"];
       if (typeof refusal === "string" && refusal.length > 0) {
         if (!refusalOpen) {
@@ -182,7 +198,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
 
       // 미지 delta 필드 — 보존 + 1회 보고 (§10.2)
       for (const key of Object.keys(delta)) {
-        if (key === "content" || key === "refusal" || key === "tool_calls" || key === "role") continue;
+        if (key === "content" || key === "refusal" || key === "tool_calls" || key === "role" || key === "reasoning_content") continue;
         out.push(
           ...warnOnce(`delta:${key}`, `미지의 CC delta 필드 '${key}' — 원문 보존`),
           { type: "passthrough", block: { type: "passthrough", provider: "openai", raw: json as JSONValue, origin } },

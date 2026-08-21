@@ -15,6 +15,7 @@ const CHATCMPL_PATTERN = /(?<=")chatcmpl-[A-Za-z0-9_-]{6,}(?=")/g;
 const PLACEHOLDER = /_fixture\d{4,}$/;
 const KEY_PATTERNS: Array<[RegExp, string]> = [
   [/sk-ant-[A-Za-z0-9_-]{10,}/g, "sk-ant-REDACTED"],
+  [/xai-[A-Za-z0-9_-]{20,}/g, "xai-REDACTED"],
   [/sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{10,}/g, "sk-proj-REDACTED"],
   [/sk-[A-Za-z0-9_-]{20,}/g, "sk-REDACTED"],
   [/Bearer\s+[A-Za-z0-9._-]{10,}/g, "Bearer REDACTED"],

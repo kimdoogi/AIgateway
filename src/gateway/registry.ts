@@ -113,6 +113,33 @@ const MODEL_ROUTES: ModelRoute[] = [
     capabilities: { unsupportedParams: OPENAI_REASONING_REJECTS },
   },
   { pattern: /^(gpt-|chatgpt-|o\d)/, provider: "openai" },
+
+  // ── xAI ── (인벤토리 §G — reasoning 모델은 penalty/stop 400 거부, effort 집합 모델별)
+  {
+    pattern: /^grok-4\.6/,
+    provider: "xai",
+    capabilities: {
+      supportedEfforts: ["low", "medium", "high", "xhigh"],
+      unsupportedParams: ["presencePenalty", "frequencyPenalty", "stopSequences"],
+    },
+  },
+  {
+    pattern: /^grok-4\.5/,
+    provider: "xai",
+    capabilities: {
+      supportedEfforts: ["low", "medium", "high"],
+      unsupportedParams: ["presencePenalty", "frequencyPenalty", "stopSequences"],
+    },
+  },
+  {
+    pattern: /^grok-.*non-reasoning/,
+    provider: "xai",
+  },
+  {
+    pattern: /^grok-/,
+    provider: "xai",
+    capabilities: { unsupportedParams: ["presencePenalty", "frequencyPenalty", "stopSequences"] },
+  },
 ];
 
 export interface ResolvedRoute {

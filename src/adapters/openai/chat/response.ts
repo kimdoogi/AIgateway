@@ -25,6 +25,13 @@ export function messageToBlocks(
 ): Block[] {
   const blocks: Block[] = [];
 
+  // xAI CC 확장 (base 상속 — 인벤토리 B2-6): reasoning 요약이 별도 필드로. OpenAI는 미발행.
+  // 서명 없는 평문 요약 — opaqueState 없음 (encrypted reasoning은 responses 표면 전용)
+  const reasoningContent = message["reasoning_content"];
+  if (typeof reasoningContent === "string" && reasoningContent.length > 0) {
+    blocks.push({ type: "reasoning", text: reasoningContent });
+  }
+
   const content = message["content"];
   if (typeof content === "string" && content.length > 0) {
     const annotationsRaw = message["annotations"];

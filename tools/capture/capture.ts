@@ -9,7 +9,7 @@ import { loadDotenv } from "../../src/env.js";
 import { CASES, selectCases, type CaptureCase } from "./cases.js";
 import { findResidualIds, sanitizeHeaders, sanitizeText, type IdMap } from "./sanitize.js";
 import { providerDir, type FixtureMeta } from "./fixtures.js";
-import { replayAnthropicStream, replayOpenAIStream, usageFromEvents } from "./replay.js";
+import { replayAnthropicStream, replayOpenAIStream, replayXAIStream, usageFromEvents } from "./replay.js";
 import { parseSSEText } from "../../src/stream/sse.js";
 import {
   unknownResponseFields as anthropicUnknownResponse,
@@ -70,6 +70,20 @@ const PROVIDERS: Record<string, ProviderConfig> = {
       return wireUsage ? convertOpenAIUsage(wireUsage) : undefined;
     },
   },
+  xai: {
+    baseUrl: "https://api.x.ai",
+    envVar: "XAI_API_KEY",
+    defaultPath: "/v1/chat/completions", // ADR-0004 — CC 주 표면
+    authHeaders: (apiKey, invalid) => ({
+      authorization: `Bearer ${invalid ? "xai-invalid-fixture-key-0000000000" : apiKey}`,
+    }),
+    replay: (text, modelId, path) => replayXAIStream(text, { modelId }, path),
+    unknownResponse: () => [], // 신선도 하드 보장은 Anthropic 한정 (간극 문서 H)
+    usageFromBody: (body) => {
+      const wireUsage = (body as { usage?: OpenAIWireUsage }).usage; // usage 구조 OpenAI 호환 (§F)
+      return wireUsage ? convertOpenAIUsage(wireUsage) : undefined;
+    },
+  },
 };
 
 // USD / 1M tokens. 캡 검증용 근사 단가 — 청구서 대체 아님.
@@ -78,6 +92,7 @@ const PRICING: Record<string, { input: number; output: number }> = {
   "claude-haiku-4-5": { input: 1.0, output: 5.0 },
   "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
   "gpt-5.6": { input: 5.0, output: 30.0 }, // sol 단가를 상한으로 — luna/terra는 그 이하
+  "grok-4.6": { input: 2.0, output: 6.0 }, // 인벤토리 §G (200k 초과 프리미엄은 미반영 — 캡 근사)
 };
 
 function costUSD(model: string, usage: Usage): number {

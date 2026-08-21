@@ -1,5 +1,6 @@
 import { anthropicAdapter } from "../adapters/anthropic/index.js";
 import { openaiAdapters, selectOpenAISurface } from "../adapters/openai/index.js";
+import { selectXAISurface, xaiAdapters } from "../adapters/xai/index.js";
 import { registerProvider } from "./registry.js";
 
 // 조립 루트 — 프로바이더 등록은 여기서만 (코어 모듈은 어댑터를 import하지 않는다, D4).
@@ -17,5 +18,12 @@ export function bootstrapProviders(): void {
     baseUrl: "https://api.openai.com",
     auth: { envVar: "OPENAI_API_KEY", header: "authorization", prefix: "Bearer " },
     selectSurface: selectOpenAISurface,
+  });
+  registerProvider({
+    // 첫 원소 = 기본 표면 (ADR-0004: CC 주 경로 — OpenAI와 반대)
+    adapters: xaiAdapters,
+    baseUrl: "https://api.x.ai",
+    auth: { envVar: "XAI_API_KEY", header: "authorization", prefix: "Bearer " },
+    selectSurface: selectXAISurface,
   });
 }

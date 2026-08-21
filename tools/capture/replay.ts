@@ -2,6 +2,7 @@ import { parseSSEText } from "../../src/stream/sse.js";
 import { createStreamTransformer } from "../../src/adapters/anthropic/stream.js";
 import { createStreamTransformer as createResponsesTransformer } from "../../src/adapters/openai/responses/stream.js";
 import { createStreamTransformer as createChatTransformer } from "../../src/adapters/openai/chat/stream.js";
+import { xaiChatAdapter, xaiResponsesAdapter } from "../../src/adapters/xai/index.js";
 import type { AdapterStreamEvent, StreamContext, StreamTransformer } from "../../src/adapters/types.js";
 import type { Usage } from "../../src/ir/usage.js";
 
@@ -26,6 +27,12 @@ export function replayAnthropicStream(text: string, ctx: StreamContext): Adapter
 export function replayOpenAIStream(text: string, ctx: StreamContext, path: string): AdapterStreamEvent[] {
   const make = path.includes("/chat/completions") ? createChatTransformer : createResponsesTransformer;
   return replayStream(text, make(ctx));
+}
+
+/** xai — openai base 상속 어댑터 (리맵 래퍼 경유) */
+export function replayXAIStream(text: string, ctx: StreamContext, path: string): AdapterStreamEvent[] {
+  const adapter = path.includes("/chat/completions") ? xaiChatAdapter : xaiResponsesAdapter;
+  return replayStream(text, adapter.createStreamTransformer(ctx));
 }
 
 /** 터미널 이벤트에서 usage 추출 (과금 집계용 — 절단 스트림의 provider-error도 usage를 싣는다) */
