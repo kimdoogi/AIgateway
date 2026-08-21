@@ -23,10 +23,14 @@ const UUID_ID_PATTERN = new RegExp(
   `(?<=")(?:(${ID_PREFIXES.join("|")})_${UUID_HEX}(?:_${CALL_ID})?|${CALL_ID}|${UUID_HEX})(?=")`,
   "g",
 );
+// gemini responseId — 접두사 없는 base64url이라 값 형태만으론 서명과 구분 불가 → 키 스코프 앵커
+// (2026-08-21 실측: "QE6IapGOBdux1e8P4uj0KA" 류 22자)
+const RESPONSE_ID_PATTERN = /(?<="responseId":\s*")[A-Za-z0-9_-]{8,}(?=")/g;
 const PLACEHOLDER = /_fixture\d{4,}$/;
 const KEY_PATTERNS: Array<[RegExp, string]> = [
   [/sk-ant-[A-Za-z0-9_-]{10,}/g, "sk-ant-REDACTED"],
   [/xai-[A-Za-z0-9_-]{20,}/g, "xai-REDACTED"],
+  [/AIza[0-9A-Za-z_-]{30,}/g, "AIza-REDACTED"], // Google API 키 (에러 body 에코 방어 — 리뷰 2026-08-21)
   [/sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{10,}/g, "sk-proj-REDACTED"],
   [/sk-[A-Za-z0-9_-]{20,}/g, "sk-REDACTED"],
   [/Bearer\s+[A-Za-z0-9._-]{10,}/g, "Bearer REDACTED"],
@@ -64,6 +68,7 @@ export function sanitizeText(text: string, idMap: IdMap = new Map()): string {
   out = out.replace(UUID_ID_PATTERN, (match, prefix: string | undefined) =>
     toPlaceholder(idMap, match, prefix ?? (match.startsWith("call-") ? "call" : "uuid")),
   );
+  out = out.replace(RESPONSE_ID_PATTERN, (match) => toPlaceholder(idMap, match, "responseId"));
   return out.replace(ID_PATTERN, (match, prefix: string) => toPlaceholder(idMap, match, prefix));
 }
 
@@ -78,6 +83,10 @@ export function findResidualIds(text: string): string[] {
   );
   const found = new Set<string>();
   for (const match of text.matchAll(loose)) {
+    if (!PLACEHOLDER.test(match[0])) found.add(match[0]);
+  }
+  // responseId는 키 스코프로만 식별 가능 — 치환 후 잔존분 검출
+  for (const match of text.matchAll(RESPONSE_ID_PATTERN)) {
     if (!PLACEHOLDER.test(match[0])) found.add(match[0]);
   }
   return [...found];

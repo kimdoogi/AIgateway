@@ -1,0 +1,39 @@
+{
+  "case": "gemini-gate-thinking-conflict",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "hi"
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 100,
+        "thinkingConfig": {
+          "thinkingBudget": 1024,
+          "thinkingLevel": "low"
+        }
+      }
+    }
+  },
+  "status": 400,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "error": {
+      "code": 400,
+      "message": "You can only set only one of thinking budget and thinking level.",
+      "status": "INVALID_ARGUMENT"
+    }
+  }
+}

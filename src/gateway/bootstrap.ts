@@ -1,4 +1,5 @@
 import { anthropicAdapter } from "../adapters/anthropic/index.js";
+import { geminiAdapter } from "../adapters/gemini/index.js";
 import { openaiAdapters, selectOpenAISurface } from "../adapters/openai/index.js";
 import { selectXAISurface, xaiAdapters } from "../adapters/xai/index.js";
 import { registerProvider } from "./registry.js";
@@ -25,5 +26,11 @@ export function bootstrapProviders(): void {
     baseUrl: "https://api.x.ai",
     auth: { envVar: "XAI_API_KEY", header: "authorization", prefix: "Bearer " },
     selectSurface: selectXAISurface,
+  });
+  registerProvider({
+    // v1 단일 표면 (ADR-0003: generateContent — Interactions는 2차 승격 트리거 대기)
+    adapters: [geminiAdapter],
+    baseUrl: "https://generativelanguage.googleapis.com",
+    auth: { envVar: "GEMINI_API_KEY", header: "x-goog-api-key" },
   });
 }

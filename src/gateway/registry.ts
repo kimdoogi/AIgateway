@@ -114,6 +114,29 @@ const MODEL_ROUTES: ModelRoute[] = [
   },
   { pattern: /^(gpt-|chatgpt-|o\d)/, provider: "openai" },
 
+  // ── Google Gemini ── (인벤토리 §I — thinkingLevel은 3세대, 2.5는 thinkingBudget(PO 경유))
+  {
+    pattern: /^gemini-3\.1-pro/,
+    provider: "google",
+    capabilities: { supportedEfforts: ["low", "medium", "high"] }, // minimal 미지원 (§I)
+  },
+  {
+    pattern: /^gemini-3/,
+    provider: "google",
+    capabilities: { supportedEfforts: ["minimal", "low", "medium", "high"] },
+  },
+  {
+    pattern: /^gemini-2\.5/,
+    provider: "google",
+    capabilities: { supportedEfforts: [] }, // thinkingLevel 미지원 세대 — effort는 드롭 + warning
+  },
+  {
+    pattern: /^gemini-/,
+    provider: "google",
+    // 안전측 기본값: 미지 세대(2.0/1.5 등)에 3세대 thinkingLevel을 보내면 400 — 드롭+warning이 안전
+    capabilities: { supportedEfforts: [] },
+  },
+
   // ── xAI ── (인벤토리 §G — reasoning 모델은 penalty/stop 400 거부, effort 집합 모델별)
   {
     pattern: /^grok-4\.6/,

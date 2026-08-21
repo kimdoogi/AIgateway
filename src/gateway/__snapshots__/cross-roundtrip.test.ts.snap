@@ -1,5 +1,132 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → gemini 요청 > text — drop 기본 > drop 1`] = `
+{
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "start",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "parts": [
+          {
+            "text": "The capital of France is Paris.",
+          },
+        ],
+        "role": "model",
+      },
+      {
+        "parts": [
+          {
+            "text": "continue",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+  },
+  "retargetWarnings": [],
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → gemini 요청 > thinking — drop 기본 > drop 1`] = `
+{
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "start",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "parts": [
+          {
+            "text": "2 hours.
+
+Shirts dry simultaneously, not sequentially. Adding more shirts doesn't extend drying time if they're hanging together.",
+          },
+        ],
+        "role": "model",
+      },
+      {
+        "parts": [
+          {
+            "text": "continue",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "reasoning-dropped",
+      "message": "외래 reasoning 블록 드롭 (retarget: drop)",
+      "path": "messages[1].blocks[0]",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → gemini 요청 > tool-call — drop 기본 > drop 1`] = `
+{
+  "body": {
+    "contents": [
+      {
+        "parts": [
+          {
+            "text": "start",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "parts": [
+          {
+            "functionCall": {
+              "args": {
+                "city": "Seoul",
+              },
+              "name": "get_weather",
+            },
+            "thoughtSignature": "skip_thought_signature_validator",
+          },
+        ],
+        "role": "model",
+      },
+      {
+        "parts": [
+          {
+            "text": "continue",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "signature-synthesized",
+      "message": "functionCall에 thoughtSignature 부재 — 공식 더미 삽입 (Gemini 3 검증 우회, D6-9)",
+      "path": "messages[1]",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
 exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > citations — drop 기본 + demote 정책 각 1회 > demote 1`] = `
 {
   "body": {
@@ -401,6 +528,317 @@ exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > to
   },
   "retargetWarnings": [],
   "warnings": [],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: gemini 응답 → anthropic 요청 > gemini-text — drop 기본 + demote 정책 각 1회 > demote 1`] = `
+{
+  "body": {
+    "max_tokens": 4096,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "content": [
+          {
+            "text": "The capital of France is Paris.",
+            "type": "text",
+          },
+        ],
+        "role": "assistant",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+    "model": "claude-haiku-4-5",
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "parameter-defaulted",
+      "message": "maxOutputTokens 미지정 — 기본값 4096 주입 (anthropic max_tokens 필수)",
+      "path": "maxOutputTokens",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: gemini 응답 → anthropic 요청 > gemini-text — drop 기본 + demote 정책 각 1회 > drop 1`] = `
+{
+  "body": {
+    "max_tokens": 4096,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "content": [
+          {
+            "text": "The capital of France is Paris.",
+            "type": "text",
+          },
+        ],
+        "role": "assistant",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+    "model": "claude-haiku-4-5",
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "parameter-defaulted",
+      "message": "maxOutputTokens 미지정 — 기본값 4096 주입 (anthropic max_tokens 필수)",
+      "path": "maxOutputTokens",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: gemini 응답 → anthropic 요청 > gemini-thinking — drop 기본 + demote 정책 각 1회 > demote 1`] = `
+{
+  "body": {
+    "max_tokens": 4096,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "content": [
+          {
+            "text": "**Primality**
+
+Okay, so I need to check if 91 is prime. Let's run through the usual suspects: 2, 3, and 5 are out immediately because of the divisibility rules. Hmm, 7... quick division: 91 divided by 7 equals 13 with no remainder. Aha! 91 is a product of 7 and 13, therefore, composite.
+
+
+",
+            "type": "text",
+          },
+          {
+            "text": "No",
+            "type": "text",
+          },
+        ],
+        "role": "assistant",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+    "model": "claude-haiku-4-5",
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "parameter-defaulted",
+      "message": "maxOutputTokens 미지정 — 기본값 4096 주입 (anthropic max_tokens 필수)",
+      "path": "maxOutputTokens",
+      "type": "compatibility",
+    },
+    {
+      "code": "reasoning-demoted",
+      "message": "외래 reasoning을 텍스트로 강등",
+      "path": "messages[1].blocks[0]",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: gemini 응답 → anthropic 요청 > gemini-thinking — drop 기본 + demote 정책 각 1회 > drop 1`] = `
+{
+  "body": {
+    "max_tokens": 4096,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "content": [
+          {
+            "text": "No",
+            "type": "text",
+          },
+        ],
+        "role": "assistant",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+    "model": "claude-haiku-4-5",
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "parameter-defaulted",
+      "message": "maxOutputTokens 미지정 — 기본값 4096 주입 (anthropic max_tokens 필수)",
+      "path": "maxOutputTokens",
+      "type": "compatibility",
+    },
+    {
+      "code": "reasoning-dropped",
+      "message": "외래 reasoning 블록 드롭 (retarget: drop)",
+      "path": "messages[1].blocks[0]",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: gemini 응답 → anthropic 요청 > gemini-tool-call — drop 기본 + demote 정책 각 1회 > demote 1`] = `
+{
+  "body": {
+    "max_tokens": 4096,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "content": [
+          {
+            "id": "call_fixture0002",
+            "input": {
+              "city": "Paris",
+            },
+            "name": "get_weather",
+            "type": "tool_use",
+          },
+        ],
+        "role": "assistant",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+    "model": "claude-haiku-4-5",
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "parameter-defaulted",
+      "message": "maxOutputTokens 미지정 — 기본값 4096 주입 (anthropic max_tokens 필수)",
+      "path": "maxOutputTokens",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ④ 크로스 왕복: gemini 응답 → anthropic 요청 > gemini-tool-call — drop 기본 + demote 정책 각 1회 > drop 1`] = `
+{
+  "body": {
+    "max_tokens": 4096,
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "start",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+      {
+        "content": [
+          {
+            "id": "call_fixture0002",
+            "input": {
+              "city": "Paris",
+            },
+            "name": "get_weather",
+            "type": "tool_use",
+          },
+        ],
+        "role": "assistant",
+      },
+      {
+        "content": [
+          {
+            "text": "continue",
+            "type": "text",
+          },
+        ],
+        "role": "user",
+      },
+    ],
+    "model": "claude-haiku-4-5",
+  },
+  "retargetWarnings": [],
+  "warnings": [
+    {
+      "code": "parameter-defaulted",
+      "message": "maxOutputTokens 미지정 — 기본값 4096 주입 (anthropic max_tokens 필수)",
+      "path": "maxOutputTokens",
+      "type": "compatibility",
+    },
+  ],
 }
 `;
 

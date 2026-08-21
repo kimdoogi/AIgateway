@@ -1,0 +1,94 @@
+{
+  "case": "gemini-tool-call",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "What's the weather in Paris?"
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "name": "get_weather",
+              "description": "Get the current weather for a city.",
+              "parametersJsonSchema": {
+                "type": "object",
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "additionalProperties": false
+              }
+            }
+          ]
+        }
+      ],
+      "toolConfig": {
+        "functionCallingConfig": {
+          "mode": "ANY"
+        }
+      },
+      "generationConfig": {
+        "maxOutputTokens": 4000
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "functionCall": {
+                "name": "get_weather",
+                "args": {
+                  "city": "Paris"
+                },
+                "id": "call_fixture0002"
+              },
+              "thoughtSignature": "Ep4CCpsCARFNMg9LEoSJAoMaVieWtSBZyAKWOIh03gbOt1BMotDJd5RoL5hdM5+ZxUSEfQcpYbAMEcWTmU7DkGFtLBosozWVfu5/fmvDZX7QK9+LFKOiaWxdh+Vndq0kxlOZrts+UGvHN+9UnTpWLATVerAhhu5cAcguYColeR8vcjWr5tfonR+WXapE2nPW5iTSHzj/fJIdBtI5hZklx20fS99QPpaH6fKD7Of+0D7x9Ckr2RZqOD8TiV5ef/nRX7XejriJy65PvgzC+lewvRtXQZH1p7F2L2DxVn6KdKA+T+dbV049tR8Kxd2Ol/6bHhwfmKxEz/0n0KVZfwLZSWpwK/mC8N71H0/fqiyvzb1uXp1r1Ziogsd5EAOYBwZZAQ=="
+            }
+          ],
+          "role": "model"
+        },
+        "finishReason": "STOP",
+        "index": 0,
+        "finishMessage": "Model generated function call(s)."
+      }
+    ],
+    "usageMetadata": {
+      "promptTokenCount": 54,
+      "candidatesTokenCount": 16,
+      "totalTokenCount": 116,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 54
+        }
+      ],
+      "thoughtsTokenCount": 46,
+      "serviceTier": "standard"
+    },
+    "modelVersion": "gemini-3.7-flash",
+    "responseId": "responseId_fixture0001"
+  }
+}

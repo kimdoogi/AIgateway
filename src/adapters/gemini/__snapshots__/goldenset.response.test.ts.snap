@@ -1,0 +1,845 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-gate-invalid-key 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "API key not valid. Please pass a valid API key.",
+  "provider": {
+    "code": "INVALID_ARGUMENT",
+    "key": "google",
+    "raw": {
+      "error": {
+        "code": 400,
+        "details": [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            "domain": "googleapis.com",
+            "metadata": {
+              "service": "generativelanguage.googleapis.com",
+            },
+            "reason": "API_KEY_INVALID",
+          },
+          {
+            "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+            "locale": "en-US",
+            "message": "API key not valid. Please pass a valid API key.",
+          },
+        ],
+        "message": "API key not valid. Please pass a valid API key.",
+        "status": "INVALID_ARGUMENT",
+      },
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-gate-thinking-conflict 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "You can only set only one of thinking budget and thinking level.",
+  "provider": {
+    "code": "INVALID_ARGUMENT",
+    "key": "google",
+    "raw": {
+      "error": {
+        "code": 400,
+        "message": "You can only set only one of thinking budget and thinking level.",
+        "status": "INVALID_ARGUMENT",
+      },
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-gate-unknown-model 1`] = `
+{
+  "billed": false,
+  "category": "not_found",
+  "fallbackEligible": false,
+  "httpStatus": 404,
+  "message": "models/gemini-nonexistent-model is not found for API version v1beta, or is not supported for generateContent. Call ModelService.ListModels to see the list of available models and their supported methods.",
+  "provider": {
+    "code": "NOT_FOUND",
+    "key": "google",
+    "raw": {
+      "error": {
+        "code": 404,
+        "message": "models/gemini-nonexistent-model is not found for API version v1beta, or is not supported for generateContent. Call ModelService.ListModels to see the list of available models and their supported methods.",
+        "status": "NOT_FOUND",
+      },
+    },
+    "status": 404,
+  },
+}
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-google-search 1`] = `
+{
+  "blocks": [
+    {
+      "citations": [
+        {
+          "citedText": "The current UTC date is **Friday, August 21, 2026**",
+          "location": {
+            "end": 51,
+            "start": 0,
+            "type": "char",
+          },
+          "source": {
+            "title": "time.gov",
+            "type": "url",
+            "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHh2XNqAMv_pWmykqq5trbUpG-_0VmhqRrIreaS2X9Pw1WLagYlTlNK28okbh6hdAJDWzptRUmD5U-EUXgjQDQ1tfLpZRO8nPzwsPju",
+          },
+        },
+      ],
+      "id": "blk_0",
+      "opaqueState": {
+        "data": "EpgBCpUBARFNMg/DRo1rwUdnNDGZz2NzsVGkqdD4dbpre6z/mcrhdb+FQUPHd0u6iEy21RRwqAj7IHGealn5J+1dRc7cVCB66oU3QCDR5D5rZVBviABvM++XTfRBNDl2Y92T+IE1fiOXMJ8u9GAIDMIu/Aux2mkNBROZNompyUFTw6Mw2ISKWpxraz7LPIxTTlEvj8iZrs1IfuY=",
+        "provider": "google",
+      },
+      "origin": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+      "text": "The current UTC date is **Friday, August 21, 2026**.",
+      "type": "text",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+      "sourceType": "url",
+      "title": "time.gov",
+      "type": "source",
+      "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHh2XNqAMv_pWmykqq5trbUpG-_0VmhqRrIreaS2X9Pw1WLagYlTlNK28okbh6hdAJDWzptRUmD5U-EUXgjQDQ1tfLpZRO8nPzwsPju",
+    },
+  ],
+  "finishReason": {
+    "raw": "STOP",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gemini-3.7-flash",
+    "provider": "google",
+    "surface": "generate-content",
+  },
+  "providerMetadata": {
+    "google": {
+      "groundingMetadata": {
+        "groundingChunks": [
+          {
+            "web": {
+              "title": "time.gov",
+              "uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHh2XNqAMv_pWmykqq5trbUpG-_0VmhqRrIreaS2X9Pw1WLagYlTlNK28okbh6hdAJDWzptRUmD5U-EUXgjQDQ1tfLpZRO8nPzwsPju",
+            },
+          },
+        ],
+        "groundingSupports": [
+          {
+            "groundingChunkIndices": [
+              0,
+            ],
+            "segment": {
+              "endIndex": 51,
+              "text": "The current UTC date is **Friday, August 21, 2026**",
+            },
+          },
+        ],
+        "searchEntryPoint": {
+          "renderedContent": "<style>
+.container {
+  align-items: center;
+  border-radius: 8px;
+  display: flex;
+  font-family: Google Sans, Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  padding: 8px 12px;
+}
+.chip {
+  display: inline-block;
+  border: solid 1px;
+  border-radius: 16px;
+  min-width: 14px;
+  padding: 5px 16px;
+  text-align: center;
+  user-select: none;
+  margin: 0 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.carousel {
+  overflow: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+  margin-right: -12px;
+}
+.headline {
+  display: flex;
+  margin-right: 4px;
+}
+.gradient-container {
+  position: relative;
+}
+.gradient {
+  position: absolute;
+  transform: translate(3px, -9px);
+  height: 36px;
+  width: 9px;
+}
+@media (prefers-color-scheme: light) {
+  .container {
+    background-color: #fafafa;
+    box-shadow: 0 0 0 1px #0000000f;
+  }
+  .headline-label {
+    color: #1f1f1f;
+  }
+  .chip {
+    background-color: #ffffff;
+    border-color: #d2d2d2;
+    color: #5e5e5e;
+    text-decoration: none;
+  }
+  .chip:hover {
+    background-color: #f2f2f2;
+  }
+  .chip:focus {
+    background-color: #f2f2f2;
+  }
+  .chip:active {
+    background-color: #d8d8d8;
+    border-color: #b6b6b6;
+  }
+  .logo-dark {
+    display: none;
+  }
+  .gradient {
+    background: linear-gradient(90deg, #fafafa 15%, #fafafa00 100%);
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .container {
+    background-color: #1f1f1f;
+    box-shadow: 0 0 0 1px #ffffff26;
+  }
+  .headline-label {
+    color: #fff;
+  }
+  .chip {
+    background-color: #2c2c2c;
+    border-color: #3c4043;
+    color: #fff;
+    text-decoration: none;
+  }
+  .chip:hover {
+    background-color: #353536;
+  }
+  .chip:focus {
+    background-color: #353536;
+  }
+  .chip:active {
+    background-color: #464849;
+    border-color: #53575b;
+  }
+  .logo-light {
+    display: none;
+  }
+  .gradient {
+    background: linear-gradient(90deg, #1f1f1f 15%, #1f1f1f00 100%);
+  }
+}
+</style>
+<div class="container">
+  <div class="headline">
+    <svg class="logo-light" width="18" height="18" viewBox="9 9 35 35" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M42.8622 27.0064C42.8622 25.7839 42.7525 24.6084 42.5487 23.4799H26.3109V30.1568H35.5897C35.1821 32.3041 33.9596 34.1222 32.1258 35.3448V39.6864H37.7213C40.9814 36.677 42.8622 32.2571 42.8622 27.0064V27.0064Z" fill="#4285F4"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M26.3109 43.8555C30.9659 43.8555 34.8687 42.3195 37.7213 39.6863L32.1258 35.3447C30.5898 36.3792 28.6306 37.0061 26.3109 37.0061C21.8282 37.0061 18.0195 33.9811 16.6559 29.906H10.9194V34.3573C13.7563 39.9841 19.5712 43.8555 26.3109 43.8555V43.8555Z" fill="#34A853"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M16.6559 29.8904C16.3111 28.8559 16.1074 27.7588 16.1074 26.6146C16.1074 25.4704 16.3111 24.3733 16.6559 23.3388V18.8875H10.9194C9.74388 21.2072 9.06992 23.8247 9.06992 26.6146C9.06992 29.4045 9.74388 32.022 10.9194 34.3417L15.3864 30.8621L16.6559 29.8904V29.8904Z" fill="#FBBC05"/>
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M26.3109 16.2386C28.85 16.2386 31.107 17.1164 32.9095 18.8091L37.8466 13.8719C34.853 11.082 30.9659 9.3736 26.3109 9.3736C19.5712 9.3736 13.7563 13.245 10.9194 18.8875L16.6559 23.3388C18.0195 19.2636 21.8282 16.2386 26.3109 16.2386V16.2386Z" fill="#EA4335"/>
+    </svg>
+    <svg class="logo-dark" width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="24" cy="23" fill="#FFF" r="22"/>
+      <path d="M33.76 34.26c2.75-2.56 4.49-6.37 4.49-11.26 0-.89-.08-1.84-.29-3H24.01v5.99h8.03c-.4 2.02-1.5 3.56-3.07 4.56v.75l3.91 2.97h.88z" fill="#4285F4"/>
+      <path d="M15.58 25.77A8.845 8.845 0 0 0 24 31.86c1.92 0 3.62-.46 4.97-1.31l4.79 3.71C31.14 36.7 27.65 38 24 38c-5.93 0-11.01-3.4-13.45-8.36l.17-1.01 4.06-2.85h.8z" fill="#34A853"/>
+      <path d="M15.59 20.21a8.864 8.864 0 0 0 0 5.58l-5.03 3.86c-.98-2-1.53-4.25-1.53-6.64 0-2.39.55-4.64 1.53-6.64l1-.22 3.81 2.98.22 1.08z" fill="#FBBC05"/>
+      <path d="M24 14.14c2.11 0 4.02.75 5.52 1.98l4.36-4.36C31.22 9.43 27.81 8 24 8c-5.93 0-11.01 3.4-13.45 8.36l5.03 3.85A8.86 8.86 0 0 1 24 14.14z" fill="#EA4335"/>
+    </svg>
+    <div class="gradient-container"><div class="gradient"></div></div>
+  </div>
+  <div class="carousel">
+<a class="chip" href="https://www.google.com/search?q=current+UTC+date+time&client=app-vertex-grounding&safesearch=active">current UTC date time</a>
+  </div>
+</div>",
+        },
+        "webSearchQueries": [
+          "current UTC date time",
+        ],
+      },
+    },
+  },
+  "providerRequestId": "responseId_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 134,
+      "total": 134,
+    },
+    "output": {
+      "reasoning": 141,
+      "text": 26,
+      "total": 167,
+    },
+    "raw": {
+      "candidatesTokenCount": 26,
+      "promptTokenCount": 134,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 134,
+        },
+      ],
+      "serviceTier": "standard",
+      "thoughtsTokenCount": 141,
+      "totalTokenCount": 301,
+    },
+    "totalTokens": 301,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-json-schema 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "opaqueState": {
+        "data": "EsoFCscFARFNMg8sHALm8LjoVmmF2f4Ycyb/ibcVE/yDAXTN+N2oQsvl0pLJBKvylIFHnorq7iWxojwtNt1EptC86CEHrXYlD7QpC6O4cxJWMUvgs5ydTqFbwgB0auONaxmoyCISnAyc2M+Y1jy/jCj3m9GUhJZoNg0EYiTmNdvbPLKeLBslhIF6gLtxuguoVr26NQDbT3fRUBRW3+627PXYOtGrFCjKUdPn+wNhHBObsvNfW1rZWeNLI1BFdnUH0p/3OhRFfT09ykGD1+uA7YesI2u7990+jcHXMQTjcXu8FCb1mKVMDgk1CzZQ8F4618TCQdz05Q5PXUe6KIJ8p5f6Yc4p9QZGEdowtwpQwaMzrDJr1cOOQ38Nj6/KrFQhbrkdP5DA89yoy6uReIUx5iiLhxalAP787d7h6VVLNAQo30pCHr0i0itqpVxwGBlwj86UHEiglAfnVN1yKsH2LA67QR0DOSepSn9XT2OO0UIxWsJ2PdkOq2X+gNnm/eBrsZ5nCyHACWgWFco4LkTuM5XEKq3/ldQ+BT9n0NdaUZ4B+2ibmW7iAh2IPv+gHHo7sqWLXgcekYHoqJKxO8WeQCyQS5yYpzA4DjBDnyKxV8+AA80ta7mvyKhTn+CO3hh1t4hT+2hQJjCWtvY3lzvwAW7E46iV0BVwbmBvn2CuyymjzD38Dx+FXOxLsJ5yc8k+9b1nUmjXoYyOMjs9mV1KNiciiCwnpXjMHKW6KNkFkzorX7nPwE5x1fenG8hjHl8aKwEbKGpWRn1upt5yPUzIC0sQtCWzThX7PkFfFs8vFFgHhF82zMYo3iYTKqx7UG2hc1OnAOJ4CSvO7hzxri61YlDVv1ULjrUv82qusfDs5FRimyPxy21cYKmvkZ+IJYX308puzFjyDI5uOzXWUDEkdSU3TTuaiHm6xMmDRJJZL/Laosfg5KKZTf3S4GT9",
+        "provider": "google",
+      },
+      "origin": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+      "text": "{"name":"Jane Doe","age":28}",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "STOP",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gemini-3.7-flash",
+    "provider": "google",
+    "surface": "generate-content",
+  },
+  "providerRequestId": "responseId_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 8,
+      "total": 8,
+    },
+    "output": {
+      "reasoning": 183,
+      "text": 11,
+      "total": 194,
+    },
+    "raw": {
+      "candidatesTokenCount": 11,
+      "promptTokenCount": 8,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 8,
+        },
+      ],
+      "serviceTier": "standard",
+      "thoughtsTokenCount": 183,
+      "totalTokenCount": 202,
+    },
+    "totalTokens": 202,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-text 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "opaqueState": {
+        "data": "Et8DCtwDARFNMg8w6w9UrwBKDyCd4sj8X6HsdiCsQYnjBv4FCzz4ZUAc0yZcD/pNbCf5SuyJpvBml77AEqwMc1XIZe3iDYf04CJ6FTMvBsJMekD2L9ZFlcwJJ66Xxx2KJYa+RRZm1pVm5lZNh1zluQqpu5pNl+diFbhy/80vAEDHlcwiuH09el0HTpJnZwWBnAoNzCITi4DNH/i0ZTxngBOTQauoV36QdVt8aLJfSVfuDIvjwczNuFtRURkD2BDLlCJ5iKyzfFuvYzjAi4yv+A3QPqvNY5uRz/Q3GZRqQQLPOh4B+5k5Oh3RBKOn1biqODkkNCPSVeIeenvACQPTWvHDag9a9T0tHJIdNl6MpMSMwNy4oWc2r357z4S49qwD6K5EBxzRflgfsHBe97skzf7lQUtLQ6G7EkzObIkVMQSHhBjA2uf8PwOELiVsJT4xMD4XbhTZNUUi05HF++L+uY2SLUt3Z0oNwm5NxctWx9KBD9m4pVJu7xXXFlAnmJ8wukmALZgt0/WwGGDD+xfwX7RdHVn9Z3wOMu9xZhBGG3QViVs84URxT+asW2QTDZag+/xxt6jatY4BfsjBMcfgdRzFLb5XBd6KacucBX5mgcmGvdrxsyavdchUe7XTsiplIj4=",
+        "provider": "google",
+      },
+      "origin": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+      "text": "The capital of France is Paris.",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "STOP",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gemini-3.7-flash",
+    "provider": "google",
+    "surface": "generate-content",
+  },
+  "providerRequestId": "responseId_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 14,
+      "total": 14,
+    },
+    "output": {
+      "reasoning": 96,
+      "text": 7,
+      "total": 103,
+    },
+    "raw": {
+      "candidatesTokenCount": 7,
+      "promptTokenCount": 14,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 14,
+        },
+      ],
+      "serviceTier": "standard",
+      "thoughtsTokenCount": 96,
+      "totalTokenCount": 117,
+    },
+    "totalTokens": 117,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-text-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+    },
+    "providerRequestId": "responseId_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_0",
+    "type": "text-start",
+  },
+  {
+    "delta": "1, 2, 3, 4, 5",
+    "id": "blk_0",
+    "type": "text-delta",
+  },
+  {
+    "type": "usage-interim",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 9,
+        "total": 9,
+      },
+      "output": {
+        "total": 119,
+      },
+    },
+  },
+  {
+    "id": "blk_0",
+    "opaqueState": {
+      "data": "EvADCu0DARFNMg+WEPA8JVFQqWrirHQuPN4UKomYiYtKYctPLA1BSsNfJjUsHOp89cyTWKFTBymvu85hXzRTosighxI4O55MHGo8gHO46WB5eRTxPNtg5SSUnBwJYpi9P5SiS0lEn1Fsw5aDhSu0QTeAbjtD10MY+FEJLLOxNezCMF9Z/DYoB8NsCeKiH3ljAhD3ZcIPFc3yLIbZ0DOHLZx34h9aMniUSQ3X2CQkYj3EZU8jxj8lAoJ372LK6NdNSjA3xeSNaakspfRhWUhr7JEMfp+PJioiaiEd1gTrMHIeGmdTje5obA1D4ZlvURwLwI4oWfQvIuHdHzxRMJx7mjWujk8+hK+6poFQAwm7uc/q3YfVUCnL3OMpKxVv2e6oF452Cu7Ea+BG7By/+hR39jFydjSgJqVWSNzzTWZrixzXs0JiopcBKeP1jjX16hyze4H5Y8wJ0rD1+DMEHrN+BIX/ctHJxxIXCOwaCut5vmaI2LR3AhRo8lhz5fjwaVRRolfIVgUE7LXrpFBpGMoRpc2YXcSzE2jafirUzkQuhIhiNU9eYrD3VGTSeUtu5FXp53shkSG79dYmG5Rr8CIebC/73pP34iDv0pLSJV0869OPMcoJ0CnKtTHv3VISjSnszX7BbL1GvQLB6p1SLV5l8M6BfQ==",
+      "provider": "google",
+    },
+    "type": "text-end",
+  },
+  {
+    "finishReason": {
+      "raw": "STOP",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 9,
+        "total": 9,
+      },
+      "output": {
+        "reasoning": 106,
+        "text": 13,
+        "total": 119,
+      },
+      "raw": {
+        "candidatesTokenCount": 13,
+        "promptTokenCount": 9,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 9,
+          },
+        ],
+        "serviceTier": "standard",
+        "thoughtsTokenCount": 106,
+        "totalTokenCount": 128,
+      },
+      "totalTokens": 128,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-thinking 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+      "text": "**Primality**
+
+Okay, so I need to check if 91 is prime. Let's run through the usual suspects: 2, 3, and 5 are out immediately because of the divisibility rules. Hmm, 7... quick division: 91 divided by 7 equals 13 with no remainder. Aha! 91 is a product of 7 and 13, therefore, composite.
+
+
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "opaqueState": {
+        "data": "Eo0DCooDARFNMg8DQj/tGw09e/rafs6aaun55HKsrXQrqzygoi1eTGZ55RIoKknG4boWBmnyhF5PzwPGCuy6nQGopoHM5BltH+zMrkDJYYo2W4Nh2hEroQqloZfdmb5spnFW8OZ3SuXhxNUvDUhBgbpk8V30mKiVwabqDMIfelYjro1re77ttlWElRr7gRzB2DSj8wFpvuv9BIcO32Cy3zLPEEZHUzst1Rz5wnrITOJzr5nanSkX3W9wtPzJTs1XH0SRyUnlI0xX0Bag+XYIltbR8wS/qz7ZbDe2IE4M3q4H9OhwsPoGH7lLEF/Z7Grlv4hQ8eaCRr2NyHJwhEL6ICWcDtqaLw0qdrcgaStSVfSbuXMdGlo/S0B0rB/L9C2OqItY1iOlkMJCoRmEMwDh99zBuK6twwRTY+/hA5MiPAgHSeXy53LappEaIN8jH9E8y0YkQl4ENxGtbyzPRvoGpcvnAmGlHJtWmgPJpO2Nyk9IYjvvF+bAN2E862pzlz/0A/KspIq0qlkECK5U6nG36Q==",
+        "provider": "google",
+      },
+      "origin": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+      "text": "No",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "STOP",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "gemini-3.7-flash",
+    "provider": "google",
+    "surface": "generate-content",
+  },
+  "providerRequestId": "responseId_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 17,
+      "total": 17,
+    },
+    "output": {
+      "reasoning": 118,
+      "text": 1,
+      "total": 119,
+    },
+    "raw": {
+      "candidatesTokenCount": 1,
+      "promptTokenCount": 17,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 17,
+        },
+      ],
+      "serviceTier": "standard",
+      "thoughtsTokenCount": 118,
+      "totalTokenCount": 136,
+    },
+    "totalTokens": 136,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-thinking-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+    },
+    "providerRequestId": "responseId_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_0",
+    "type": "text-start",
+  },
+  {
+    "delta": "No",
+    "id": "blk_0",
+    "type": "text-delta",
+  },
+  {
+    "type": "usage-interim",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 18,
+        "total": 18,
+      },
+      "output": {
+        "total": 167,
+      },
+    },
+  },
+  {
+    "id": "blk_0",
+    "opaqueState": {
+      "data": "EvsDCvgDARFNMg/1x+PRWhK0j9quzSk+f1JoIApyn5PQ/DaYLw8pGqbd//pscTCaiXdyIwreXOlMCyueNQNHJK5qTuW+kjcJ62niS6jjJzj6ZfsKwq1cLzmZXvEuvCShu4rUqxTpuZxyhmfFMEMKak4juEhdvTwuoywbB9HEsIg0t71yHKOxh7OKJ5WeKLiVecQb7WTfaySkc1XvJGlGxiDNo63wKhIpT5wt61aPAprgf8+aa1KTEZ+Pd8W1itQE/yfU1cU+i3HEp9D0+AZEGteh2/zX/6g3adYTvFh+wIga3nFUPPFgWefe5uleoZ2pMGJPBYc1RuZgfek6P2Pha7U8ph7PMFTQCTcDqqGzhJMhwX4Ft24FMjXyNiPWlrNc4T8NFp7U/lia4+t8rVHvwUODAGoW1S1fMlsiIDRtZ/PsITNbQA8Pt9D9H3QWA7Do7uX99jjHA1ymskI0ed5fc1HRLVGmWYvmtAExHvKgL0WSKXj2+0zVY0pR3xpjgxcAyI56PgiwhJbMnwmqoUf46jve/ZXaT7E/oMV1SXNdetmixvuz+flBbklBI24SOkjp245s5CPYTbxNyCh+3PAEUTkQusizzXVuzQGy4BYIn+Q70rKOe76chXvB6g92NGrUp3FDENUU00nOnMde98f0luATxosy/ppsxTJY/Gu3",
+      "provider": "google",
+    },
+    "type": "text-end",
+  },
+  {
+    "finishReason": {
+      "raw": "STOP",
+      "unified": "stop",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 18,
+        "total": 18,
+      },
+      "output": {
+        "reasoning": 166,
+        "text": 1,
+        "total": 167,
+      },
+      "raw": {
+        "candidatesTokenCount": 1,
+        "promptTokenCount": 18,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 18,
+          },
+        ],
+        "serviceTier": "standard",
+        "thoughtsTokenCount": 166,
+        "totalTokenCount": 185,
+      },
+      "totalTokens": 185,
+    },
+  },
+]
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-tool-call 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Paris",
+        },
+      },
+      "opaqueState": {
+        "data": "Ep4CCpsCARFNMg9LEoSJAoMaVieWtSBZyAKWOIh03gbOt1BMotDJd5RoL5hdM5+ZxUSEfQcpYbAMEcWTmU7DkGFtLBosozWVfu5/fmvDZX7QK9+LFKOiaWxdh+Vndq0kxlOZrts+UGvHN+9UnTpWLATVerAhhu5cAcguYColeR8vcjWr5tfonR+WXapE2nPW5iTSHzj/fJIdBtI5hZklx20fS99QPpaH6fKD7Of+0D7x9Ckr2RZqOD8TiV5ef/nRX7XejriJy65PvgzC+lewvRtXQZH1p7F2L2DxVn6KdKA+T+dbV049tR8Kxd2Ol/6bHhwfmKxEz/0n0KVZfwLZSWpwK/mC8N71H0/fqiyvzb1uXp1r1Ziogsd5EAOYBwZZAQ==",
+        "provider": "google",
+      },
+      "origin": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+      "toolCallId": "call_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+  ],
+  "finishReason": {
+    "raw": "STOP",
+    "unified": "tool_call",
+  },
+  "origin": {
+    "model": "gemini-3.7-flash",
+    "provider": "google",
+    "surface": "generate-content",
+  },
+  "providerRequestId": "responseId_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 54,
+      "total": 54,
+    },
+    "output": {
+      "reasoning": 46,
+      "text": 16,
+      "total": 62,
+    },
+    "raw": {
+      "candidatesTokenCount": 16,
+      "promptTokenCount": 54,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 54,
+        },
+      ],
+      "serviceTier": "standard",
+      "thoughtsTokenCount": 46,
+      "totalTokenCount": 116,
+    },
+    "totalTokens": 116,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-tool-call-stream 1`] = `
+[
+  {
+    "model": {
+      "resolved": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+    },
+    "providerRequestId": "responseId_fixture0001",
+    "type": "response-metadata",
+  },
+  {
+    "id": "blk_0",
+    "toolCallId": "call_fixture0002",
+    "toolName": "get_weather",
+    "type": "tool-input-start",
+  },
+  {
+    "delta": "{"city":"Tokyo"}",
+    "id": "blk_0",
+    "type": "tool-input-delta",
+  },
+  {
+    "id": "blk_0",
+    "type": "tool-input-end",
+  },
+  {
+    "block": {
+      "id": "blk_0",
+      "input": {
+        "type": "json",
+        "value": {
+          "city": "Tokyo",
+        },
+      },
+      "opaqueState": {
+        "data": "ErICCq8CARFNMg9XTLOBnR398W6zPkmL0tQQhk/ftaNwDt68eQgYxAh96XORW0kGsw8WDKylyvs8FcawjXssbI8GdnNhLMNDtHwUm8NpaXEaKhoz95pCoN9PQbkL695GaUPFAne+mjmbYl+aZi2Mk8npVKjuArco+ipJ+wPHewREGR6whOGpjtKp/IcSVxRnAZvj5E7D4+tDVlPV9tQfSk5BxOifq4MXe/ADEsDEYLWN1Xe/WcXuXTrk1ORKFE/HqD/lpsamY5fFbmdjnULTjY2IUYxzVXe6/w5Lgr1/Qx4gFKxhHIPPZ/nbLMSAlwUs8a57+sDBLBm+UDIY8ZdUnjThLSO1wOlnNzqE0wkZF8MsoQNETEseRCl1asST6H9W8INYWHOlKZv8iw4do6XLXqSqTuye",
+        "provider": "google",
+      },
+      "origin": {
+        "model": "gemini-3.7-flash",
+        "provider": "google",
+        "surface": "generate-content",
+      },
+      "toolCallId": "call_fixture0002",
+      "toolName": "get_weather",
+      "type": "toolCall",
+    },
+    "type": "tool-call",
+  },
+  {
+    "type": "usage-interim",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 54,
+        "total": 54,
+      },
+      "output": {
+        "total": 59,
+      },
+    },
+  },
+  {
+    "finishReason": {
+      "raw": "STOP",
+      "unified": "tool_call",
+    },
+    "type": "finish",
+    "usage": {
+      "input": {
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "noCache": 54,
+        "total": 54,
+      },
+      "output": {
+        "reasoning": 43,
+        "text": 16,
+        "total": 59,
+      },
+      "raw": {
+        "candidatesTokenCount": 16,
+        "promptTokenCount": 54,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 54,
+          },
+        ],
+        "serviceTier": "standard",
+        "thoughtsTokenCount": 43,
+        "totalTokenCount": 113,
+      },
+      "totalTokens": 113,
+    },
+  },
+]
+`;

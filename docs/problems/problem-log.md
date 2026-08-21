@@ -154,3 +154,34 @@
 
 - **스크립트**: `pnpm smoke:xai` (`tools/smoke-xai.ts` — smoke:roadmap4와 동일 패턴, opt-in 실 과금 ≈$0.01). 6단계: ① CC 비스트림 ② 스트림 완주(seq 단조) ③ CC reasoning(effort만으로는 CC 유지 + reasoning_content→블록) ④ **표면 스위칭**(PO `xai.include` → responses 강제, encrypted reasoning 왕복, 2턴은 히스토리 opaqueState 트리거로 responses 유지) ⑤ 크로스 프로바이더(claude가 고른 숫자를 grok이 히스토리로 읽음 — 목표 2의 xai 방향 첫 실증) ⑥ compat CC→grok(gateway.ir 부착).
 - **의미**: ADR-0004 표면 선택자(명시 트리거 → responses required, 기본 CC)와 리맵 래퍼(요청 xai→openai→base, 응답 역방향)가 실 API에서 전 경로 검증됨. 골든셋(픽스처)과 스모크(실 API)의 이중 안전망이 xAI에도 성립.
+
+## 2026-08-21 — Gemini 어댑터 착수: 설계 선택 4건 + v1 한계 기록
+
+- **soft-block 승격 메커니즘 신설**: promptFeedback.blockReason(HTTP 200 + 빈 candidates)의 IRError 승격(§12)은 기존 `AdapterInvalidRequestError`(고정 invalid_request/400)로 표현 불가 → shared 예외에 `irError` 오버라이드 슬롯 추가(전 어댑터 공용 — 코어 무변경, execute의 instanceof 처리 그대로). category는 invalid_request/400 + `provider.code: prompt_blocked:{reason}` + fallbackEligible false(같은 프롬프트는 타깃 불문 차단 가능성 — 폴백 재과금 방지 안전측).
+- **finish 지연 적재**: generateContent SSE는 종료 이벤트가 없다(message_stop·[DONE] 부재) → finishReason·usage(마지막 청크 확정, F-2)를 기억했다가 **onStreamEnd에서 finish 적재**. 터미널 보장 계약(ADR-0005)과 정합 — finishReason 미수신 절단은 provider-error.
+- **thought part 재전송 = 원문 복원**: reasoning(opaqueState google) → `{text, thought:true, thoughtSignature}` 그대로. 서명 없는 크로스 히스토리 functionCall은 **턴의 첫 FC에만** 공식 더미(`skip_thought_signature_validator`) 삽입(D6-9 — 병렬 규칙 준수, 2.5는 검증 없어 무해). passthrough/custom 원문 오염 방지를 위해 삽입은 교체 방식(D4 순수성).
+- **2.5 세대 effort 정책**: thinkingLevel은 3세대 전용 → 레지스트리가 supportedEfforts `[]` 공급, 어댑터는 effort **드롭+warning**(클램프 아님 — 2.5는 thinkingBudget이 정도(正道)라 PO 경유 안내를 warning 메시지에 명시). 세대 자동 변환(effort→budget)은 조용한 변조 소지가 있어 배제.
+- **v1 한계 (기록)**: ① 스트림에서 grounding citation(groundingSupports) 미방출 — partIndex↔블록 정렬이 스트림에서 불안정, 원문은 finish PM에 보존(비스트림은 표준 Citation 채움). ② candidateCount>1 미노출(G2 단일 후보 — 첫 후보 외 드롭+warning). ③ Vertex 상속(경로·인증·fileUri 스킴)은 미착수.
+- **잔여**: ~~GEMINI_API_KEY 확보 후 11케이스 실 녹화~~ → 완료 (아래 항목). 크로스 왕복 + 스모크 잔여.
+
+## 2026-08-21 — Gemini 실 녹화 11케이스: 게이트 3확인 + functionCall id 발급 드리프트
+
+- **녹화**: 11케이스 전부 성공, 총 ≈$0.005 (플래시급 단가). 골든셋 ② 자동 편입(스냅샷 11) — thought part + 서명(536B), grounding(표준 Citation + source 블록 + PM 원문), STOP→tool_call 승격, google.rpc 에러 3형 전부 실픽스처 검증. 테스트 367개. 첫 시도는 유효하지 않은 키(다른 발급처 추정)로 전 케이스 400 — AI Studio 재발급으로 해소 (키 형식만으론 판별 불가, `ErrorInfo.reason: API_KEY_INVALID`가 판정 근거).
+- **게이트 판정 3확인** (드리프트 없음): ① thinkingBudget+thinkingLevel 동시 지정 = **400 확인** (B-2). ② 인증 오류 = **400 INVALID_ARGUMENT + ErrorInfo.API_KEY_INVALID** (google.rpc details 구조 실증). ③ 미지 모델 = **404 확인** (openai 400과 대조 — 프로바이더별 상이 실증).
+- **functionCall id 발급 드리프트** — 인벤토리 D-5("generateContent는 id 미발급, name+순서 매칭") 반증: 2026-08 현재 `call_` 접두 id를 발급한다 (비스트림·스트림 공통). 어댑터는 wire id 우선·부재 시 합성(§13.2)이라 무수정 — 합성 경로는 방어용으로 강등. 재전송 시 id 드롭+name·순서 재배열은 유지(스키마상 id 수용은 여전히 Live/Interactions 문서 소관 — 재검증 좌석). ir-v0 §13.2 예시 문구에 실측 각주.
+- **responseId 새니타이저 확장**: 접두사 없는 bare base64url(22자)이라 값 형태만으론 서명과 구분 불가 → **키 스코프 앵커**(`"responseId":` lookbehind) 방식 신설 + 잔류 검출기 동형 추가. `call_` id는 기존 openai 패턴이 그대로 처리(수렴의 부수 효과).
+
+## 2026-08-21 — Gemini 크로스 왕복 + 스모크: 서명 검증 실통과로 로드맵 5의 Gemini 완료
+
+- **골든셋 ④ 3방향**: ① gemini 실픽스처→anthropic (외래 reasoning drop·demote 정책, google 서버툴 아티팩트 강등) ② anthropic 실픽스처→gemini — **서명 없는 tool_use 히스토리에 더미 삽입이 실제로 발화**(D6-9 경로 검증, `signature-synthesized` warning) ③ 동일 타깃 재전송 — text part 서명 **바이트 그대로** 복원(§4.10) + functionCall 실서명 보존(더미 미발화) + wire 발급 `call_` id 드롭·name+순서 매칭(§13.2). 테스트 375개.
+- **`pnpm smoke:gemini` 6단계 1차 통과** (≈$0.01): 핵심은 4단계 — toolChoice required로 functionCall+실서명 수신 → toolResult와 함께 재전송 → **200 (MISSING_THOUGHT_SIGNATURE 없음)**. 함정 #2(서명 왕복 실패 시 Gemini 3 툴 루프 전멸)가 실 API에서 방어됨을 실증. thinking은 thoughts 토큰 분리 집계(§8 — output.reasoning 120)까지 확인. 크로스(claude→gemini 숫자 연속성 — 목표 2의 google 방향 첫 실증)·compat CC→gemini 포함.
+- **의미**: 4사 어댑터 전부 "골든셋(픽스처) + 실 스모크" 이중 안전망 성립. 남은 로드맵 5는 Batches/Files 부록 (b)와 운영 평면.
+
+## 2026-08-21 — 리뷰 라운드(10앵글×검증 6·스윕): CONFIRMED 15건 전건 수정 — 스트림/비스트림 비대칭이 최대 구멍
+
+- **compat 스트림 툴콜 공백(최대)**: gemini 스트림이 tool-input-delta를 안 내 delta-기반 compat 다운컨버터가 arguments:""를 재현 → **직렬화 인자를 단일 delta로 방출**. 같은 뿌리의 비대칭 일괄 수정: 순수 빈 text part 프루닝(유령 블록·synth 인덱스 시프트 — 실 픽스처 트리거), fileData part 스트림 브랜치 신설, urlContextMetadata finish PM 편입, 다중 후보 warning 코드 통일(block-dropped).
+- **서명 보존 강화 3건**: ① 병합 text 블록의 last-wins 서명 유실 → **서명 = part 경계**(즉시 close, 서명별 1블록 — 비스트림과 대칭) ② 미디어 part(inlineData/fileData) 서명을 file 블록 opaqueState로 왕복(요청 방향 재방출 포함) ③ 무서명 google-origin reasoning의 '외래' 오분류 → **origin==타깃은 thought part 원문 복원**(§13.3 — 실측: 서명은 별도 part로 오는 게 흔해 실사용 경로였음).
+- **soft-block 정합**: 스트림도 비스트림처럼 "생성물 없음"일 때만 승격(parts·usage 처리 후 판정 + usage 동봉), promptBlockedError **billed:true**(200 수신 = 프롬프트 처리 — 비스트림 원장 true/스트림 false/클라이언트 false 3원 모순 해소). 첫 청크 에러는 sawAnyChunk 갱신 전 검사로 billed:false.
+- **D5 계약**: strictParameters 배선(전 드롭 지점 — strict면 4xx, shared 규약과 동일 메시지), **effort 'none'은 on/off 경계라 클램프 금지**(minimal 승격 + includeThoughts:true로 반전되던 것 → thinking 미방출 + 드롭 보고), file 블록 title/context/citationsEnabled/filename 드롭 보고.
+- **주변 인프라**: retarget SERVER_STATE_KEYS에 google(cachedContent·store), 레지스트리 gemini catch-all에 supportedEfforts:[](레거시 세대 thinkingLevel 400 방지), PO google.surface 등재(400 거부·wire 유출 해소), 새니타이저 AIza 패턴, 200+에러 body의 빈 성공 둔갑 방지(비스트림 in-body error 승격 — 스트림과 대칭), RetryInfo·startIndex proto3 엣지(nanos 합산·빈 값 undefined·startIndex 0 기본 — 실 픽스처의 선두 세그먼트가 트리거), 빈 contents 사전 400, responseId "" 3원 불일치 통일, synth 스코프 'unknown' → 수신 연쇄 해시(§13.2 턴 간 충돌 방지; 비스트림 SHA와의 완전 동일화는 스트림 구조상 불가 — 잔여 한계로 기록).
+- **검증**: 테스트 380개(스트림 신규 5 포함) + 실 스모크 재통과(실서명 수신을 로그에서 **assert로 승격** — 더미 경로가 회귀를 은폐하던 갭). 잔여(보고 컷): 캡처 defaultPath 템플릿화·modelVersion 추출·4어댑터 중복 헬퍼 추출(reasoningToWire/clampEffort/mergeExternal/warnOnce)·smoke 스캐폴드 공유화 — 로드맵 5 후속 좌석.

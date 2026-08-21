@@ -9,7 +9,14 @@ import type { IRError } from "../ir/error.js";
 /** 어댑터가 던지는 클라이언트 오류 — 게이트웨이가 IRError로 응답 (계약 레벨 타입) */
 export class AdapterInvalidRequestError extends Error {
   readonly irError: IRError;
-  constructor(message: string, opts?: { gatewayException?: boolean }) {
+  constructor(
+    message: string,
+    opts?: {
+      gatewayException?: boolean;
+      /** HTTP 200 soft-error 승격용 (Gemini promptFeedback 등 — ir-v0 §12) 필드 오버라이드 */
+      irError?: Partial<IRError>;
+    },
+  ) {
     super(message);
     this.name = "AdapterInvalidRequestError";
     this.irError = {
@@ -19,6 +26,7 @@ export class AdapterInvalidRequestError extends Error {
       fallbackEligible: false,
       billed: false,
       ...(opts?.gatewayException ? { gatewayException: true } : {}),
+      ...opts?.irError,
     };
   }
 }

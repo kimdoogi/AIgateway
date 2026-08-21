@@ -1,0 +1,77 @@
+{
+  "case": "gemini-json-schema",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Give me a fictional user profile."
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 2000,
+        "responseMimeType": "application/json",
+        "responseJsonSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "age": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "name",
+            "age"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "{\"name\":\"Jane Doe\",\"age\":28}",
+              "thoughtSignature": "EsoFCscFARFNMg8sHALm8LjoVmmF2f4Ycyb/ibcVE/yDAXTN+N2oQsvl0pLJBKvylIFHnorq7iWxojwtNt1EptC86CEHrXYlD7QpC6O4cxJWMUvgs5ydTqFbwgB0auONaxmoyCISnAyc2M+Y1jy/jCj3m9GUhJZoNg0EYiTmNdvbPLKeLBslhIF6gLtxuguoVr26NQDbT3fRUBRW3+627PXYOtGrFCjKUdPn+wNhHBObsvNfW1rZWeNLI1BFdnUH0p/3OhRFfT09ykGD1+uA7YesI2u7990+jcHXMQTjcXu8FCb1mKVMDgk1CzZQ8F4618TCQdz05Q5PXUe6KIJ8p5f6Yc4p9QZGEdowtwpQwaMzrDJr1cOOQ38Nj6/KrFQhbrkdP5DA89yoy6uReIUx5iiLhxalAP787d7h6VVLNAQo30pCHr0i0itqpVxwGBlwj86UHEiglAfnVN1yKsH2LA67QR0DOSepSn9XT2OO0UIxWsJ2PdkOq2X+gNnm/eBrsZ5nCyHACWgWFco4LkTuM5XEKq3/ldQ+BT9n0NdaUZ4B+2ibmW7iAh2IPv+gHHo7sqWLXgcekYHoqJKxO8WeQCyQS5yYpzA4DjBDnyKxV8+AA80ta7mvyKhTn+CO3hh1t4hT+2hQJjCWtvY3lzvwAW7E46iV0BVwbmBvn2CuyymjzD38Dx+FXOxLsJ5yc8k+9b1nUmjXoYyOMjs9mV1KNiciiCwnpXjMHKW6KNkFkzorX7nPwE5x1fenG8hjHl8aKwEbKGpWRn1upt5yPUzIC0sQtCWzThX7PkFfFs8vFFgHhF82zMYo3iYTKqx7UG2hc1OnAOJ4CSvO7hzxri61YlDVv1ULjrUv82qusfDs5FRimyPxy21cYKmvkZ+IJYX308puzFjyDI5uOzXWUDEkdSU3TTuaiHm6xMmDRJJZL/Laosfg5KKZTf3S4GT9"
+            }
+          ],
+          "role": "model"
+        },
+        "finishReason": "STOP",
+        "index": 0
+      }
+    ],
+    "usageMetadata": {
+      "promptTokenCount": 8,
+      "candidatesTokenCount": 11,
+      "totalTokenCount": 202,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 8
+        }
+      ],
+      "thoughtsTokenCount": 183,
+      "serviceTier": "standard"
+    },
+    "modelVersion": "gemini-3.7-flash",
+    "responseId": "responseId_fixture0001"
+  }
+}

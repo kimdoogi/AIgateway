@@ -1,0 +1,50 @@
+{
+  "case": "gemini-gate-invalid-key",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "hi"
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 50
+      }
+    }
+  },
+  "status": 400,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "error": {
+      "code": 400,
+      "message": "API key not valid. Please pass a valid API key.",
+      "status": "INVALID_ARGUMENT",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "API_KEY_INVALID",
+          "domain": "googleapis.com",
+          "metadata": {
+            "service": "generativelanguage.googleapis.com"
+          }
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+          "locale": "en-US",
+          "message": "API key not valid. Please pass a valid API key."
+        }
+      ]
+    }
+  }
+}

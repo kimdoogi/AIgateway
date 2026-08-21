@@ -1,0 +1,35 @@
+{
+  "case": "gemini-gate-unknown-model",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-nonexistent-model",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-nonexistent-model:generateContent",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "hi"
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 50
+      }
+    }
+  },
+  "status": 404,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "error": {
+      "code": 404,
+      "message": "models/gemini-nonexistent-model is not found for API version v1beta, or is not supported for generateContent. Call ModelService.ListModels to see the list of available models and their supported methods.",
+      "status": "NOT_FOUND"
+    }
+  }
+}

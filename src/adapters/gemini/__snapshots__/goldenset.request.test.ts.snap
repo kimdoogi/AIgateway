@@ -1,0 +1,751 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든셋 ① IR → gemini generateContent wire > dummy-signature — 서명 없는 크로스 히스토리 functionCall에 더미 삽입 (D6-9) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "weather in Paris?",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "parts": [
+            {
+              "functionCall": {
+                "args": {
+                  "city": "Paris",
+                },
+                "name": "get_weather",
+              },
+              "thoughtSignature": "skip_thought_signature_validator",
+            },
+          ],
+          "role": "model",
+        },
+        {
+          "parts": [
+            {
+              "functionResponse": {
+                "name": "get_weather",
+                "response": {
+                  "output": "21C, sunny",
+                },
+              },
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 300,
+      },
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "description": "Get weather.",
+              "name": "get_weather",
+              "parametersJsonSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "city": {
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "city",
+                ],
+                "type": "object",
+              },
+            },
+          ],
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [
+    {
+      "code": "signature-synthesized",
+      "message": "functionCall에 thoughtSignature 부재 — 공식 더미 삽입 (Gemini 3 검증 우회, D6-9)",
+      "path": "messages[1]",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > foreign-reasoning-demote — 외래 reasoning은 retarget 정책 적용 (D6-2) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "hi",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "parts": [
+            {
+              "text": "prior thoughts",
+            },
+            {
+              "text": "hello",
+            },
+          ],
+          "role": "model",
+        },
+        {
+          "parts": [
+            {
+              "text": "again",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 100,
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [
+    {
+      "code": "reasoning-demoted",
+      "message": "외래 reasoning을 텍스트로 강등",
+      "path": "messages[1].blocks[0]",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > history-roundtrip — thought part 원문 복원 + functionCall 서명 보존 (C-2) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "weather in Paris?",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "parts": [
+            {
+              "text": "User wants weather.",
+              "thought": true,
+              "thoughtSignature": "c2lnLXRob3VnaHQ=",
+            },
+            {
+              "functionCall": {
+                "args": {
+                  "city": "Paris",
+                },
+                "name": "get_weather",
+              },
+              "thoughtSignature": "c2lnLWZj",
+            },
+          ],
+          "role": "model",
+        },
+        {
+          "parts": [
+            {
+              "functionResponse": {
+                "name": "get_weather",
+                "response": {
+                  "temp": 21,
+                  "unit": "C",
+                },
+              },
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 300,
+      },
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "description": "Get weather.",
+              "name": "get_weather",
+              "parametersJsonSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "city": {
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "city",
+                ],
+                "type": "object",
+              },
+            },
+          ],
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > json-schema — responseMimeType + responseJsonSchema (raw 통과) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "profile",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 500,
+        "responseJsonSchema": {
+          "properties": {
+            "name": {
+              "type": "string",
+            },
+          },
+          "required": [
+            "name",
+          ],
+          "type": "object",
+        },
+        "responseMimeType": "application/json",
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [
+    {
+      "code": "parameter-dropped",
+      "message": "gemini responseJsonSchema는 name 미지원 — 드롭",
+      "path": "responseFormat.name",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "gemini responseJsonSchema는 strict 미지원 — 드롭",
+      "path": "responseFormat.strict",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > metadata-drop — gemini 대응 필드 없음 (userId 포함 전부 드롭 + warning) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "hi",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 100,
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [
+    {
+      "code": "parameter-dropped",
+      "message": "gemini 미지원 metadata.userId 드롭",
+      "path": "metadata.userId",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "gemini 미지원 metadata.team 드롭",
+      "path": "metadata.team",
+      "type": "unsupported",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > multimodal — base64 이미지 → inlineData 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "What is this?",
+            },
+            {
+              "inlineData": {
+                "data": "aGk=",
+                "mimeType": "image/png",
+              },
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 200,
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > po-known-keys — safetySettings·cachedContent·serviceTier·store 1`] = `
+{
+  "request": {
+    "body": {
+      "cachedContent": "cachedContents/fixture-cache",
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "hi",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 100,
+      },
+      "safetySettings": [
+        {
+          "category": "HARM_CATEGORY_HARASSMENT",
+          "threshold": "BLOCK_ONLY_HIGH",
+        },
+      ],
+      "serviceTier": "STANDARD",
+      "store": false,
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > provider-tool — google.google_search (wire 멤버 키 변환) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "search",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 300,
+      },
+      "tools": [
+        {
+          "googleSearch": {},
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > reasoning-clamp — xhigh는 최근접 high로 클램프 + warning (§6.3) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "why?",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 1500,
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingLevel": "high",
+        },
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [
+    {
+      "code": "parameter-clamped",
+      "message": "effort 'xhigh' → 'high' 최근접 클램프",
+      "path": "reasoning.effort",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > reasoning-effort — thinkingLevel 매핑 + includeThoughts 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "why?",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 1500,
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingLevel": "low",
+        },
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > reasoning-po-conflict — PO thinkingConfig 우선 + provider-option-override (§2) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "why?",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 1500,
+        "thinkingConfig": {
+          "thinkingBudget": 2048,
+        },
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [
+    {
+      "code": "provider-option-override",
+      "message": "providerOptions.google.thinkingConfig가 reasoning.effort와 같은 wire 슬롯을 차지 — PO 우선 (§2)",
+      "path": "reasoning.effort",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > sampling-full — 표준 파라미터 전부 지원 (드롭 없음, 인벤토리 B-2) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "hi",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "frequencyPenalty": 0.2,
+        "maxOutputTokens": 100,
+        "presencePenalty": 0.1,
+        "seed": 42,
+        "stopSequences": [
+          "END",
+        ],
+        "temperature": 1,
+        "topK": 40,
+        "topP": 0.9,
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > system — 선두 system → systemInstruction, 중간 system → user 변환 + warning (D6-4) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "hi",
+            },
+          ],
+          "role": "user",
+        },
+        {
+          "parts": [
+            {
+              "text": "ok",
+            },
+          ],
+          "role": "model",
+        },
+        {
+          "parts": [
+            {
+              "text": "Now be verbose.",
+            },
+            {
+              "text": "continue",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 100,
+      },
+      "systemInstruction": {
+        "parts": [
+          {
+            "text": "You are terse.",
+          },
+        ],
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [
+    {
+      "code": "system-repositioned",
+      "message": "중간 system 메시지를 user 턴으로 변환 (Gemini는 system role 없음 — D6-4)",
+      "path": "messages[3]",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > text-minimal — 스트림 아님 = generateContent 경로 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "hi",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > text-stream — :streamGenerateContent?alt=sse 경로 강제 (ADR-0003 §2) 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "hi",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 100,
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:streamGenerateContent?alt=sse",
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ① IR → gemini generateContent wire > tools — 함수 툴(parametersJsonSchema 경로) + 지정 toolChoice + 병렬 off 드롭 1`] = `
+{
+  "request": {
+    "body": {
+      "contents": [
+        {
+          "parts": [
+            {
+              "text": "weather?",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 200,
+      },
+      "toolConfig": {
+        "functionCallingConfig": {
+          "allowedFunctionNames": [
+            "get_weather",
+          ],
+          "mode": "ANY",
+        },
+      },
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "description": "Get weather.",
+              "name": "get_weather",
+              "parametersJsonSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "city": {
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "city",
+                ],
+                "type": "object",
+              },
+            },
+          ],
+        },
+      ],
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+  },
+  "warnings": [
+    {
+      "code": "parameter-dropped",
+      "message": "gemini 함수 툴은 strict 미지원 — 드롭 (스키마 강제는 toolConfig VALIDATED 모드)",
+      "path": "tools[0].strict",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "gemini는 병렬 툴콜 비활성 knob 미지원 — parallelToolCalls:false 드롭",
+      "path": "parallelToolCalls",
+      "type": "unsupported",
+    },
+  ],
+}
+`;

@@ -1,0 +1,33 @@
+{
+  "case": "gemini-thinking-stream",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": true,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:streamGenerateContent?alt=sse",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Is 133 prime? Think it through, then answer in one word."
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 4000,
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingLevel": "low"
+        }
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream"
+  },
+  "chunksFile": "gemini-thinking-stream.gemini-3.7-flash.2026-08-21.chunks.txt"
+}

@@ -468,7 +468,7 @@ type IRError = {
 
 ### 13.2 tool id 결정론적 합성 (G5)
 
-프로바이더가 tool call id를 발급하지 않는 경우(Gemini generateContent): `synth:{provider}:{responseScope}:{blockIndex}:{toolName}` — `responseScope`는 프로바이더 응답 id(있으면) 또는 응답 콘텐츠 SHA-256의 앞 8자. 같은 응답을 재변환하면 같은 id(랜덤 금지 — D10 결정론)이면서, **멀티턴 히스토리에서 턴 간 id 충돌이 없다** (blockIndex만으로는 서로 다른 assistant 턴의 같은 위치·같은 함수가 충돌). Gemini 타깃 재전송 시 **모든 toolCallId**(합성·비합성 불문 — `toolu_`, `call_` 포함)를 드롭하고 name+순서로 재배열 (G5).
+프로바이더가 tool call id를 발급하지 않는 경우(설계 시점 예: Gemini generateContent — 단 2026-08-21 실측로 `call_` id 발급 시작이 확인됨, problem log 참조. 합성은 미발급 응답에 대한 방어 규칙으로 유지): `synth:{provider}:{responseScope}:{blockIndex}:{toolName}` — `responseScope`는 프로바이더 응답 id(있으면) 또는 응답 콘텐츠 SHA-256의 앞 8자. 같은 응답을 재변환하면 같은 id(랜덤 금지 — D10 결정론)이면서, **멀티턴 히스토리에서 턴 간 id 충돌이 없다** (blockIndex만으로는 서로 다른 assistant 턴의 같은 위치·같은 함수가 충돌). Gemini 타깃 재전송 시 **모든 toolCallId**(합성·비합성 불문 — `toolu_`, `call_` 포함)를 드롭하고 name+순서로 재배열 (G5).
 
 ### 13.3 재타게팅 패스 소비 규칙 (D6 매핑)
 

@@ -1,0 +1,68 @@
+{
+  "case": "gemini-thinking",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Is 91 prime? Think it through, then answer in one word."
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 4000,
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingLevel": "low"
+        }
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "**Primality**\n\nOkay, so I need to check if 91 is prime. Let's run through the usual suspects: 2, 3, and 5 are out immediately because of the divisibility rules. Hmm, 7... quick division: 91 divided by 7 equals 13 with no remainder. Aha! 91 is a product of 7 and 13, therefore, composite.\n\n\n",
+              "thought": true
+            },
+            {
+              "text": "No",
+              "thoughtSignature": "Eo0DCooDARFNMg8DQj/tGw09e/rafs6aaun55HKsrXQrqzygoi1eTGZ55RIoKknG4boWBmnyhF5PzwPGCuy6nQGopoHM5BltH+zMrkDJYYo2W4Nh2hEroQqloZfdmb5spnFW8OZ3SuXhxNUvDUhBgbpk8V30mKiVwabqDMIfelYjro1re77ttlWElRr7gRzB2DSj8wFpvuv9BIcO32Cy3zLPEEZHUzst1Rz5wnrITOJzr5nanSkX3W9wtPzJTs1XH0SRyUnlI0xX0Bag+XYIltbR8wS/qz7ZbDe2IE4M3q4H9OhwsPoGH7lLEF/Z7Grlv4hQ8eaCRr2NyHJwhEL6ICWcDtqaLw0qdrcgaStSVfSbuXMdGlo/S0B0rB/L9C2OqItY1iOlkMJCoRmEMwDh99zBuK6twwRTY+/hA5MiPAgHSeXy53LappEaIN8jH9E8y0YkQl4ENxGtbyzPRvoGpcvnAmGlHJtWmgPJpO2Nyk9IYjvvF+bAN2E862pzlz/0A/KspIq0qlkECK5U6nG36Q=="
+            }
+          ],
+          "role": "model"
+        },
+        "finishReason": "STOP",
+        "index": 0
+      }
+    ],
+    "usageMetadata": {
+      "promptTokenCount": 17,
+      "candidatesTokenCount": 1,
+      "totalTokenCount": 136,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 17
+        }
+      ],
+      "thoughtsTokenCount": 118,
+      "serviceTier": "standard"
+    },
+    "modelVersion": "gemini-3.7-flash",
+    "responseId": "responseId_fixture0001"
+  }
+}

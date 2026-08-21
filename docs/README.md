@@ -82,7 +82,17 @@
 - 레지스트리 grok 라우팅(4.6=xhigh 지원, non-reasoning 예외), 캡처 케이스 12종, 골든셋 ① 스냅샷 + conformance 양표면. 테스트 306개
 - **실 녹화 완료** (2026-08-21 — 12케이스, 총 ≈$0.021): 골든셋 ② 자동 편입(스냅샷 12). 게이트 판정 3확인(인증 400·penalty 400·Live Search 410)·**1반증(store: 400 거부 → 200 묵살 드리프트** — strip 근거를 ADR-0004 정책으로 이전, 무과금 게이트는 3종으로). xAI id 4형(접두사_UUID·bare UUID·call-UUID-n·서버툴 복합) 실측 → 잔류 검출기(F9-r3)가 경고로 잡아 새니타이저 UUID 패턴 확장. 상세는 [problem log](problems/problem-log.md). 테스트 323개
 - **실 E2E 스모크 통과** (`pnpm smoke:xai`, 2026-08-21 — ≈$0.01): CC 주 표면 비스트림·스트림 완주(seq 단조), CC reasoning 블록 수신(B2-6), **표면 스위칭 실증**(PO include → responses 강제 + 히스토리 opaqueState → responses 유지, encrypted reasoning 왕복), **크로스 프로바이더 대화**(claude 1턴 → grok 2턴, 내용 연속성 — 목표 2의 xai 방향), compat CC→grok. **로드맵 5의 xAI 완료**
-- **잔여**: Gemini 어댑터·Batches/Files 부록 (b)·운영 평면은 로드맵 5 후속
+- **잔여**: Batches/Files 부록 (b)·운영 평면은 로드맵 5 후속
+
+### 2026-08-21 — 로드맵 5 계속: Gemini 어댑터 (generateContent — 코드 완료, 실 녹화 대기)
+
+- **Gemini 어댑터** (`src/adapters/gemini/`, ADR-0003): provider `google`, v1 단일 표면 `generate-content` — native 순수 변환 어댑터(anthropic 패턴). 스트림은 `?alt=sse` 경로 강제(프레이밍 이중성 함정 #1), wire 검증·결정론 직렬화·conformance 상속
+- **인벤토리 함정 14개 대응**: ① thoughtSignature 왕복 — 모든 part의 서명을 opaqueState로, 재전송 시 원문 복원 + **서명 없는 크로스 히스토리 functionCall에 공식 더미 삽입**(D6-9, `signature-synthesized` warning) ② functionCall id 미발급 → §13.2 결정론 합성(`synth:google:{scope}:{i}:{name}`), 재전송 시 id 드롭+name·순서 매칭 ③ **HTTP 200 soft-block**(promptFeedback.blockReason) → IRError 승격(§12 — shared 어댑터 예외에 오버라이드 슬롯 신설) ④ system role 부재 → 선두는 systemInstruction·중간은 user 변환(D6-4) ⑤ finishReason 개방형 + STOP&툴콜→tool_call 승격 ⑥ usage: thoughts 별도 합산·cached⊂prompt(§8 표) ⑦ 스트림 종료 이벤트 부재 → finish를 onStreamEnd에서 적재 + 절단 터미널 보장 ⑧ grounding TOS — 원문 PM 무수정 보존 + 표준 Citation·source 블록 병행 ⑨ executableCode/Result는 custom 블록 무변경 라운드트립(§15) ⑩ 429 분당/일일 구분 + RetryInfo에서 retryAfter 추출(Retry-After 헤더 부재)
+- 레지스트리 gemini 라우팅(3.x thinkingLevel effort 집합, 3.1-pro는 minimal 제외, 2.5는 effort 드롭+warning — thinkingBudget은 PO 경유), 캡처 케이스 11종(무과금 게이트 3 — thinkingLevel+Budget 동시 400·인증·404 실측 포함), 골든셋 ① 스냅샷 16 + 스트림 상태 머신 단위 테스트 7. 테스트 355개
+- **실 녹화 완료** (2026-08-21 — 11케이스, 총 ≈$0.005): 골든셋 ② 자동 편입(스냅샷 11) — thought part+서명 왕복·grounding(Citation·source·PM)·STOP→tool_call 승격·google.rpc 에러 3형 실증. 게이트 판정 3확인(thinking 충돌 400·인증 400·미지 모델 404 — 드리프트 없음). **functionCall id 발급 드리프트 검출**(인벤토리 D-5 반증 — `call_` 접두 id 발급 시작, 어댑터는 wire id 우선이라 무수정·합성은 방어로 강등) + responseId 새니타이저 키 스코프 앵커 신설. 상세는 [problem log](problems/problem-log.md). 테스트 367개
+- **크로스 왕복 골든셋 + 실 E2E 스모크 통과** (2026-08-21): 골든셋 ④ 3방향 편입 — gemini 실픽스처→anthropic(drop·demote), anthropic 실픽스처→gemini(**D6-9 더미 서명 삽입 검증**), 동일 타깃 재전송(서명 바이트 복원 + id 드롭·name 매칭). `pnpm smoke:gemini` 6단계 1차 통과 (≈$0.01) — 비스트림·스트림 완주·thinking(thoughts 토큰 분리 집계)·**툴콜 thoughtSignature 왕복 실서명 검증 통과**(MISSING_THOUGHT_SIGNATURE 방어 실증)·크로스 프로바이더(claude→gemini 연속성 — 목표 2)·compat CC→gemini. **로드맵 5의 Gemini 완료** — 테스트 375개
+- **리뷰 라운드(10앵글×검증 6·스윕) + CONFIRMED 15건 전건 수정** (2026-08-21): 스트림/비스트림 비대칭(compat 툴콜 인자 공백·유령 빈 블록·fileData/urlContext 유실·soft-block 판정·billed 3원 모순), 서명 보존 3건(병합 last-wins·미디어 part·무서명 google-origin 복원), D5 계약(strictParameters 배선·effort 'none' 경계·file 메타 보고), 인프라(retarget google 서버 상태·레거시 effort 안전값·PO surface·AIza 새니타이저·200 에러 body 승격·proto3 엣지). 실서명 스모크 assert 승격 + 재통과. 테스트 384개. 상세는 [problem log](problems/problem-log.md)
+- **잔여**: Batches/Files 부록 (b)·운영 평면은 로드맵 5 후속. 4사 어댑터(Anthropic·OpenAI·xAI·Gemini) 전부 골든셋 4종 + 실 스모크 이중 안전망 성립
 
 ## 로드맵 (2026-08-20 확정)
 

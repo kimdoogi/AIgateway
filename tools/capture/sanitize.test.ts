@@ -5,6 +5,8 @@ describe("sanitizeText", () => {
   it("API 키 흔적을 제거한다", () => {
     expect(sanitizeText('{"key":"sk-ant-api03-AbCdEf123456789"}')).toBe('{"key":"sk-ant-REDACTED"}');
     expect(sanitizeText("Authorization: Bearer abcdef1234567890")).toBe("Authorization: Bearer REDACTED");
+    // Google 키 (AIza + 35자) — 에러 body 에코·URL 쿼리 방어 (리뷰 2026-08-21)
+    expect(sanitizeText("?key=AIzaSyA1234567890abcdefghijklmnopqrstuv")).toBe("?key=AIza-REDACTED");
   });
 
   it("id를 결정론적으로 치환한다 — 같은 id는 같은 자리표시자", () => {
@@ -56,6 +58,14 @@ it("밑줄 포함 id도 통째로 치환한다 — 부분 치환 금지 (리뷰 
       idMap,
     );
     expect(out).toBe('{"a":"call_fixture0001","b":"ws_fixture0002"}');
+  });
+
+  it("gemini responseId — 키 스코프 앵커로 치환 (bare base64url, 2026-08-21 실측)", () => {
+    const idMap = new Map<string, string>();
+    const out = sanitizeText('{"responseId": "QE6IapGOBdux1e8P4uj0KA","other":"QE6IapGOBdux1e8P4uj0KA"}', idMap);
+    // 키 스코프 밖의 동일 문자열은 건드리지 않는다 (서명 오염 방지)
+    expect(out).toBe('{"responseId": "responseId_fixture0001","other":"QE6IapGOBdux1e8P4uj0KA"}');
+    expect(sanitizeText(out, idMap)).toBe(out); // 멱등
   });
 
   it("UUID 치환은 멱등 — 재실행해도 자리표시자 유지", () => {

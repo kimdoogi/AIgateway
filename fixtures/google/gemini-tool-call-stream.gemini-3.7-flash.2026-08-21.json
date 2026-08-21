@@ -1,0 +1,56 @@
+{
+  "case": "gemini-tool-call-stream",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": true,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:streamGenerateContent?alt=sse",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "What's the weather in Tokyo?"
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "name": "get_weather",
+              "description": "Get the current weather for a city.",
+              "parametersJsonSchema": {
+                "type": "object",
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "city"
+                ],
+                "additionalProperties": false
+              }
+            }
+          ]
+        }
+      ],
+      "toolConfig": {
+        "functionCallingConfig": {
+          "mode": "ANY"
+        }
+      },
+      "generationConfig": {
+        "maxOutputTokens": 4000
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream"
+  },
+  "chunksFile": "gemini-tool-call-stream.gemini-3.7-flash.2026-08-21.chunks.txt"
+}

@@ -1,0 +1,60 @@
+{
+  "case": "gemini-text",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "What is the capital of France? Answer in one short sentence."
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 2000
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "The capital of France is Paris.",
+              "thoughtSignature": "Et8DCtwDARFNMg8w6w9UrwBKDyCd4sj8X6HsdiCsQYnjBv4FCzz4ZUAc0yZcD/pNbCf5SuyJpvBml77AEqwMc1XIZe3iDYf04CJ6FTMvBsJMekD2L9ZFlcwJJ66Xxx2KJYa+RRZm1pVm5lZNh1zluQqpu5pNl+diFbhy/80vAEDHlcwiuH09el0HTpJnZwWBnAoNzCITi4DNH/i0ZTxngBOTQauoV36QdVt8aLJfSVfuDIvjwczNuFtRURkD2BDLlCJ5iKyzfFuvYzjAi4yv+A3QPqvNY5uRz/Q3GZRqQQLPOh4B+5k5Oh3RBKOn1biqODkkNCPSVeIeenvACQPTWvHDag9a9T0tHJIdNl6MpMSMwNy4oWc2r357z4S49qwD6K5EBxzRflgfsHBe97skzf7lQUtLQ6G7EkzObIkVMQSHhBjA2uf8PwOELiVsJT4xMD4XbhTZNUUi05HF++L+uY2SLUt3Z0oNwm5NxctWx9KBD9m4pVJu7xXXFlAnmJ8wukmALZgt0/WwGGDD+xfwX7RdHVn9Z3wOMu9xZhBGG3QViVs84URxT+asW2QTDZag+/xxt6jatY4BfsjBMcfgdRzFLb5XBd6KacucBX5mgcmGvdrxsyavdchUe7XTsiplIj4="
+            }
+          ],
+          "role": "model"
+        },
+        "finishReason": "STOP",
+        "index": 0
+      }
+    ],
+    "usageMetadata": {
+      "promptTokenCount": 14,
+      "candidatesTokenCount": 7,
+      "totalTokenCount": 117,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 14
+        }
+      ],
+      "thoughtsTokenCount": 96,
+      "serviceTier": "standard"
+    },
+    "modelVersion": "gemini-3.7-flash",
+    "responseId": "responseId_fixture0001"
+  }
+}

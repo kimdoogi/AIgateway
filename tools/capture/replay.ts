@@ -1,5 +1,6 @@
 import { parseSSEText } from "../../src/stream/sse.js";
 import { createStreamTransformer } from "../../src/adapters/anthropic/stream.js";
+import { createStreamTransformer as createGeminiTransformer } from "../../src/adapters/gemini/stream.js";
 import { createStreamTransformer as createResponsesTransformer } from "../../src/adapters/openai/responses/stream.js";
 import { createStreamTransformer as createChatTransformer } from "../../src/adapters/openai/chat/stream.js";
 import { xaiChatAdapter, xaiResponsesAdapter } from "../../src/adapters/xai/index.js";
@@ -33,6 +34,11 @@ export function replayOpenAIStream(text: string, ctx: StreamContext, path: strin
 export function replayXAIStream(text: string, ctx: StreamContext, path: string): AdapterStreamEvent[] {
   const adapter = path.includes("/chat/completions") ? xaiChatAdapter : xaiResponsesAdapter;
   return replayStream(text, adapter.createStreamTransformer(ctx));
+}
+
+/** gemini — generateContent 단일 표면 (?alt=sse 강제 — ADR-0003) */
+export function replayGeminiStream(text: string, ctx: StreamContext): AdapterStreamEvent[] {
+  return replayStream(text, createGeminiTransformer(ctx));
 }
 
 /** 터미널 이벤트에서 usage 추출 (과금 집계용 — 절단 스트림의 provider-error도 usage를 싣는다) */

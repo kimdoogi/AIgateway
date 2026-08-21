@@ -1,0 +1,29 @@
+{
+  "case": "gemini-text-stream",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": true,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:streamGenerateContent?alt=sse",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Count from 1 to 5."
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 2000
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "text/event-stream"
+  },
+  "chunksFile": "gemini-text-stream.gemini-3.7-flash.2026-08-21.chunks.txt"
+}

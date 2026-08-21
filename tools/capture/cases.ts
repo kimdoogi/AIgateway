@@ -9,6 +9,7 @@ export const HAIKU = "claude-haiku-4-5";
 export const SONNET = "claude-sonnet-4-6";
 export const OAI_CHEAP = "gpt-5.6-luna"; // GPT-5.6 저비용 (인벤토리 §H)
 export const XAI_MODEL = "grok-4.6"; // 권장 모델 (인벤토리 §G — $2/$6)
+export const GEMINI_MODEL = "gemini-3.7-flash"; // 현행 플래그십 워크호스 (인벤토리 §I)
 
 const OAI_WEATHER_TOOL: JSONObject = {
   type: "function",
@@ -26,8 +27,8 @@ const OAI_WEATHER_TOOL: JSONObject = {
 export interface CaptureCase {
   name: string;
   /** 기본 anthropic */
-  provider?: "anthropic" | "openai" | "xai";
-  /** 프로바이더 기본 path 오버라이드 (openai: /v1/responses | /v1/chat/completions) */
+  provider?: "anthropic" | "openai" | "xai" | "google";
+  /** 프로바이더 기본 path 오버라이드 (openai: 표면 경로 / google: 모델이 경로에 포함) */
   path?: string;
   model: string;
   body: JSONObject;
@@ -937,6 +938,175 @@ export const CASES: CaptureCase[] = [
       search_parameters: { mode: "auto" },
       max_completion_tokens: 50,
     },
+  },
+
+  // ══ Gemini (로드맵 5) — generateContent 단일 표면, 스트림은 ?alt=sse 강제 (ADR-0003) ══
+
+  {
+    name: "gemini-text",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    model: GEMINI_MODEL,
+    body: {
+      contents: [{ role: "user", parts: [{ text: "What is the capital of France? Answer in one short sentence." }] }],
+      generationConfig: { maxOutputTokens: 2000 },
+    },
+  },
+  {
+    name: "gemini-text-stream",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`,
+    model: GEMINI_MODEL,
+    stream: true,
+    body: {
+      contents: [{ role: "user", parts: [{ text: "Count from 1 to 5." }] }],
+      generationConfig: { maxOutputTokens: 2000 },
+    },
+  },
+  {
+    name: "gemini-thinking",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    model: GEMINI_MODEL,
+    note: "thought summary part(thought:true) + thoughtSignature wire 확보 (인벤토리 C-2)",
+    body: {
+      contents: [{ role: "user", parts: [{ text: "Is 91 prime? Think it through, then answer in one word." }] }],
+      generationConfig: { maxOutputTokens: 4000, thinkingConfig: { includeThoughts: true, thinkingLevel: "low" } },
+    },
+  },
+  {
+    name: "gemini-thinking-stream",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`,
+    model: GEMINI_MODEL,
+    stream: true,
+    note: "스트림 thought part + 빈 text part 서명 패턴 확보 (인벤토리 F-2)",
+    body: {
+      contents: [{ role: "user", parts: [{ text: "Is 133 prime? Think it through, then answer in one word." }] }],
+      generationConfig: { maxOutputTokens: 4000, thinkingConfig: { includeThoughts: true, thinkingLevel: "low" } },
+    },
+  },
+  {
+    name: "gemini-tool-call",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    model: GEMINI_MODEL,
+    note: "functionCall part + thoughtSignature 부착 실증 (id 미발급 확인 — 인벤토리 D-5)",
+    body: {
+      contents: [{ role: "user", parts: [{ text: "What's the weather in Paris?" }] }],
+      tools: [
+        {
+          functionDeclarations: [
+            {
+              name: "get_weather",
+              description: "Get the current weather for a city.",
+              parametersJsonSchema: {
+                type: "object",
+                properties: { city: { type: "string" } },
+                required: ["city"],
+                additionalProperties: false,
+              },
+            },
+          ],
+        },
+      ],
+      toolConfig: { functionCallingConfig: { mode: "ANY" } },
+      generationConfig: { maxOutputTokens: 4000 },
+    },
+  },
+  {
+    name: "gemini-tool-call-stream",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse`,
+    model: GEMINI_MODEL,
+    stream: true,
+    body: {
+      contents: [{ role: "user", parts: [{ text: "What's the weather in Tokyo?" }] }],
+      tools: [
+        {
+          functionDeclarations: [
+            {
+              name: "get_weather",
+              description: "Get the current weather for a city.",
+              parametersJsonSchema: {
+                type: "object",
+                properties: { city: { type: "string" } },
+                required: ["city"],
+                additionalProperties: false,
+              },
+            },
+          ],
+        },
+      ],
+      toolConfig: { functionCallingConfig: { mode: "ANY" } },
+      generationConfig: { maxOutputTokens: 4000 },
+    },
+  },
+  {
+    name: "gemini-google-search",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    model: GEMINI_MODEL,
+    note: "groundingMetadata wire 확보 (TOS 무수정 보존 대상 — 검색 쿼리당 추가 과금 소액)",
+    body: {
+      contents: [{ role: "user", parts: [{ text: "What is the current UTC date? Use search." }] }],
+      tools: [{ googleSearch: {} }],
+      generationConfig: { maxOutputTokens: 4000 },
+    },
+  },
+  {
+    name: "gemini-json-schema",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    model: GEMINI_MODEL,
+    note: "responseJsonSchema(raw JSON Schema 경로) 실증",
+    body: {
+      contents: [{ role: "user", parts: [{ text: "Give me a fictional user profile." }] }],
+      generationConfig: {
+        maxOutputTokens: 2000,
+        responseMimeType: "application/json",
+        responseJsonSchema: {
+          type: "object",
+          properties: { name: { type: "string" }, age: { type: "integer" } },
+          required: ["name", "age"],
+          additionalProperties: false,
+        },
+      },
+    },
+  },
+  // ── 무과금 게이트 ──
+  {
+    name: "gemini-gate-thinking-conflict",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    model: GEMINI_MODEL,
+    expectStatus: 400,
+    note: "thinkingBudget+thinkingLevel 동시 지정 400 실증 (인벤토리 B-2)",
+    body: {
+      contents: [{ role: "user", parts: [{ text: "hi" }] }],
+      generationConfig: {
+        maxOutputTokens: 100,
+        thinkingConfig: { thinkingBudget: 1024, thinkingLevel: "low" },
+      },
+    },
+  },
+  {
+    name: "gemini-gate-invalid-key",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    model: GEMINI_MODEL,
+    invalidKey: true,
+    note: "인증 오류 실측 (google.rpc 에러 포맷 — status 필드 확인)",
+    body: { contents: [{ role: "user", parts: [{ text: "hi" }] }], generationConfig: { maxOutputTokens: 50 } },
+  },
+  {
+    name: "gemini-gate-unknown-model",
+    provider: "google",
+    path: "/v1beta/models/gemini-nonexistent-model:generateContent",
+    model: "gemini-nonexistent-model",
+    expectStatus: 404,
+    note: "미지 모델 상태코드 실측 (openai는 400이었음 — 교차 확인)",
+    body: { contents: [{ role: "user", parts: [{ text: "hi" }] }], generationConfig: { maxOutputTokens: 50 } },
   },
 ];
 

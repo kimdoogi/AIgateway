@@ -15,6 +15,7 @@ const SERVER_STATE_KEYS: Record<string, readonly string[]> = {
   anthropic: ["container"],
   openai: ["previousResponseId", "conversation", "store", "background"],
   xai: ["previousResponseId", "store"],
+  google: ["cachedContent", "store"], // explicit caching 참조·로깅 오버라이드 (리뷰 2026-08-21)
 };
 
 function stripServerStatePO(

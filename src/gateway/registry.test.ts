@@ -127,6 +127,11 @@ describe("registry 표면 축", () => {
     expect(resolveModel("grok-4.6").capabilities?.supportedEfforts).toContain("xhigh");
     expect(resolveModel("grok-4.6").capabilities?.unsupportedParams).toContain("stopSequences");
     expect(resolveModel("grok-4.20-non-reasoning").capabilities?.unsupportedParams).toBeUndefined();
+    expect(resolveModel("gemini-3.7-flash").provider).toBe("google");
+    expect(resolveModel("gemini-3.7-flash").capabilities?.supportedEfforts).toContain("minimal");
+    expect(resolveModel("gemini-3.1-pro-preview").capabilities?.supportedEfforts).not.toContain("minimal");
+    expect(resolveModel("gemini-2.5-flash").capabilities?.supportedEfforts).toEqual([]);
+    expect(resolveModel("gemini-2.0-flash").capabilities?.supportedEfforts).toEqual([]); // 미지 세대 안전측 (리뷰)
     expect(() => resolveModel("unknown-99")).toThrow();
   });
 
