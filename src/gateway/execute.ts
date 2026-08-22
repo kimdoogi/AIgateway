@@ -13,6 +13,8 @@ import { GatewayError, irError, providerError, toIRError } from "./errors.js";
 import { SessionStore, type StreamSession, type StreamEventDraft } from "./session.js";
 import type { LedgerRow, UsageLedger } from "../state/types.js";
 import { DEFAULT_RETRY, retryDelayMs, type RetryPolicy } from "../policy/retry.js";
+import { estimateCostUSD } from "./pricing.js";
+import { buildBilling } from "../ops/billing.js";
 import {
   endSpanError,
   stdoutMetaLog,
@@ -39,6 +41,13 @@ export interface ExecuteDeps {
   retry?: RetryPolicy;
   /** 업스트림 접속(헤더 수신까지) 타임아웃 — body 스트리밍에는 미적용. 기본 120s */
   upstreamTimeoutMs?: number;
+  // ── 운영 평면 (ADR-0006/0007 — 2026-08-21) ──
+  /** 인증 미들웨어가 해석한 테넌트 컨텍스트 — 원장 행에 병기 (정산 분리 기준) */
+  tenantContext?: { tenant: string; keyId?: string; keySource?: "byo" | "pool" };
+  /** 정책 레이어 사전 warning (예산 soft 등) — 응답/stream-start warnings에 병합 */
+  preWarnings?: Warning[];
+  /** 자격증명 결정자 — 기본 env 풀 키. BYO는 앱이 테넌트 키로 오버라이드 (ADR-0001 하이브리드) */
+  credentials?: (rt: ProviderRuntime) => Record<string, string> | Promise<Record<string, string>>;
 }
 
 const defaultSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
@@ -55,6 +64,8 @@ function recordAttempt(
   extra?: { providerRequestId?: string; warnings?: number; ttftMs?: number },
 ): void {
   try {
+    // 가격표 근사 비용 병기 (ADR-0007 — raw usage로 재계산 가능)
+    if (row.usage && row.costUsd === undefined) row = { ...row, costUsd: estimateCostUSD(row.model, row.usage) };
     deps.ledger?.record(row).catch((err) => console.error("[ledger]", err));
     (deps.metaLog ?? stdoutMetaLog)({
       requestId: row.requestId,
@@ -79,7 +90,7 @@ function recordAttempt(
   }
 }
 
-function credentialHeaders(rt: ProviderRuntime): Record<string, string> {
+export function credentialHeaders(rt: ProviderRuntime): Record<string, string> {
   const secret = process.env[rt.auth.envVar];
   if (!secret) {
     // 설정 결함 = 게이트웨이 내부 결함
@@ -123,7 +134,7 @@ function prepare(req: IRRequest, deps: ExecuteDeps): PreparedCall {
       adapter,
       ctx,
       wire: request,
-      transformWarnings: [...retargetWarnings, ...surfaceWarnings, ...warnings],
+      transformWarnings: [...(deps.preWarnings ?? []), ...retargetWarnings, ...surfaceWarnings, ...warnings],
       created: (deps.now?.() ?? new Date()).toISOString(),
     };
   } catch (err) {
@@ -149,6 +160,14 @@ function rowBase(
     stream,
     durationMs,
     createdAt: (deps.now?.() ?? new Date()).toISOString(),
+    // 운영 평면 — 테넌트·키·소스 병기 (미들웨어 미설정 시 생략)
+    ...(deps.tenantContext
+      ? {
+          tenant: deps.tenantContext.tenant,
+          ...(deps.tenantContext.keyId ? { keyId: deps.tenantContext.keyId } : {}),
+          ...(deps.tenantContext.keySource ? { keySource: deps.tenantContext.keySource } : {}),
+        }
+      : {}),
   };
 }
 
@@ -164,9 +183,10 @@ async function dispatch(
   timer.unref?.();
   const combined = signal ? AbortSignal.any([signal, timeoutCtrl.signal]) : timeoutCtrl.signal;
   try {
+    const auth = await (deps.credentials?.(call.rt) ?? credentialHeaders(call.rt));
     return await fetchImpl(`${call.rt.baseUrl}${call.wire.path}`, {
       method: call.wire.method,
-      headers: { ...call.wire.headers, ...credentialHeaders(call.rt) },
+      headers: { ...call.wire.headers, ...auth },
       body: JSON.stringify(call.wire.body),
       signal: combined,
     });
@@ -357,6 +377,7 @@ export async function executeNonStream(
       message: { role: "assistant", blocks: t.blocks, origin: t.origin },
       finishReason: t.finishReason,
       usage: t.usage,
+      billing: buildBilling(call.adapter.provider, call.ctx.modelId, t.usage), // ADR-0007 §1
       warnings,
       gateway: {
         requestId: call.ctx.requestId,
@@ -395,6 +416,9 @@ function finalizeDraft(draft: AdapterStreamEvent, call: PreparedCall): StreamEve
   if (draft.type === "provider-error") {
     // 단일 target v0 — 재시도 없음, error-final로 종결 (폴백 트리가 error-partial 판정 인계 — 로드맵 4)
     return { type: "error-final", error: draft.error, usage: draft.usage };
+  }
+  if (draft.type === "finish") {
+    return { ...draft, billing: buildBilling(call.adapter.provider, call.ctx.modelId, draft.usage) }; // ADR-0007 §1
   }
   if (draft.type === "response-metadata") {
     return {

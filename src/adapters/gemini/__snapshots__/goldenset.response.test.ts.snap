@@ -1,5 +1,20 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-count-tokens 1`] = `
+{
+  "inputTokens": 8,
+  "raw": {
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 8,
+      },
+    ],
+    "totalTokens": 8,
+  },
+}
+`;
+
 exports[`골든셋 ② gemini 픽스처 → IR > gemini-gate-invalid-key 1`] = `
 {
   "billed": false,

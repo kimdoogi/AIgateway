@@ -92,7 +92,31 @@
 - **실 녹화 완료** (2026-08-21 — 11케이스, 총 ≈$0.005): 골든셋 ② 자동 편입(스냅샷 11) — thought part+서명 왕복·grounding(Citation·source·PM)·STOP→tool_call 승격·google.rpc 에러 3형 실증. 게이트 판정 3확인(thinking 충돌 400·인증 400·미지 모델 404 — 드리프트 없음). **functionCall id 발급 드리프트 검출**(인벤토리 D-5 반증 — `call_` 접두 id 발급 시작, 어댑터는 wire id 우선이라 무수정·합성은 방어로 강등) + responseId 새니타이저 키 스코프 앵커 신설. 상세는 [problem log](problems/problem-log.md). 테스트 367개
 - **크로스 왕복 골든셋 + 실 E2E 스모크 통과** (2026-08-21): 골든셋 ④ 3방향 편입 — gemini 실픽스처→anthropic(drop·demote), anthropic 실픽스처→gemini(**D6-9 더미 서명 삽입 검증**), 동일 타깃 재전송(서명 바이트 복원 + id 드롭·name 매칭). `pnpm smoke:gemini` 6단계 1차 통과 (≈$0.01) — 비스트림·스트림 완주·thinking(thoughts 토큰 분리 집계)·**툴콜 thoughtSignature 왕복 실서명 검증 통과**(MISSING_THOUGHT_SIGNATURE 방어 실증)·크로스 프로바이더(claude→gemini 연속성 — 목표 2)·compat CC→gemini. **로드맵 5의 Gemini 완료** — 테스트 375개
 - **리뷰 라운드(10앵글×검증 6·스윕) + CONFIRMED 15건 전건 수정** (2026-08-21): 스트림/비스트림 비대칭(compat 툴콜 인자 공백·유령 빈 블록·fileData/urlContext 유실·soft-block 판정·billed 3원 모순), 서명 보존 3건(병합 last-wins·미디어 part·무서명 google-origin 복원), D5 계약(strictParameters 배선·effort 'none' 경계·file 메타 보고), 인프라(retarget google 서버 상태·레거시 effort 안전값·PO surface·AIza 새니타이저·200 에러 body 승격·proto3 엣지). 실서명 스모크 assert 승격 + 재통과. 테스트 384개. 상세는 [problem log](problems/problem-log.md)
-- **잔여**: Batches/Files 부록 (b)·운영 평면은 로드맵 5 후속. 4사 어댑터(Anthropic·OpenAI·xAI·Gemini) 전부 골든셋 4종 + 실 스모크 이중 안전망 성립
+- **잔여**: ~~Batches/Files 부록 (b)~~·운영 평면은 로드맵 5 후속. 4사 어댑터(Anthropic·OpenAI·xAI·Gemini) 전부 골든셋 4종 + 실 스모크 이중 안전망 성립
+
+### 2026-08-21 — 로드맵 5 계속: 부록 (b) + count_tokens·Files·Batches 브리지
+
+- **[부록 (b)](specs/appendix-b-endpoints-async.md) 작성** (ir-v0 §16-2(b) 필수 요구사항 전 항목): count_tokens/Files/Batches 프록시 envelope, 잡 상태 정규화 표(4사), v1 결정 — **배치 = 단일 프로바이더**(크로스 fan-out 2차), customId 유일 키(순서 무보장), 부분 취소 의미론, `:batch` SKU 세그먼트, 비동기 핸들(deferred/background)은 배치 잡 모델 공유로 정의만
+- **count_tokens** (`POST /v0/count-tokens`): 어댑터 옵셔널 계약 — anthropic(count_tokens)·google(:countTokens generateContentRequest) 구현 + 동기 변환 재사용, openai·xai는 명시적 501 (조용한 추정 금지 D5). 무과금 실 녹화 2케이스 → 골든셋 편입, known-fields count 형태 등재
+- **Files 브리지** (`/v0/files`): gwf_ 매핑(FileStore — 인메모리/Postgres DDL), anthropic(beta 멀티파트)·openai(purpose)·google(resumable 2단계) 업로드/삭제 대행, xai 501. **IR `refs.gateway` 치환 훅** — 타깃 검증 후 프로바이더 id로, 불일치는 D6-8 명시적 400
+- **Batches 브리지** (`/v0/batches` + get/results/cancel/list): 항목 wire는 **어댑터 순수 변환 재사용**, 잡 수명·custom_id 매핑·상태 정규화만 브리지 소유(BatchStore). anthropic(JSON+JSONL results)·openai(파일 기반)·google(batchGenerateContent 인라인)·xai(요청 등록형) 4색 wire 테이블. 결과 수확 시 원장 항목별 1회 적재
+- **실 E2E 스모크 통과** (`pnpm smoke:appendix-b`): count 2사 실측(claude 14·gemini 8토큰)+501, **anthropic 파일 업로드→조회→삭제 실검증**, **anthropic 1항목 배치가 60초 내 실 완료 — 폴링 12회·결과 정규화(IR message·usage 17토큰)까지 전 수명주기 실검증**. 테스트 403개
+- **잔여 좌석**: openai/google/xai 배치 wire는 mock 검증만(실 녹화 대기 — google·xai는 인벤토리 기반 가정), xai Files 501, 비동기 핸들 통합 표면(2차)
+
+### 2026-08-21 — 로드맵 5 계속: 커버리지 매트릭스 CI + 가격표 승격 + 운영 평면 계획
+
+- **커버리지 매트릭스 CI** (ADR-0001 D10 "체크리스트×어댑터" — 커버리지 문서 §8-4의 기계 검증 실현): [기준 문서](research/2026-08-20-anthropic-api-coverage.md)의 표 전 행(8표 78행)을 파싱해 ① 전 행 커버리지 분류 존재 ② **"미결" 0건 유지**(신규 미결 = CI 실패 = 결정 라운드 강제) ③ 섹션별 행수 스냅샷(체크리스트 증감 강제 리뷰) ④ EP v1 확정 항목(count_tokens·Batches·Files)의 구현체 존재를 검증
+- **가격표 승격**: 캡처 하네스 소유였던 단가표를 [gateway/pricing.ts](../src/gateway/pricing.ts)로 이동 (ADR-0007 §2 "레지스트리 가격표" 좌석 — billing 엔진·캡처 비용 가드 공용, 캐시 배수 포함). 테스트 408개
+- **[운영 평면 실행 계획](plan/ops-plane.md)** 작성 — 작업 분해 6단계(가상 키→라인아이템→예산→정산→리소스 레지스트리→본문 로그) + **사용자 결정 3건**(관리 API 인증·BYO 키 저장·본문 로깅 기본값)
+
+### 2026-08-21 — 로드맵 5 완결: 운영 평면 구현 (결정 3건 확정)
+
+- **결정**: D1 관리 API = `GATEWAY_ADMIN_KEY` 마스터 키(상수 시간 비교) / D2 BYO 프로바이더 키 = **DB 암호화 저장**(AES-256-GCM + env 마스터 키 — 권고안 대신 사용자 선택, KMS 2차) / D3 본문 로깅 = ADR-0008대로 기본 on
+- **가상 키·테넌트**: `gwk_` 발급(시크릿 1회 노출·해시만 저장)/폐기 관리 API, `/v0/*` Bearer 인증 미들웨어(keys 미설정 = 개방 모드 — 로컬·스모크 호환), 원장에 tenant·keyId·keySource(BYO/풀)·costUsd 병기. **BYO 자격증명 결정자** — 테넌트 키 우선, env 풀 키 폴백(ADR-0001 하이브리드), Files/Batches 테넌트 축 개통
+- **billing·예산·정산**: 응답 envelope `billing` 라인아이템(0수량 제외·`:batch` SKU 50% 근사 — 스트림은 finish에), 지출 트래커를 **원장 데코레이터**로 배선(코어 무수정), soft warning(`budget-soft-warning`)/hard 402(`budget_exceeded`, §10.4 다음 요청 차단), `GET /v0/admin/usage-report`(model|provider|keyId|tenant 집계, JSON/CSV, 멱등)
+- **서버 상태 레지스트리** (ADR-0006 §3): 인바운드 PO 참조 검증(테넌트 격리 404·미등록 기본 거부·opt-in 통과+`server-state-unmanaged`), 응답 등록(openai/xai는 store 옵트인 시, anthropic container), TTL 스윕 관리 API(삭제 API 대행 + 참조 차단 대체)
+- **본문 로그** (ADR-0008): sink 인터페이스(Postgres/인메모리), groundingMetadata TOS 제외(제거 사실 표기), 키 단위 opt-out. Postgres 스토어 7종 DDL 자동. 테스트 421개 + 실 스모크 재통과(개방 모드 경로 무회귀 — 배치 취소 경로까지 실검증)
+- **잔여 좌석**: compat 인증·스트림 응답 본문로그·스트림 리소스 등록·Redis 지출 집계·TTL 스윕 자동화 ([ops-plane](plan/ops-plane.md))
 
 ## 로드맵 (2026-08-20 확정)
 

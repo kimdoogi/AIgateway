@@ -294,6 +294,15 @@ exports[`골든셋 ② anthropic 픽스처 → IR > citations-stream 1`] = `
 ]
 `;
 
+exports[`골든셋 ② anthropic 픽스처 → IR > count-tokens 1`] = `
+{
+  "inputTokens": 19,
+  "raw": {
+    "input_tokens": 19,
+  },
+}
+`;
+
 exports[`골든셋 ② anthropic 픽스처 → IR > error-400-adaptive-gate 1`] = `
 {
   "billed": false,

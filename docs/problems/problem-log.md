@@ -185,3 +185,19 @@
 - **D5 계약**: strictParameters 배선(전 드롭 지점 — strict면 4xx, shared 규약과 동일 메시지), **effort 'none'은 on/off 경계라 클램프 금지**(minimal 승격 + includeThoughts:true로 반전되던 것 → thinking 미방출 + 드롭 보고), file 블록 title/context/citationsEnabled/filename 드롭 보고.
 - **주변 인프라**: retarget SERVER_STATE_KEYS에 google(cachedContent·store), 레지스트리 gemini catch-all에 supportedEfforts:[](레거시 세대 thinkingLevel 400 방지), PO google.surface 등재(400 거부·wire 유출 해소), 새니타이저 AIza 패턴, 200+에러 body의 빈 성공 둔갑 방지(비스트림 in-body error 승격 — 스트림과 대칭), RetryInfo·startIndex proto3 엣지(nanos 합산·빈 값 undefined·startIndex 0 기본 — 실 픽스처의 선두 세그먼트가 트리거), 빈 contents 사전 400, responseId "" 3원 불일치 통일, synth 스코프 'unknown' → 수신 연쇄 해시(§13.2 턴 간 충돌 방지; 비스트림 SHA와의 완전 동일화는 스트림 구조상 불가 — 잔여 한계로 기록).
 - **검증**: 테스트 380개(스트림 신규 5 포함) + 실 스모크 재통과(실서명 수신을 로그에서 **assert로 승격** — 더미 경로가 회귀를 은폐하던 갭). 잔여(보고 컷): 캡처 defaultPath 템플릿화·modelVersion 추출·4어댑터 중복 헬퍼 추출(reasoningToWire/clampEffort/mergeExternal/warnOnce)·smoke 스캐폴드 공유화 — 로드맵 5 후속 좌석.
+
+## 2026-08-21 — 부록 (b) 구현: 브리지는 파이프라인 재사용 — 설계 선택과 미검증 좌석
+
+- **핵심 설계**: 배치 항목·count 본문이 동기 경로와 **같은 어댑터 순수 변환**을 통과 — 브리지가 새로 만든 것은 잡 수명(BatchStore)·gwf/gwb 매핑·상태 정규화뿐. anthropic 실 스모크에서 배치 결과가 골든셋과 같은 IR로 나오는 것으로 실증(60초 실 완료 — 폴링·결과·usage까지).
+- **v1 단순화 결정 3건** (부록 (b) 명문화): ① 배치 = 단일 프로바이더·단일 표면 — 크로스 fan-out은 부분 실패·취소·SKU·정산이 프로바이더 수만큼 곱해지는데 실수요 미확인이라 2차. ② 파일 업로드는 타깃 프로바이더 명시 필수(자동 복제 2차) — 파일은 모델 라우팅 대상이 아님. ③ 비동기 핸들(xai deferred·openai background)은 잡 상태 모델 공유로 **정의만** — v1은 PO 통과 유지.
+- **미검증 좌석 (정직 기록)**: google(batchGenerateContent 인라인 wire)·xai(요청 등록형) 배치 브리지는 **인벤토리 기반 가정 + mock 검증만** — 실 계정 배치 실행으로 wire 확정 필요(비용·시간 소요라 기회 채집). openai 배치는 문서 확실도 높으나 실 녹화 대기. xai Files는 업로드 wire 세부 미확보로 501(`files-unsupported`).
+- **테넌트 좌석**: FileStore/BatchStore는 tenant 축을 스키마에 갖되 v1은 "default" 고정 — 가상 키(운영 평면) 도입 시 실테넌트 치환. ADR-0006 §3의 미등록 외부 id 차단·TTL 삭제 대행은 운영 평면의 서버 상태 레지스트리와 함께.
+- **원장**: 배치 결과는 수확 시점에 항목별 1행(requestId = `gwb:customId`), 재조회 중복 방지 플래그(bridgeState.ledgerRecorded). 배치 할인 SKU 라인아이템은 billing 엔진(운영 평면)에서.
+
+## 2026-08-21 — 운영 평면 구현: 코어 무수정 배선이 원칙, D2는 권고 뒤집힘
+
+- **사용자 결정 기록**: D1 관리 API = 마스터 키 env(권고안), D3 본문 로깅 = 기본 on(권고안). **D2 BYO 키는 권고(헤더 패스스루)와 달리 DB 암호화 저장 채택** — AES-256-GCM + `GATEWAY_KEY_ENCRYPTION_KEY`(32바이트) env 마스터 키, GCM 태그로 변조 검출, KMS·키 로테이션은 2차. 시크릿 취급 원칙: 가상 키는 sha256 해시만 저장(발급 응답 1회 노출), BYO 키는 암호문만, 복호화는 요청 스코프 캐시.
+- **배선 원칙 — 코어 무수정**: ① 지출 집계는 **원장 데코레이터**(withSpendTracking — record 훅에서 트래커 갱신, aggregate 위임 보존) ② 테넌트·자격증명은 ExecuteDeps 슬롯(tenantContext/preWarnings/credentials)로 주입 — execute 코어는 프로바이더도 테넌트도 모른다 ③ 요청별 운영 컨텍스트는 WeakMap<Request>(Hono 제네릭 오염 회피) ④ 인증은 keys 스토어 설정 시에만 활성(개방 모드 보존 — 스모크·로컬 무설정 호환, 서버 조립은 GATEWAY_ADMIN_KEY 유무로 게이트).
+- **§10.4 예산 의미론 구현**: 평가는 PreRequest 1회(hard 402 `budget_exceeded` — "다음 요청부터 차단"이므로 진행 중 스트림은 건드리지 않음), soft는 `budget-soft-warning`을 preWarnings로 stream-start/응답 warnings에 병합. 지출은 근사 가격표(costUsd) 기준 — 확정 정산은 원장 raw 재계산.
+- **리소스 레지스트리 경계**: 인바운드 검증은 PO 참조 키 데이터 테이블(재타게팅 SERVER_STATE_KEYS와 동족·용도 상이 — 저긴 드롭, 여긴 소유권), 타 테넌트는 404(존재 노출 금지). 응답 등록은 **생성 opt-in일 때만**(openai/xai store:true; anthropic container는 존재 자체가 증거). 삭제 API 없는 리소스(anthropic container·google cachedContent)는 참조 차단으로 대체 — 한계 명문화.
+- **잔여 좌석**: compat 인바운드 인증 미적용(현재 /v0/*만 — compat 소비자 neuro는 개방 모드 전제), 스트림 응답 본문 로그(요청만)·스트림 finish 리소스 등록·Redis 지출 집계·TTL 스윕 자동화. 테스트 421개(운영 단위 10 + E2E 3 포함).

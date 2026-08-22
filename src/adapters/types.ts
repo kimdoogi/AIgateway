@@ -1,4 +1,4 @@
-import type { JSONObject } from "../ir/json.js";
+import type { JSONObject, JSONValue } from "../ir/json.js";
 import type { Block } from "../ir/blocks.js";
 import type { NS, Origin, Warning } from "../ir/common.js";
 import type { FinishReason } from "../ir/finish.js";
@@ -135,6 +135,13 @@ export interface StreamTransformer {
   onStreamEnd(): AdapterStreamEvent[];
 }
 
+/** 부록 (b) §1 — count_tokens 프록시 결과 */
+export interface CountTokensResult {
+  inputTokens: number;
+  providerMetadata?: NS;
+  raw: JSONValue;
+}
+
 export interface OutboundAdapter {
   readonly provider: string;
   readonly surface: string;
@@ -142,4 +149,9 @@ export interface OutboundAdapter {
   transformResponse(body: unknown, ctx: RequestContext & { requestedModel: string }): TransformedResponse;
   createStreamTransformer(ctx: StreamContext): StreamTransformer;
   mapHttpError(status: number, body: unknown, headers?: Record<string, string>): IRError;
+  /** 옵셔널 (부록 (b) §1) — 미구현 프로바이더는 게이트웨이가 501 (조용한 추정 금지, D5) */
+  countTokens?: {
+    transformRequest(req: IRRequest, ctx: RequestContext): TransformedRequest;
+    transformResponse(body: unknown): CountTokensResult;
+  };
 }

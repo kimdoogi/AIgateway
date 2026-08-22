@@ -22,6 +22,7 @@ import {
 } from "../../src/adapters/anthropic/errors.js";
 import { convertUsage as convertOpenAIUsage, type OpenAIWireUsage } from "../../src/adapters/openai/errors.js";
 import { convertUsage as convertGeminiUsage, type GeminiWireUsage } from "../../src/adapters/gemini/errors.js";
+import { estimateCostUSD } from "../../src/gateway/pricing.js";
 import type { AdapterStreamEvent } from "../../src/adapters/types.js";
 import type { Usage } from "../../src/ir/usage.js";
 
@@ -101,29 +102,8 @@ const PROVIDERS: Record<string, ProviderConfig> = {
   },
 };
 
-// USD / 1M tokens. 캡 검증용 근사 단가 — 청구서 대체 아님.
-// 캐시: write 1.25x, read 0.1x (Anthropic 5분 ephemeral / OpenAI GPT-5.6 기준 근사)
-const PRICING: Record<string, { input: number; output: number }> = {
-  "claude-haiku-4-5": { input: 1.0, output: 5.0 },
-  "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
-  "gpt-5.6": { input: 5.0, output: 30.0 }, // sol 단가를 상한으로 — luna/terra는 그 이하
-  "grok-4.6": { input: 2.0, output: 6.0 }, // 인벤토리 §G (200k 초과 프리미엄은 미반영 — 캡 근사)
-  "gemini-3.7-flash": { input: 1.0, output: 5.0 }, // 상한 근사 (flash급 실단가는 이 이하 — 캡 가드용)
-};
-
-function costUSD(model: string, usage: Usage): number {
-  // 응답은 스냅샷 id(claude-haiku-4-5-20251001)를 보고하므로 접두 매칭 (리뷰 F3 — 폴백 5배 과대계상 방지)
-  const price =
-    Object.entries(PRICING)
-      .sort(([a], [b]) => b.length - a.length) // 최장 접두 우선 — 삽입 순서 의존 제거 (리뷰 F18)
-      .find(([alias]) => model.startsWith(alias))?.[1] ?? { input: 5.0, output: 25.0 }; // 미지 모델은 Opus 단가
-  const inputCost =
-    (usage.input.noCache * price.input +
-      usage.input.cacheWrite * price.input * 1.25 +
-      usage.input.cacheRead * price.input * 0.1) /
-    1e6;
-  return inputCost + (usage.output.total * price.output) / 1e6;
-}
+// 단가는 레지스트리 가격표가 단일 소스 (src/gateway/pricing.ts — ADR-0007 §2 승격, 2026-08-21)
+const costUSD = estimateCostUSD;
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);

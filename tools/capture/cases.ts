@@ -97,6 +97,17 @@ export const CASES: CaptureCase[] = [
     },
   },
   {
+    name: "count-tokens",
+    model: HAIKU,
+    path: "/v1/messages/count_tokens",
+    note: "count_tokens 프록시 wire 실증 (부록 (b) §1 — 무과금)",
+    body: {
+      model: HAIKU,
+      messages: [{ role: "user", content: "How many tokens is this sentence?" }],
+      system: "You are terse.",
+    },
+  },
+  {
     name: "text-stream",
     model: HAIKU,
     stream: true,
@@ -1071,6 +1082,19 @@ export const CASES: CaptureCase[] = [
           required: ["name", "age"],
           additionalProperties: false,
         },
+      },
+    },
+  },
+  {
+    name: "gemini-count-tokens",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:countTokens`,
+    model: GEMINI_MODEL,
+    note: "count_tokens 프록시 wire 실증 (부록 (b) §1 — 무과금)",
+    body: {
+      generateContentRequest: {
+        model: `models/${GEMINI_MODEL}`,
+        contents: [{ role: "user", parts: [{ text: "How many tokens is this sentence?" }] }],
       },
     },
   },

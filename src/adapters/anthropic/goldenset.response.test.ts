@@ -33,6 +33,11 @@ describe("골든셋 ② anthropic 픽스처 → IR", () => {
         expect(anthropicAdapter.mapHttpError(meta.status, meta.body, meta.headers)).toMatchSnapshot();
         return;
       }
+      if (meta.request.path.includes("count_tokens")) {
+        // count_tokens 프록시 (부록 (b) §1) — 응답 형태가 messages와 달라 전용 변환
+        expect(anthropicAdapter.countTokens!.transformResponse(meta.body)).toMatchSnapshot();
+        return;
+      }
       if (meta.stream) {
         expect(chunks).toBeDefined();
         expect(replayAnthropicStream(chunks!, { modelId: meta.request.body["model"] as string })).toMatchSnapshot();

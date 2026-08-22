@@ -1,5 +1,55 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`골든셋 ① IR → gemini generateContent wire > count-tokens — :countTokens 경로 + generateContentRequest 래핑 (부록 (b) §1) 1`] = `
+{
+  "request": {
+    "body": {
+      "generateContentRequest": {
+        "contents": [
+          {
+            "parts": [
+              {
+                "text": "count me",
+              },
+            ],
+            "role": "user",
+          },
+        ],
+        "model": "models/gemini-3.7-flash",
+        "tools": [
+          {
+            "functionDeclarations": [
+              {
+                "description": "Get weather.",
+                "name": "get_weather",
+                "parametersJsonSchema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "city": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "city",
+                  ],
+                  "type": "object",
+                },
+              },
+            ],
+          },
+        ],
+      },
+    },
+    "headers": {
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1beta/models/gemini-3.7-flash:countTokens",
+  },
+  "warnings": [],
+}
+`;
+
 exports[`골든셋 ① IR → gemini generateContent wire > dummy-signature — 서명 없는 크로스 히스토리 functionCall에 더미 삽입 (D6-9) 1`] = `
 {
   "request": {

@@ -254,6 +254,12 @@ describe("골든셋 ① IR → gemini generateContent wire", () => {
     });
   }
 
+  it("count-tokens — :countTokens 경로 + generateContentRequest 래핑 (부록 (b) §1)", () => {
+    expect(
+      geminiAdapter.countTokens!.transformRequest(ir({ messages: [user("count me")], tools: [WEATHER_TOOL] }), ctx),
+    ).toMatchSnapshot();
+  });
+
   it("2.5 세대(supportedEfforts 빈 집합)는 effort 드롭 + warning", () => {
     const t = geminiAdapter.transformRequest(ir({ messages: [user("why?")], maxOutputTokens: 100, reasoning: { effort: "low" } }), {
       requestId: "req_golden",

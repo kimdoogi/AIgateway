@@ -1,3 +1,4 @@
+import type { JSONValue } from "../../ir/json.js";
 import type { OutboundAdapter } from "../types.js";
 import { transformRequest } from "./request.js";
 import { transformResponse } from "./response.js";
@@ -13,4 +14,28 @@ export const geminiAdapter: OutboundAdapter = {
   transformResponse,
   createStreamTransformer,
   mapHttpError: mapGeminiError,
+  // 부록 (b) §1 — generateContentRequest 변형이 contents 단독보다 tools·system 충실
+  countTokens: {
+    transformRequest(req, ctx) {
+      const base = transformRequest({ ...req, stream: undefined }, ctx);
+      return {
+        request: {
+          ...base.request,
+          path: `/v1beta/models/${ctx.modelId}:countTokens`,
+          body: { generateContentRequest: { model: `models/${ctx.modelId}`, ...base.request.body } },
+        },
+        warnings: base.warnings,
+      };
+    },
+    transformResponse(body) {
+      const wire = body as { totalTokens?: number; cachedContentTokenCount?: number };
+      return {
+        inputTokens: typeof wire?.totalTokens === "number" ? wire.totalTokens : 0,
+        ...(typeof wire?.cachedContentTokenCount === "number"
+          ? { providerMetadata: { google: { cachedContentTokenCount: wire.cachedContentTokenCount } } }
+          : {}),
+        raw: body as JSONValue,
+      };
+    },
+  },
 };

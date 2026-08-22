@@ -38,6 +38,34 @@ exports[`골든셋 ① IR → anthropic wire > cache-breakpoint — 블록 PO ca
 }
 `;
 
+exports[`골든셋 ① IR → anthropic wire > count-tokens — count_tokens 경로, max_tokens/stream 제거 + 기본값 warning 억제 (부록 (b) §1) 1`] = `
+{
+  "request": {
+    "body": {
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "hi",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages/count_tokens",
+  },
+  "warnings": [],
+}
+`;
+
 exports[`골든셋 ① IR → anthropic wire > mid-system-supported — capability 있으면 messages 내 role system 유지 1`] = `
 {
   "request": {

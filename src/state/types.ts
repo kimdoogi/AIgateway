@@ -20,11 +20,107 @@ export interface LedgerRow {
   /** 리트라이 행은 해당 시도 소요, 최종(성공/터미널) 행은 요청 총 소요 */
   durationMs: number;
   createdAt: string; // ISO
+  // ── 운영 평면 (ADR-0007 — 2026-08-21) ──
+  tenant?: string;
+  keyId?: string; // 가상 키 (gwk_)
+  keySource?: "byo" | "pool"; // 정산 분리 기준 (ADR-0007 결과 절)
+  costUsd?: number; // 가격표 근사 (raw usage 보존으로 재계산 가능)
 }
 
 export interface UsageLedger {
   /** append-only. 실패해도 요청 처리를 막지 않는다 — 호출측이 로그로 강등 */
   record(row: LedgerRow): Promise<void>;
+}
+
+/** 정산 리포트용 집계 (ADR-0007 §4) — 확정 원장 기준 멱등 */
+export interface UsageAggregate {
+  group: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costUsd: number;
+}
+
+export interface QueryableLedger extends UsageLedger {
+  aggregate(opts: {
+    from: string;
+    to: string;
+    groupBy: "model" | "provider" | "keyId" | "tenant";
+    tenant?: string;
+  }): Promise<UsageAggregate[]>;
+}
+
+// ── 가상 키·테넌트 (ADR-0007 §3, ADR-0001 하이브리드) ──
+
+export interface VirtualKey {
+  keyId: string; // gwk_...
+  tenant: string;
+  name?: string;
+  /** 시크릿의 sha256 hex — 시크릿 원문은 발급 응답에 1회만 노출, 저장 금지 */
+  keyHash: string;
+  disabled?: boolean;
+  /** 기간 예산 (USD) — soft: 경고, hard: 다음 요청 차단 (§10.4) */
+  budget?: { periodDays: number; softUsd?: number; hardUsd?: number };
+  /** 본문 로그 opt-out (ADR-0008 — 기본 on) */
+  bodyLogOptOut?: boolean;
+  createdAt: string;
+}
+
+export interface KeyStore {
+  put(key: VirtualKey): Promise<void>;
+  getByHash(keyHash: string): Promise<VirtualKey | null>;
+  get(keyId: string): Promise<VirtualKey | null>;
+  list(): Promise<VirtualKey[]>;
+}
+
+/** 테넌트 BYO 프로바이더 키 (사용자 결정 D2 — DB 암호화 저장. AES-256-GCM, 마스터 키는 env) */
+export interface TenantProviderKey {
+  tenant: string;
+  provider: string;
+  /** AES-256-GCM 암호문 (iv:tag:data base64) — 평문 저장 금지 */
+  encryptedKey: string;
+  createdAt: string;
+}
+
+export interface ProviderKeyStore {
+  put(key: TenantProviderKey): Promise<void>;
+  get(tenant: string, provider: string): Promise<TenantProviderKey | null>;
+  delete(tenant: string, provider: string): Promise<void>;
+}
+
+// ── 서버 상태 리소스 레지스트리 (ADR-0006 §3) ──
+
+export interface ServerResource {
+  tenant: string;
+  provider: string;
+  resourceType: string; // container | previousResponseId | conversation | cachedContent ...
+  externalId: string;
+  createdAt: string;
+  expiresAt?: string;
+  createdByKeyId?: string;
+}
+
+export interface ResourceStore {
+  register(r: ServerResource): Promise<void>;
+  /** 소유 테넌트 반환 — 미등록은 null */
+  ownerOf(provider: string, resourceType: string, externalId: string): Promise<string | null>;
+  listExpired(nowIso: string): Promise<ServerResource[]>;
+  delete(provider: string, resourceType: string, externalId: string): Promise<void>;
+}
+
+// ── 본문 로그 (ADR-0008 — 기본 on, 테넌트 opt-out) ──
+
+export interface BodyLogEntry {
+  requestId: string;
+  tenant?: string;
+  direction: "request" | "response";
+  body: unknown; // groundingMetadata 제외 처리 후 (TOS)
+  createdAt: string;
+}
+
+export interface BodyLogSink {
+  record(entry: BodyLogEntry): Promise<void>;
 }
 
 /**
@@ -40,4 +136,48 @@ export interface SessionPersistence {
   markEnded(sessionId: string, ttlSeconds: number): Promise<void>;
   /** 버퍼 무효화 — append 실패로 seq↔index 정렬이 깨졌을 때 (틀린 재생 대신 410, 리뷰 F9-r4) */
   invalidate(sessionId: string): Promise<void>;
+}
+
+/** 게이트웨이 파일 매핑 (부록 (b) §2, ADR-0006 §1 — 테넌트 격리 포함) */
+export interface FileMapping {
+  gatewayFileId: string; // gwf_...
+  tenant: string; // v1: "default" — 가상 키 도입(운영 평면) 시 실테넌트로
+  provider: string;
+  providerFileId: string; // anthropic/openai file id, google fileUri
+  mediaType: string;
+  sizeBytes: number;
+  filename?: string;
+  createdAt: string;
+  expiresAt?: string;
+}
+
+export interface FileStore {
+  put(mapping: FileMapping): Promise<void>;
+  /** 타 테넌트 id는 null (존재 노출 금지 — 부록 (b) §2) */
+  get(tenant: string, gatewayFileId: string): Promise<FileMapping | null>;
+  delete(tenant: string, gatewayFileId: string): Promise<void>;
+  list(tenant: string): Promise<FileMapping[]>;
+}
+
+/** 배치 잡 레코드 (부록 (b) §3.3) */
+export interface BatchJob {
+  gatewayBatchId: string; // gwb_...
+  tenant: string;
+  provider: string;
+  providerBatchId: string;
+  /** openai: 입력/출력 파일 id 등 브리지 부속 상태 */
+  bridgeState?: Record<string, string>;
+  status: string; // 정규화 상태 (부록 (b) §3.3)
+  rawStatus?: string;
+  counts: { total: number; succeeded: number; errored: number; canceled: number; expired: number };
+  /** customId → 요청 모델 (결과 정규화 시 어댑터 ctx 공급용) */
+  itemModels: Record<string, string>;
+  createdAt: string;
+  expiresAt?: string;
+}
+
+export interface BatchStore {
+  put(job: BatchJob): Promise<void>;
+  get(tenant: string, gatewayBatchId: string): Promise<BatchJob | null>;
+  list(tenant: string): Promise<BatchJob[]>;
 }

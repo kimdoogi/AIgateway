@@ -294,6 +294,10 @@ describe("골든셋 ① IR → anthropic wire", () => {
       expect(twice).toBe(once);
     }
   });
+
+  it("count-tokens — count_tokens 경로, max_tokens/stream 제거 + 기본값 warning 억제 (부록 (b) §1)", () => {
+    expect(anthropicAdapter.countTokens!.transformRequest(CASES[0]!.request, ctx)).toMatchSnapshot();
+  });
 });
 
 describeAdapterConformance(anthropicAdapter, CASES[0]!.request, ctx, {

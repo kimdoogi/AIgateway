@@ -34,6 +34,11 @@ describe("골든셋 ② gemini 픽스처 → IR", () => {
         expect(geminiAdapter.mapHttpError(meta.status, meta.body, meta.headers)).toMatchSnapshot();
         return;
       }
+      if (meta.request.path.includes(":countTokens")) {
+        // count_tokens 프록시 (부록 (b) §1) — 응답 형태가 generateContent와 달라 전용 변환
+        expect(geminiAdapter.countTokens!.transformResponse(meta.body)).toMatchSnapshot();
+        return;
+      }
       if (meta.stream) {
         expect(chunks).toBeDefined();
         expect(replayGeminiStream(chunks!, { modelId: meta.model })).toMatchSnapshot();

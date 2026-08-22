@@ -1,0 +1,26 @@
+{
+  "case": "count-tokens",
+  "recordedAt": "2026-08-21",
+  "model": "claude-haiku-4-5",
+  "stream": false,
+  "request": {
+    "path": "/v1/messages/count_tokens",
+    "body": {
+      "model": "claude-haiku-4-5",
+      "messages": [
+        {
+          "role": "user",
+          "content": "How many tokens is this sentence?"
+        }
+      ],
+      "system": "You are terse."
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "input_tokens": 19
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "case": "gemini-count-tokens",
+  "recordedAt": "2026-08-21",
+  "model": "gemini-3.7-flash",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:countTokens",
+    "body": {
+      "generateContentRequest": {
+        "model": "models/gemini-3.7-flash",
+        "contents": [
+          {
+            "role": "user",
+            "parts": [
+              {
+                "text": "How many tokens is this sentence?"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "totalTokens": 8,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 8
+      }
+    ]
+  }
+}

@@ -16,6 +16,7 @@
     "smoke:roadmap4": "tsx tools/smoke-roadmap4.ts",
     "smoke:xai": "tsx tools/smoke-xai.ts",
     "smoke:gemini": "tsx tools/smoke-gemini.ts",
+    "smoke:appendix-b": "tsx tools/smoke-appendix-b.ts",
     "dev": "tsx src/server/index.ts"
   },
   "dependencies": {

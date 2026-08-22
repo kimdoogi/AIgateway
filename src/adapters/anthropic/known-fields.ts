@@ -68,9 +68,16 @@ function scanBlock(raw: unknown, path: string): string[] {
 }
 
 /** 비스트림 응답 body에서 어댑터가 모르는 필드 경로 목록 */
+// count_tokens 응답 (부록 (b) §1) — messages 응답과 형태가 다른 별도 엔드포인트
+const COUNT_TOKENS_KEYS = ["input_tokens"] as const;
+
 export function unknownResponseFields(body: unknown): string[] {
   if (!body || typeof body !== "object") return [];
   const wire = body as Record<string, unknown>;
+  // 형태 자동 판별: content 없이 input_tokens만 있으면 count_tokens 응답 (openai known-fields 오탐 수정과 동형)
+  if (wire["content"] === undefined && wire["input_tokens"] !== undefined) {
+    return extraKeys(wire, COUNT_TOKENS_KEYS, "$");
+  }
   const found = [
     ...extraKeys(wire, RESPONSE_KEYS, "$"),
     ...extraKeys(wire["usage"], USAGE_KEYS, "$.usage"),

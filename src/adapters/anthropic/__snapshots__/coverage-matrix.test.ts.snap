@@ -1,0 +1,14 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`커버리지 매트릭스 (D10 — 체크리스트×어댑터) > 섹션별 행수 스냅샷 — 체크리스트 증감은 diff 리뷰를 거친다 (살아있는 문서 규약) 1`] = `
+{
+  "1. 엔드포인트 표면": 7,
+  "2. \`POST /v1/messages\` 요청 파라미터 전수": 26,
+  "Anthropic 정의 클라이언트 툴 (스키마 없음 — type+name만 선언)": 4,
+  "usage 필드": 7,
+  "서버 툴 (Anthropic 인프라 실행)": 5,
+  "요청 방향 (user/assistant 콘텐츠)": 9,
+  "응답 방향": 13,
+  "커스텀 툴 정의 필드": 7,
+}
+`;
