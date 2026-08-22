@@ -237,6 +237,7 @@ type Warning = {
 type IRRequest = {
   version: "0";
   model: string;                       // 레지스트리 키 (라우팅 트리는 정책 config — 본 스펙 밖)
+  fallbackModels?: string[];           // 폴백 체인 (순서 = 시도 순서, 2026-08-22 신설 — 규칙: §6.4)
   messages: Message[];
   tools?: Tool[];                      // §6.2
   toolChoice?: "auto" | "required" | "none" | { type: "tool"; toolName: string };
@@ -295,6 +296,14 @@ type Effort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 ```
 
 모델 게이트가 미지원 값을 최근접으로 클램프 + `warning(parameter-clamped)`. 매핑 근거: Gemini thinkingLevel↔effort 공식 매핑, Anthropic effort, xAI reasoning_effort. `budget_tokens`류(레거시)는 `providerOptions`로만.
+
+### 6.4 폴백 체인 (`fallbackModels`) — 2026-08-22 신설
+
+- 시도 순서: `model` → `fallbackModels[0]` → … (중복 모델은 제거). 각 타깃은 **완전한 독립 시도** — 타깃별로 재타게팅(§13.3)·표면 선택·어댑터 변환을 다시 통과한다 (폴백 경합 매트릭스 "표면은 타깃 단위 속성").
+- **다음 타깃 진행 조건**: 직전 실패가 `fallbackEligible: true`이고 `gatewayException`이 아니며 클라이언트 취소(499)가 아닐 때. 부적격 실패(400류)는 즉시 반환. 같은-타깃 리트라이(정책 §retry)는 각 타깃 안에서 소진 후 폴백.
+- **skip 판정** (시도 없이 `attempts: skipped`): ① `passthroughParams.pinned`이고 타깃 프로바이더 불일치 (비-pinned 불일치는 드롭+`passthrough-params-dropped` 후 시도) ② 자격증명 해소 불가 타깃 (BYO/풀 모두 부재 — 매트릭스 BYO 행). 전 타깃 skip이면 명시적 4xx.
+- **스트림 (v1)**: 콘텐츠 방출 **전** 실패만 자동 전환 — `error-partial(willRetry: true)` → `provider-switched(from, to, reason)` → 다음 타깃 이벤트 (stream-start는 1회, 새 타깃의 response-metadata 재방출 허용). 콘텐츠 방출 **후** 실패는 전환하지 않고 터미널로 종결 (중복 콘텐츠 자동 재방출은 조용한 변조 소지 — 기방출분 유효 의미론 유지). mid-stream 이어쓰기(partial을 히스토리로 붙인 continuation)는 2차.
+- 회계: 시도별 원장 행, `gateway.attempts`(비스트림)/`finish.attempts`(스트림)에 전 타깃 이력 노출 (매트릭스 usage/billing 행).
 
 ## 7. 응답 envelope (비스트림)
 

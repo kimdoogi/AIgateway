@@ -292,7 +292,7 @@ async function dispatchWithRetry(
 }
 
 // ── 비스트림 ─────────────────────────────────────────────
-export async function executeNonStream(
+async function executeNonStreamTarget(
   req: IRRequest,
   deps: ExecuteDeps = {},
   signal?: AbortSignal,
@@ -441,7 +441,7 @@ const LIFECYCLE_TYPES = new Set(["stream-start", "response-metadata", "warning",
  * 터미널 보장: 모든 실패 경로가 터미널 draft로 끝난다 (ADR-0005).
  * 절단 분류: 콘텐츠 방출 후 = error-partial(기방출분 유효) / 방출 전 = error-final.
  */
-export async function* executeStream(
+async function* executeStreamTarget(
   req: IRRequest,
   deps: ExecuteDeps = {},
   signal?: AbortSignal,
@@ -576,6 +576,212 @@ export async function* executeStream(
         : { type: "error-final", error },
     );
   }
+}
+
+// ── 크로스 프로바이더 폴백 트리 (ir-v0 §6.4, 폴백 경합 매트릭스) ──────────
+// 각 타깃은 완전한 독립 시도 — 타깃별 재타게팅·표면 선택·어댑터 변환·리트라이를 다시 통과.
+// 진행 조건: fallbackEligible && !gatewayException && !취소(499). skip: pinned 불일치·자격증명 부재.
+
+function fallbackTargets(req: IRRequest): string[] {
+  const seen = new Set<string>();
+  return [req.model, ...(req.fallbackModels ?? [])].filter((m) => (seen.has(m) ? false : (seen.add(m), true)));
+}
+
+function providerOf(target: string): string {
+  try {
+    return resolveModel(target).provider;
+  } catch {
+    return "unknown";
+  }
+}
+
+/** 타깃 사전 skip 판정 (§6.4) — 사유 문자열 반환, 시도 가능하면 undefined */
+async function skipReason(target: string, req: IRRequest, deps: ExecuteDeps): Promise<string | undefined> {
+  let provider: string;
+  try {
+    provider = resolveModel(target).provider;
+  } catch (err) {
+    return `라우팅 불가: ${err instanceof Error ? err.message : String(err)}`; // 폴백 타깃 오타가 요청 전체를 죽이지 않게
+  }
+  if (req.passthroughParams?.pinned && provider !== req.passthroughParams.provider) {
+    return `pinned passthrough(${req.passthroughParams.provider}) — 타깃 프로바이더 불일치 (D10 보장 유지)`;
+  }
+  try {
+    const rt = getProvider(provider);
+    await (deps.credentials?.(rt) ?? credentialHeaders(rt)); // BYO/풀 해소 불가 타깃은 skip (매트릭스 BYO 행)
+  } catch (err) {
+    return `자격증명 해소 불가: ${err instanceof Error ? err.message : String(err)}`;
+  }
+  return undefined;
+}
+
+/** 폴백 타깃용 요청 구성 — model 치환 + 비-pinned passthrough 불일치는 드롭+warning (§13.3) */
+function targetRequest(req: IRRequest, target: string, warnings: Warning[]): IRRequest {
+  const { fallbackModels: _chain, ...rest } = req;
+  let out: IRRequest = { ...rest, model: target };
+  if (out.passthroughParams && providerOf(target) !== out.passthroughParams.provider) {
+    warnings.push(
+      makeWarning(
+        "unsupported",
+        "passthrough-params-dropped",
+        `passthroughParams(${out.passthroughParams.provider})는 폴백 타깃 ${target}과 불일치 — 드롭 (§13.3)`,
+      ),
+    );
+    const { passthroughParams: _pp, ...noPass } = out;
+    out = noPass;
+  }
+  return out;
+}
+
+function canFallback(irErr: IRError, aborted: boolean | undefined): boolean {
+  return irErr.fallbackEligible && irErr.gatewayException !== true && irErr.httpStatus !== 499 && !aborted;
+}
+
+export async function executeNonStream(
+  req: IRRequest,
+  deps: ExecuteDeps = {},
+  signal?: AbortSignal,
+): Promise<IRResponse> {
+  const targets = fallbackTargets(req);
+  if (targets.length === 1) return executeNonStreamTarget(req, deps, signal);
+
+  const requestId = genRequestId(deps);
+  const fixedDeps = { ...deps, genId: () => requestId }; // 전 타깃이 같은 req_ 공유 (원장 상관관계)
+  const priorAttempts: Attempt[] = [];
+  let lastErr: unknown;
+
+  for (const [i, target] of targets.entries()) {
+    const skip = await skipReason(target, req, fixedDeps);
+    if (skip !== undefined) {
+      priorAttempts.push({ provider: providerOf(target), model: target, outcome: "skipped", error: skip });
+      continue;
+    }
+    const dropWarnings: Warning[] = [];
+    const targetReq = i === 0 ? req : targetRequest(req, target, dropWarnings);
+    const targetDeps =
+      dropWarnings.length > 0
+        ? { ...fixedDeps, preWarnings: [...(fixedDeps.preWarnings ?? []), ...dropWarnings] }
+        : fixedDeps;
+    try {
+      const res = await executeNonStreamTarget(targetReq, targetDeps, signal);
+      if (priorAttempts.length === 0) return res;
+      const successAttempts: Attempt[] = res.gateway.attempts ?? [
+        { provider: res.model.resolved.provider, model: target, outcome: "success" },
+      ];
+      return { ...res, gateway: { ...res.gateway, attempts: [...priorAttempts, ...successAttempts] } };
+    } catch (err) {
+      lastErr = err;
+      const irErr = toIRError(err);
+      priorAttempts.push({ provider: providerOf(target), model: target, outcome: "failed", error: irErr.category });
+      if (!(canFallback(irErr, signal?.aborted) && i < targets.length - 1)) throw err;
+    }
+  }
+  if (lastErr) throw lastErr; // 마지막 타깃까지 실패 (루프가 rethrow하므로 도달 안 하지만 방어)
+  throw new GatewayError(irError("invalid_request", 400, "모든 폴백 타깃이 skip됨 (pinned/자격증명 — ir-v0 §6.4)"));
+}
+
+export async function* executeStream(
+  req: IRRequest,
+  deps: ExecuteDeps = {},
+  signal?: AbortSignal,
+  options: StreamOptions = {},
+): AsyncGenerator<StreamEventDraft> {
+  const targets = fallbackTargets(req);
+  if (targets.length === 1) {
+    yield* executeStreamTarget(req, deps, signal, options);
+    return;
+  }
+
+  const requestId = genRequestId(deps);
+  const fixedDeps = { ...deps, genId: () => requestId };
+  const priorAttempts: Attempt[] = [];
+  let streamStartSent = false;
+  let contentForwarded = false;
+
+  for (const [i, target] of targets.entries()) {
+    const skip = await skipReason(target, req, fixedDeps);
+    if (skip !== undefined) {
+      priorAttempts.push({ provider: providerOf(target), model: target, outcome: "skipped", error: skip });
+      continue;
+    }
+    const dropWarnings: Warning[] = [];
+    const targetReq = i === 0 ? req : targetRequest(req, target, dropWarnings);
+    const targetDeps =
+      dropWarnings.length > 0
+        ? { ...fixedDeps, preWarnings: [...(fixedDeps.preWarnings ?? []), ...dropWarnings] }
+        : fixedDeps;
+    let switched = false;
+    try {
+      for await (const event of executeStreamTarget(targetReq, targetDeps, signal, options)) {
+        if (event.type === "stream-start") {
+          if (!streamStartSent) {
+            streamStartSent = true;
+            yield event;
+          } else {
+            // stream-start는 1회 (§10.1) — 후속 타깃의 변환 경고는 warning 이벤트로 전달
+            for (const warning of event.warnings) yield { type: "warning", warning };
+          }
+          continue;
+        }
+        if (event.type === "error-final" && !contentForwarded && i < targets.length - 1 && canFallback(event.error, signal?.aborted)) {
+          // 콘텐츠 방출 전 실패 → 무중단 전환 (§6.4). 원장 행은 타깃 내부에서 이미 적재됨
+          priorAttempts.push({ provider: providerOf(target), model: target, outcome: "failed", error: event.error.category });
+          yield {
+            type: "error-partial",
+            error: event.error,
+            ...(event.usage ? { usage: event.usage } : {}),
+            willRetry: true,
+          };
+          yield {
+            type: "provider-switched",
+            from: { provider: providerOf(target), model: target },
+            to: { provider: providerOf(targets[i + 1]!), model: targets[i + 1]! },
+            reason: `${event.error.category} — 폴백 체인 진행 (ir-v0 §6.4)`,
+          };
+          switched = true;
+          break;
+        }
+        if (event.type === "finish" && priorAttempts.length > 0) {
+          const successAttempts: Attempt[] = event.attempts ?? [
+            { provider: providerOf(target), model: target, outcome: "success" },
+          ];
+          yield { ...event, attempts: [...priorAttempts, ...successAttempts] };
+          return;
+        }
+        if (!LIFECYCLE_TYPES.has(event.type) && !TERMINAL_EVENT_SET.has(event.type)) contentForwarded = true;
+        yield event;
+        if (TERMINAL_EVENT_SET.has(event.type)) return;
+      }
+    } catch (err) {
+      // 타깃 generator throw (prepare 실패 등). 1차 타깃 prepare 실패는 기존 계약대로 전파
+      const irErr = toIRError(err);
+      if (!streamStartSent && i === 0 && !(canFallback(irErr, signal?.aborted) && i < targets.length - 1)) throw err;
+      priorAttempts.push({ provider: providerOf(target), model: target, outcome: "failed", error: irErr.category });
+      if (canFallback(irErr, signal?.aborted) && i < targets.length - 1) {
+        if (streamStartSent) {
+          yield { type: "error-partial", error: irErr, willRetry: true };
+          yield {
+            type: "provider-switched",
+            from: { provider: providerOf(target), model: target },
+            to: { provider: providerOf(targets[i + 1]!), model: targets[i + 1]! },
+            reason: `${irErr.category} — 폴백 체인 진행 (ir-v0 §6.4)`,
+          };
+        }
+        continue;
+      }
+      if (!streamStartSent) yield { type: "stream-start", warnings: options.extraWarnings ?? [] };
+      yield { type: "error-final", error: irErr };
+      return;
+    }
+    if (!switched) return; // 타깃이 자체 터미널로 종결 (finish/error-partial 등 — 위에서 반환)
+  }
+
+  // 전 타깃 skip — 명시적 실패 (매트릭스 BYO 행: 전 타깃 skip 시 에러 반환)
+  if (!streamStartSent) yield { type: "stream-start", warnings: options.extraWarnings ?? [] };
+  yield {
+    type: "error-final",
+    error: irError("invalid_request", 400, "모든 폴백 타깃이 skip됨 (pinned/자격증명 — ir-v0 §6.4)"),
+  };
 }
 
 // ── 스트림 세션 오케스트레이션 (게이트웨이 소관 — compat 인바운드가 재사용) ──

@@ -25,6 +25,7 @@ export const RetargetReasoningSchema = z.enum(["drop", "demote-to-text", "strip-
 export const IRRequestSchema = z.strictObject({
   version: z.literal("0"),
   model: z.string().min(1),
+  fallbackModels: z.array(z.string().min(1)).optional(), // 폴백 체인 — 순서 = 시도 순서 (§6.4)
   messages: z.array(MessageSchema).min(1),
   tools: z.array(ToolSchema).optional(),
   toolChoice: ToolChoiceSchema.optional(),

@@ -121,7 +121,10 @@ export class StreamSession {
           persistence.invalidate(this.id).catch(() => {});
         });
     }
-    if (TERMINAL_EVENT_SET.has(type)) this.markDone();
+    // error-partial(willRetry:true)는 논리적 터미널이 아니다 — 폴백 트리가 다음 타깃으로 이어간다
+    // (ir-v0 §6.4 / 폴백 매트릭스 2026-08-22 행 — problem log 2026-08-21 예고의 해소)
+    const retrying = draft.type === "error-partial" && draft.willRetry === true;
+    if (TERMINAL_EVENT_SET.has(type) && !retrying) this.markDone();
     this.wake();
   }
 

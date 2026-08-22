@@ -201,3 +201,11 @@
 - **§10.4 예산 의미론 구현**: 평가는 PreRequest 1회(hard 402 `budget_exceeded` — "다음 요청부터 차단"이므로 진행 중 스트림은 건드리지 않음), soft는 `budget-soft-warning`을 preWarnings로 stream-start/응답 warnings에 병합. 지출은 근사 가격표(costUsd) 기준 — 확정 정산은 원장 raw 재계산.
 - **리소스 레지스트리 경계**: 인바운드 검증은 PO 참조 키 데이터 테이블(재타게팅 SERVER_STATE_KEYS와 동족·용도 상이 — 저긴 드롭, 여긴 소유권), 타 테넌트는 404(존재 노출 금지). 응답 등록은 **생성 opt-in일 때만**(openai/xai store:true; anthropic container는 존재 자체가 증거). 삭제 API 없는 리소스(anthropic container·google cachedContent)는 참조 차단으로 대체 — 한계 명문화.
 - **잔여 좌석**: compat 인바운드 인증 미적용(현재 /v0/*만 — compat 소비자 neuro는 개방 모드 전제), 스트림 응답 본문 로그(요청만)·스트림 finish 리소스 등록·Redis 지출 집계·TTL 스윕 자동화. 테스트 421개(운영 단위 10 + E2E 3 포함).
+
+## 2026-08-22 — 폴백 트리 v1: 래퍼 오케스트레이션 — 단일 타깃 코드는 무수정
+
+- **구조 선택**: 기존 `executeNonStream`/`executeStream`을 `*Target`(단일 타깃, 무수정)으로 내부화하고 공개 함수를 폴백 래퍼로 — 타깃별 원장 행·span·리트라이·터미널 보장이 기존 검증 그대로 재사용된다. 래퍼가 새로 만드는 것은 체인 순회·skip 판정·이벤트 변환(error-final→error-partial(willRetry:true)+provider-switched)·attempts 병합뿐.
+- **v1 정책 결정 2건** (스펙 §6.4 명문화): ① 체인 정의는 요청 명시(`fallbackModels`)만 — 레지스트리 기본 체인(모델 동급 판정)은 제품 결정이라 2차. ② 스트림은 **콘텐츠 방출 전 실패만 자동 전환** — 방출 후 전환은 중복 콘텐츠 자동 재방출이라 D5(조용한 변조) 소지, 기방출분 유효 종결 유지. mid-stream continuation(partial을 히스토리로 붙인 이어쓰기)은 2차 좌석.
+- **예고 해소**: stream.ts의 "error-partial+willRetry:true는 논리적 터미널 아님 — 세션 done 예외 필요"(2026-08-21) → session.push에 예외 구현. TERMINAL_EVENT_SET 자체는 불변(재생·컨포먼스 계약 유지).
+- **회계 각주**: 타깃별 리트라이 attempt 번호는 타깃 내 1부터 — 원장 행은 (requestId, provider, attempt)로 구분(requestId는 전 타깃 공유). 폴백 실패 시도의 warning들은 성공 타깃 응답에 미노출(스트림은 후속 타깃 변환 경고를 warning 이벤트로 전달 — stream-start 1회 규약 유지).
+- **잔여**: compat 인바운드의 fallbackModels 노출(§13.4 gateway 확장 후보), 레지스트리 기본 체인, mid-stream continuation, BYO 폴백 시 "풀 키 대체 opt-in + 과금 주체 고지"(매트릭스 행 — v1은 대체 없이 skip만).

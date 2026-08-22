@@ -118,6 +118,13 @@
 - **본문 로그** (ADR-0008): sink 인터페이스(Postgres/인메모리), groundingMetadata TOS 제외(제거 사실 표기), 키 단위 opt-out. Postgres 스토어 7종 DDL 자동. 테스트 421개 + 실 스모크 재통과(개방 모드 경로 무회귀 — 배치 취소 경로까지 실검증)
 - **잔여 좌석**: compat 인증·스트림 응답 본문로그·스트림 리소스 등록·Redis 지출 집계·TTL 스윕 자동화 ([ops-plane](plan/ops-plane.md))
 
+### 2026-08-22 — 크로스 프로바이더 폴백 트리 v1 (ir-v0 §6.4 신설)
+
+- **스펙 신설**: IR 요청에 `fallbackModels`(순서 = 시도 순서) — 각 타깃은 완전한 독립 시도(타깃별 재타게팅·표면 선택·어댑터 변환·같은-타깃 리트라이 소진 후 폴백). 진행 조건 = `fallbackEligible && !gatewayException && !취소`. [폴백 매트릭스](decisions/fallback-interaction-matrix.md)에 v1 행 5개 추가
+- **skip 판정** (시도 없이 `attempts: skipped`): pinned passthrough 불일치(D10 보장 유지), 자격증명 해소 불가 타깃(BYO/풀 — 매트릭스 행 실현), 폴백 타깃 라우팅 불가(오타가 요청 전체를 안 죽임). 비-pinned passthrough 불일치는 드롭+`passthrough-params-dropped` 후 시도
+- **스트림 (§6.4 v1 결정)**: 콘텐츠 방출 **전** 실패만 무중단 전환 — `error-partial(willRetry:true)` → `provider-switched(from,to,reason)` → 새 타깃 이벤트(stream-start 1회 유지). 방출 **후** 실패는 전환하지 않음(중복 콘텐츠 자동 재방출 = 조용한 변조 소지 — mid-stream continuation은 2차). **세션 터미널 예외**: willRetry:true는 done이 아님(2026-08-21 problem log 예고 해소)
+- **회계**: 전 타깃이 같은 `req_` 공유·시도별 원장 행, `gateway.attempts`/`finish.attempts`에 skipped/failed/success 전 이력 노출. 예산은 요청당 1회 평가 유지(매트릭스). 테스트 429개 (폴백 8케이스 — 529→전환·400 즉시 반환·자격증명 skip·pinned 전멸 시 원 에러·스트림 전환/비전환·세션 예외)
+
 ## 로드맵 (2026-08-20 확정)
 
 1. ~~IR 설계 게이트 + 운영 결정 클로즈~~ (완료) → 2. ~~IR 스키마 v0~~ (작성·검증·개정 완료 — 사용자 승인 대기) → 3. **Walking skeleton** ([실행 계획](plan/walking-skeleton.md) — native → Anthropic, stream 포함 + 골든셋 캡처 하네스 + docker-compose + 메타 로그·OTel) → 4. OpenAI 어댑터 + 재타게팅 패스 v0 + 크로스 왕복 골든셋 + **부록 (a) 선행 후** 호환 인바운드 2종 → 5. Gemini·xAI 확장 + **Batches/Files 브리지(부록 (b) 선행)** + 레지스트리·커버리지 CI + 운영 평면(가상 키·예산·정산, 서버 상태 레지스트리, 본문 로그 파이프라인)

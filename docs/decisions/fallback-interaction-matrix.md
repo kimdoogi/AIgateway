@@ -29,3 +29,13 @@
 | 리트라이 × 회계 | 재시도 확정 시도는 시도별 원장 행(해당 시도 소요), 최종 성공/실패는 터미널에서 1회(요청 총 소요). 리트라이 발생 시 `gateway.attempts`(비스트림)/`finish.attempts`(스트림) 노출 |
 | 리트라이 × 예산 | 요청당 1회 평가 유지 — 같은 요청 내 재시도는 추가 평가 없음 (ADR-0007) |
 | 접속 타임아웃 | 헤더 수신까지 120s(기본) — 초과 시 category timeout(504, 재시도 적격). body 스트리밍에는 미적용 |
+
+## 추가 행 (2026-08-22 — 폴백 트리 v1 구현, ir-v0 §6.4)
+
+| 교차 | 규칙 |
+|---|---|
+| 폴백 체인 정의 | v1은 요청 명시(`fallbackModels`)만 — 레지스트리 기본 체인(모델 동급 판정)은 2차 |
+| 폴백 × 스트림 콘텐츠 | **콘텐츠 방출 전 실패만 자동 전환** (error-partial willRetry:true → provider-switched → 새 타깃). 방출 후 실패는 터미널 종결 — 중복 콘텐츠 자동 재방출 금지. mid-stream continuation은 2차 |
+| 폴백 × 세션 터미널 | `error-partial(willRetry: true)`는 터미널이 아니다 — 세션 done 처리 예외 (problem log 2026-08-21 예고의 해소) |
+| 폴백 × 원장 attempt 번호 | 타깃별 리트라이 attempt는 타깃 내 1부터 — 원장 행은 (requestId, provider, attempt)로 구분 (requestId는 전 타깃 공유) |
+| 폴백 × 폴백 타깃 prepare 실패 | 1차 타깃 prepare 실패는 즉시 반환(기존과 동일), **폴백 타깃**의 prepare 실패(미라우팅 모델 등)는 skipped 처리 후 다음 타깃 — 오타 하나가 전체 요청을 죽이지 않게 |
