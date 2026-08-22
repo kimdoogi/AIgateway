@@ -75,7 +75,9 @@
 | anthropic | `POST /v1/messages/batches` `{requests:[{custom_id, params}]}` | `results_url` → JSONL 스트림 (custom_id 키) |
 | openai | 파일 업로드(JSONL) → `POST /v1/batches` `{input_file_id, endpoint, completion_window:"24h"}` | `output_file_id`/`error_file_id` 다운로드 (JSONL) |
 | google | `POST /v1beta/models/{m}:batchGenerateContent` (인라인 ≤20MB / JSONL) | 잡 조회 → 인라인 응답 배열 or 파일 |
-| xai | `POST /v1/batches`(name) → `/{id}/requests`에 요청 배열 등록 | `GET /{id}/results` |
+| xai | `POST /v1/batches`(name) → `/{id}/requests`에 `{batch_requests:[{unique_id, batch_request:{chat_get_completion\|responses\|…: body}}]}` (태그드 유니온 — 2026-08-22 실측) | `GET /{id}/results` |
+
+> **xai 모델 게이트 (2026-08-22 실측)**: 배치는 grok-4.3·grok-4.20 계열만 지원 — grok-4.6/4.5/grok-build-0.1은 400 "not supported for batch processing". 레지스트리 capability 등재 후보.
 
 - 배치 항목의 wire body = **어댑터 transformRequest 결과 재사용** (표면: 각 프로바이더의 배치 지원 표면 — anthropic messages, openai는 CC 또는 responses endpoint 지정, google generateContent, xai CC). 표면 선택자 규칙 동일 적용, 단 배치 내 혼합 표면 금지(400).
 - **할인 SKU**: 라인아이템 sku에 `:batch` 세그먼트 (ADR-0007 §2 — openai flex/배치 별도 토큰 풀, anthropic/google/xai 50%). 원장 행은 결과 수확 시점에 항목별 적재.

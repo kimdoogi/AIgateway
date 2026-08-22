@@ -17,7 +17,8 @@ import { DEFAULT_TENANT } from "./files.js";
 // Batches 브리지 (부록 (b) §3) — 항목 wire는 어댑터의 같은 순수 변환을 재사용하고,
 // 브리지는 잡 수명·custom_id 매핑·상태 정규화만 소유한다. 4사 wire 차이는 데이터 테이블 (D4).
 // 배치 = 단일 프로바이더·단일 표면 (§3.1 — 크로스 fan-out은 2차).
-// google·xai wire는 인벤토리 기반 — 실 녹화 검증 전 (problem log 참조, 캡처 manual 케이스).
+// wire 검증 현황 (smoke:batches): anthropic 전 수명주기·google/xai 생성~취소 실검증(2026-08-22),
+// openai는 키 확보 대기. 완료·결과 경로 실검증은 anthropic만 (problem log).
 
 export interface BatchBridgeDeps extends ExecuteDeps {
   batches: BatchStore;
@@ -280,6 +281,7 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
   },
 
   google: {
+    // 2026-08-22 실검증: 생성(BATCH_STATE_PENDING)·폴링(RUNNING)·취소(CANCELLED) wire 확정
     surface: "generate-content",
     async create(items, rt, fetchImpl) {
       // 배치당 단일 모델 (모델이 경로에 — 부록 (b) §3.1). 혼합은 createBatch에서 사전 400
@@ -335,6 +337,8 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
   },
 
   xai: {
+    // 2026-08-22 실검증: 생성·폴링(pending/running)·취소 wire 확정. 주의 — 배치는 모델 게이트 있음:
+    // grok-4.3·grok-4.20 계열 지원, grok-4.6/4.5/build-0.1은 400 "not supported for batch processing"
     surface: "chat-completions",
     async create(items, rt, fetchImpl) {
       const created = await fetchImpl(`${rt.baseUrl}/v1/batches`, {
@@ -344,10 +348,19 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
       });
       const body = await jsonOrThrow("xai", created, "생성");
       const providerBatchId = String(body["batch_id"] ?? body["id"] ?? "");
+      // 2026-08-22 실측: 등록 필드는 batch_requests (요청 `requests` 가정은 422로 반증 — problem log)
       const reg = await fetchImpl(`${rt.baseUrl}/v1/batches/${providerBatchId}/requests`, {
         method: "POST",
         headers: { "content-type": "application/json", ...credentialHeaders(rt) },
-        body: JSON.stringify({ requests: items.map((i) => ({ unique_id: i.customId, body: i.wire.body })) }),
+        body: JSON.stringify({
+          // batch_request는 태그드 유니온 (2026-08-22 실측: chat_get_completion|responses|image_generation|…)
+          batch_requests: items.map((i) => ({
+            unique_id: i.customId,
+            batch_request: {
+              [i.wire.path.includes("/chat/completions") ? "chat_get_completion" : "responses"]: i.wire.body,
+            },
+          })),
+        }),
       });
       await jsonOrThrow("xai", reg, "요청 등록");
       return { providerBatchId, rawStatus: "pending" };

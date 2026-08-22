@@ -17,6 +17,7 @@
     "smoke:xai": "tsx tools/smoke-xai.ts",
     "smoke:gemini": "tsx tools/smoke-gemini.ts",
     "smoke:appendix-b": "tsx tools/smoke-appendix-b.ts",
+    "smoke:batches": "tsx tools/smoke-batches.ts",
     "dev": "tsx src/server/index.ts"
   },
   "dependencies": {

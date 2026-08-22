@@ -205,6 +205,29 @@ describe("Batches 브리지 — openai 파일 기반", () => {
   });
 });
 
+describe("Batches 브리지 — xai (2026-08-22 실측 wire 회귀)", () => {
+  it("생성 2단계 — batch_requests[].batch_request 태그드 유니온 (chat_get_completion)", async () => {
+    const batches = store();
+    process.env["XAI_API_KEY"] = "test-key";
+    const { fetchImpl, calls } = mockFetch((url) => {
+      if (url.endsWith("/v1/batches")) {
+        return new Response(JSON.stringify({ batch_id: "xb_1" }), { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    await createBatch([{ customId: "q1", request: ir("grok-4.3") }], { batches, fetchImpl, genId: () => "req_bx" });
+    const reg = JSON.parse(calls[1]!.body as string) as {
+      batch_requests: Array<{ unique_id: string; batch_request: Record<string, unknown> }>;
+    };
+    expect(calls[1]!.url).toContain("/v1/batches/xb_1/requests");
+    expect(reg.batch_requests[0]!.unique_id).toBe("q1");
+    // 태그드 유니온 — CC 표면은 chat_get_completion 변형 (실측 2026-08-22)
+    const variant = reg.batch_requests[0]!.batch_request;
+    expect(Object.keys(variant)).toEqual(["chat_get_completion"]);
+    expect((variant["chat_get_completion"] as Record<string, unknown>)["model"]).toBe("grok-4.3");
+  });
+});
+
 describe("Batches 브리지 — google·취소", () => {
   it("google 생성 wire(batchGenerateContent + metadata.key) + 인라인 결과", async () => {
     const batches = store();

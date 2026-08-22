@@ -209,3 +209,11 @@
 - **예고 해소**: stream.ts의 "error-partial+willRetry:true는 논리적 터미널 아님 — 세션 done 예외 필요"(2026-08-21) → session.push에 예외 구현. TERMINAL_EVENT_SET 자체는 불변(재생·컨포먼스 계약 유지).
 - **회계 각주**: 타깃별 리트라이 attempt 번호는 타깃 내 1부터 — 원장 행은 (requestId, provider, attempt)로 구분(requestId는 전 타깃 공유). 폴백 실패 시도의 warning들은 성공 타깃 응답에 미노출(스트림은 후속 타깃 변환 경고를 warning 이벤트로 전달 — stream-start 1회 규약 유지).
 - **잔여**: compat 인바운드의 fallbackModels 노출(§13.4 gateway 확장 후보), 레지스트리 기본 체인, mid-stream continuation, BYO 폴백 시 "풀 키 대체 opt-in + 과금 주체 고지"(매트릭스 행 — v1은 대체 없이 skip만).
+
+## 2026-08-22 — 배치 wire 실판정 (smoke:batches): google 가정 적중·xai 3중 반증 후 확정
+
+- **google: 가정 그대로 적중** — `batchGenerateContent` 생성(`BATCH_STATE_PENDING`)→폴링(`RUNNING`)→취소(`CANCELLED`) 전 경로 200. 인벤토리 기반 추정 wire가 무수정 통과.
+- **xai: 반증 3중첩 → 확정** — 등록 wire가 실측으로 3번 교정됨: ① 최상위 필드 `requests`→**`batch_requests`**(422 missing field) ② 항목 필드 `body`→**`batch_request`**(422) ③ batch_request는 **태그드 유니온**(`chat_get_completion`|`responses`|`image_generation`|…) — CC body를 변형 키로 감싸야 함. 교정 후 생성(pending)→폴링(running)→취소 200. **"에러 메시지가 스키마를 가르쳐주는" serde 역직렬화 오류 덕에 프로브 3회로 확정** — 등록 실패는 무과금이라 비용 0.
+- **xai 배치 모델 게이트 발견**: grok-4.6/4.5/grok-build-0.1 = 400 "not supported for batch processing", **grok-4.3·grok-4.20 계열 = 지원**. `/v1/language-models`에 배치 capability 필드는 미노출 — 레지스트리 capability(`batchUnsupported`?) 등재 후보 좌석.
+- **openai: 미판정** — `.env`에서 OPENAI_API_KEY가 제거된 상태(로드맵 4 녹화 이후). 키 재투입 시 `pnpm smoke:batches openai`로 판정 가능. 완료·결과 경로의 실검증은 여전히 anthropic만 (google·xai는 취소 경로까지 — 24h 창 내 완료 관찰은 기회 채집).
+- **부수**: 취소 직후 xai raw status는 `running` 유지 — 취소는 비동기(§3.2 명세와 정합). 검증 도구는 `pnpm smoke:batches [providers]`로 상시 재실행 가능(비중단·전사 수집형).

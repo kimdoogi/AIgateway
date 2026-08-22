@@ -118,6 +118,10 @@
 - **본문 로그** (ADR-0008): sink 인터페이스(Postgres/인메모리), groundingMetadata TOS 제외(제거 사실 표기), 키 단위 opt-out. Postgres 스토어 7종 DDL 자동. 테스트 421개 + 실 스모크 재통과(개방 모드 경로 무회귀 — 배치 취소 경로까지 실검증)
 - **잔여 좌석**: compat 인증·스트림 응답 본문로그·스트림 리소스 등록·Redis 지출 집계·TTL 스윕 자동화 ([ops-plane](plan/ops-plane.md))
 
+### 2026-08-22 — 배치 wire 실판정: 검증 부채 해소 (google 적중·xai 확정)
+
+- **`pnpm smoke:batches [providers]`** 신설 (비중단·전사 수집형 판정 도구) — google은 인벤토리 추정 wire가 **무수정 적중**(생성→폴링→취소 전 경로), xai는 **반증 3중첩 후 확정**(등록 = `batch_requests[].{unique_id, batch_request: 태그드 유니온}` — serde 오류가 스키마를 가르쳐줘 무과금 프로브 3회로 완료). **xai 배치 모델 게이트 발견**: grok-4.3·4.20 계열만 지원(4.6/4.5/build 400 — 레지스트리 capability 후보). openai는 키 부재로 미판정(재투입 시 즉시 가능). 상세는 [problem log](problems/problem-log.md)
+
 ### 2026-08-22 — 크로스 프로바이더 폴백 트리 v1 (ir-v0 §6.4 신설)
 
 - **스펙 신설**: IR 요청에 `fallbackModels`(순서 = 시도 순서) — 각 타깃은 완전한 독립 시도(타깃별 재타게팅·표면 선택·어댑터 변환·같은-타깃 리트라이 소진 후 폴백). 진행 조건 = `fallbackEligible && !gatewayException && !취소`. [폴백 매트릭스](decisions/fallback-interaction-matrix.md)에 v1 행 5개 추가
