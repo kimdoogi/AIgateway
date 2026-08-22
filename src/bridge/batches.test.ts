@@ -4,6 +4,8 @@ import { bootstrapProviders } from "../gateway/bootstrap.js";
 import { GatewayError } from "../gateway/errors.js";
 import { InMemoryBatchStore, InMemoryLedger } from "../state/memory.js";
 import { cancelBatch, createBatch, getBatch, getBatchResults } from "./batches.js";
+import { buildBilling } from "../ops/billing.js";
+import { InMemorySpendTracker, withSpendTracking } from "../ops/budget.js";
 
 // Batches 브리지 (부록 (b) §3) — mock fetch + 인메모리 스토어 (D9).
 // google·xai wire는 인벤토리 기반 가정 — 실 녹화 검증 좌석 (problem log).
@@ -280,5 +282,72 @@ describe("Batches 브리지 — google·취소", () => {
     const canceled = await cancelBatch("gwb_b4", deps);
     expect(canceled.status).toBe("canceling");
     expect(calls.some((c) => c.url.endsWith("/cancel") && c.method === "POST")).toBe(true);
+  });
+});
+
+// ── 리뷰 2026-08-22 회귀 ──
+describe("배치 회계·자격증명 귀속", () => {
+  const ANTHROPIC_RESULT = JSON.stringify({
+    custom_id: "a",
+    result: {
+      type: "succeeded",
+      message: {
+        id: "msg_b1",
+        model: "claude-haiku-4-5",
+        content: [{ type: "text", text: "ok" }],
+        stop_reason: "end_turn",
+        usage: { input_tokens: 1000, output_tokens: 500 },
+      },
+    },
+  });
+
+  function batchFetch() {
+    return mockFetch((url) => {
+      if (url.endsWith("/batches")) {
+        return new Response(JSON.stringify({ id: "batch_1", processing_status: "ended" }), { status: 200 });
+      }
+      if (url.endsWith("/results")) return new Response(ANTHROPIC_RESULT, { status: 200 });
+      return new Response(
+        JSON.stringify({ id: "batch_1", processing_status: "ended", request_counts: { succeeded: 1 } }),
+        { status: 200 },
+      );
+    });
+  }
+
+  it("원장 행에 tenant·keyId·costUsd(배치 할인) 병기 — 예산·정산에서 누락되지 않는다", async () => {
+    const { fetchImpl } = batchFetch();
+    const ledger = new InMemoryLedger();
+    const deps = { batches: store(), ledger, fetchImpl, tenant: "t9", keyId: "gwkid_abc", keySource: "pool" as const };
+    const created = await createBatch([{ customId: "a", request: ir("claude-haiku-4-5") }], deps);
+    const results = await getBatchResults(created.id, deps);
+    expect(results[0]!.response).toBeDefined();
+
+    expect(ledger.rows).toHaveLength(1);
+    const row = ledger.rows[0]!;
+    expect(row).toMatchObject({ tenant: "t9", keyId: "gwkid_abc", keySource: "pool", billed: true });
+    expect(row.costUsd).toBeGreaterThan(0);
+    // 배치 할인 50% (부록 (b) §3.4) — 동기 단가의 절반
+    const sync = buildBilling("anthropic", "claude-haiku-4-5", row.usage!).total;
+    expect(row.costUsd).toBeCloseTo(sync / 2, 6);
+
+    // 예산 트래커가 실제로 이 지출을 본다
+    const tracker = new InMemorySpendTracker();
+    const tracked = withSpendTracking(undefined, tracker);
+    await tracked.record(row);
+    expect(tracker.spentSince("gwkid_abc", "1970-01-01T00:00:00Z")).toBeCloseTo(row.costUsd!, 6);
+  });
+
+  it("주입된 BYO 리졸버로 업스트림 호출 (풀 키 고정 아님)", async () => {
+    const authSeen: string[] = [];
+    const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+      authSeen.push(((init?.headers ?? {}) as Record<string, string>)["x-api-key"] ?? "(none)");
+      return new Response(JSON.stringify({ id: "batch_1", processing_status: "in_progress" }), { status: 200 });
+    }) as typeof fetch;
+    await createBatch([{ customId: "a", request: ir("claude-haiku-4-5") }], {
+      batches: store(),
+      fetchImpl,
+      credentials: async () => ({ "x-api-key": "byo-batch-key" }),
+    });
+    expect(authSeen).toEqual(["byo-batch-key"]);
   });
 });

@@ -229,7 +229,7 @@ type Warning = {
 };
 ```
 
-표준 코드 (초기 집합): `parameter-dropped` · `parameter-clamped` · `reasoning-dropped` · `reasoning-demoted` · `reasoning-annotated` · `block-dropped` · `passthrough-dropped` · `passthrough-params-dropped` · `signature-synthesized` · `tool-pair-repaired` · `tool-input-demoted` · `surface-switched` · `system-repositioned` · `unknown-provider-option-passed` · `unknown-block-passthrough`(어댑터가 응답에서 만난 미지 블록/청크를 보존하며 보고 — §4.9 (b). 보존 수단이 없는 파싱 실패는 warning `details`에 원문을 실어 보존 의무를 이행) · `parameter-defaulted`(프로바이더 필수 필드에 게이트웨이 기본값 주입 시 — 예: Anthropic max_tokens) · `provider-option-override`(PO가 표준 필드와 같은 wire 슬롯을 덮어씀 — §2) · `server-state-unmanaged` · `server-state-inapplicable` · `cache-breakpoint-ignored` · `budget-soft-warning` · `budget-exhausted-next-request-blocked`.
+표준 코드 (초기 집합): `parameter-dropped` · `parameter-clamped` · `reasoning-dropped` · `reasoning-demoted` · `reasoning-annotated` · `block-dropped` · `passthrough-dropped` · `passthrough-params-dropped` · `signature-synthesized` · `tool-pair-repaired` · `tool-input-demoted` · `surface-switched` · `system-repositioned` · `unknown-provider-option-passed` · `unknown-block-passthrough`(어댑터가 응답에서 만난 미지 블록/청크를 보존하며 보고 — §4.9 (b). 보존 수단이 없는 파싱 실패는 warning `details`에 원문을 실어 보존 의무를 이행) · `parameter-defaulted`(프로바이더 필수 필드에 게이트웨이 기본값 주입 시 — 예: Anthropic max_tokens) · `provider-option-override`(PO가 표준 필드와 같은 wire 슬롯을 덮어씀 — §2) · `server-state-unmanaged` · `server-state-inapplicable` · `cache-breakpoint-ignored` · `budget-soft-warning` · `budget-exhausted-next-request-blocked` · `fallback-target-switched`(폴백 체인이 다음 타깃으로 넘어감 — §6.4. `provider-switched` 이벤트 슬롯이 없는 compat 표면에서 전환 사실을 보고하는 수단).
 
 ## 6. 요청 envelope
 
@@ -296,6 +296,15 @@ type Effort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 ```
 
 모델 게이트가 미지원 값을 최근접으로 클램프 + `warning(parameter-clamped)`. 매핑 근거: Gemini thinkingLevel↔effort 공식 매핑, Anthropic effort, xAI reasoning_effort. `budget_tokens`류(레거시)는 `providerOptions`로만.
+
+**on/off 경계 규범 (2026-08-22 리뷰 — 어댑터 3종 불일치 해소)**: `none`은 "추론 비활성"이라 강도 축의 한 눈금이 아니라 스위치다. 따라서 **양방향으로 경계를 넘지 않는다**:
+
+- 요청이 `none`인데 모델이 `none`을 표현할 수 없으면 → 클램프 금지. effort를 **미방출**(모델 기본 동작)하고 `warning(parameter-dropped)`. 올려붙이면 "끄기" 요청이 "켜기 + 추론 토큰 과금"으로 반전된다.
+- 요청이 `none` 외의 값인데 최근접 후보가 `none`이면 → `none`을 후보에서 제외하고 그 다음 최근접을 쓴다. 내려붙이면 "켜기" 요청이 조용히 꺼진다.
+- 모델의 지원 집합이 비었거나 `none`뿐이면 → effort 미방출 + `warning(parameter-dropped)`.
+- 드롭은 `strictParameters`에서 4xx, 클램프는 warning만 (D5).
+
+구현 단일 지점: `adapters/shared.ts`의 `gateEffort` — 어댑터별 재구현 금지(불일치의 원인이었다).
 
 ### 6.4 폴백 체인 (`fallbackModels`) — 2026-08-22 신설
 
@@ -458,7 +467,8 @@ type IRError = {
   fallbackEligible: boolean;           // 폴백 트리 판단 입력
   billed: boolean;                     // 이 실패가 과금됐는가
   gatewayException?: boolean;          // 게이트웨이 내부 결함 마킹 — 폴백 오염 방지 (Portkey 차용)
-  provider?: { key: string; status?: number; code?: string; raw?: JSONValue };
+  provider?: { key: string; status?: number; code?: string; param?: string; raw?: JSONValue };
+  // param: 프로바이더가 지목한 문제 필드 (OpenAI/xAI `error.param`) — 400 디버깅 단서
 };
 ```
 

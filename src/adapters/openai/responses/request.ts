@@ -6,6 +6,7 @@ import type { RequestContext, TransformedRequest } from "../../types.js";
 import {
   AdapterInvalidRequestError,
   dropUnsupportedParams,
+  gateEffort,
   gateUnsupportedParams,
   makeWarning,
 } from "../../shared.js";
@@ -26,7 +27,6 @@ const RESERVED_BODY_KEYS = new Set([
 
 // 인벤토리 §A — GPT-5.6 기준 전체 집합. 모델별 부분집합은 레지스트리 supportedEfforts가 좁힘
 const DEFAULT_EFFORTS: readonly string[] = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
-const EFFORT_ORDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 type RetargetReasoning = "drop" | "demote-to-text" | "strip-and-annotate";
 
@@ -35,23 +35,17 @@ interface ConvertCtx {
   retargetReasoning: RetargetReasoning;
 }
 
-/** effort 클램프 — 최근접 지원 레벨 (ir-v0 §6.3) */
-export function clampEffort(effort: string, supported: readonly string[], warnings: Warning[]): string {
-  if (supported.includes(effort)) return effort;
-  const want = EFFORT_ORDER.indexOf(effort);
-  let best = supported[0] ?? "medium";
-  let bestDist = Number.POSITIVE_INFINITY;
-  for (const s of supported) {
-    const dist = Math.abs(EFFORT_ORDER.indexOf(s) - want);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = s;
-    }
-  }
-  warnings.push(
-    makeWarning("compatibility", "parameter-clamped", `effort '${effort}' → '${best}' 클램프`, "reasoning.effort"),
-  );
-  return best;
+/**
+ * effort 게이트 — shared.gateEffort 위임 (ir-v0 §6.3: 최근접 클램프 + on/off 경계 보존).
+ * undefined 반환 = wire에 effort 미방출. CC 표면도 이 함수를 공유한다.
+ */
+export function clampEffort(
+  effort: string,
+  supported: readonly string[],
+  warnings: Warning[],
+  strict?: boolean,
+): string | undefined {
+  return gateEffort(effort, supported, { strict, label: "openai" }, warnings);
 }
 
 function fileToPart(block: FileBlock, path: string): JSONObject {
@@ -416,7 +410,8 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   const reasoning: JSONObject = {};
   if (req.reasoning?.effort) {
     const supported = ctx.capabilities?.supportedEfforts ?? DEFAULT_EFFORTS;
-    reasoning["effort"] = clampEffort(req.reasoning.effort, supported, warnings);
+    const effort = clampEffort(req.reasoning.effort, supported, warnings, req.strictParameters);
+    if (effort !== undefined) reasoning["effort"] = effort;
   }
   if (opts.reasoning?.summary) reasoning["summary"] = opts.reasoning.summary;
   if (opts.reasoning?.context) reasoning["context"] = opts.reasoning.context;

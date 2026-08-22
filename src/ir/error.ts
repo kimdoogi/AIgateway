@@ -34,6 +34,7 @@ export const IRErrorSchema = z.strictObject({
       key: z.string(),
       status: z.number().int().optional(),
       code: z.string().optional(),
+      param: z.string().optional(), // 프로바이더가 지목한 문제 필드 (OpenAI/xAI error.param)
       raw: JSONValueSchema.optional(),
     })
     .optional(),

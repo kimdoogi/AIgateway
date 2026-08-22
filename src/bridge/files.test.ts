@@ -136,3 +136,28 @@ describe("Files 브리지", () => {
     });
   });
 });
+
+// ── 리뷰 2026-08-22 회귀 ──
+describe("자격증명은 테넌트 BYO 우선 (풀 키 고정 금지)", () => {
+  it("업로드·삭제 모두 주입된 리졸버를 쓴다", async () => {
+    const { fetchImpl, calls } = mockFetch((url) =>
+      url.endsWith("/v1/files")
+        ? new Response(JSON.stringify({ id: "file_byo" }), { status: 200 })
+        : new Response(JSON.stringify({ deleted: true }), { status: 200 }),
+    );
+    const files = new InMemoryFileStore();
+    const deps = {
+      files,
+      fetchImpl,
+      tenant: "t1",
+      credentials: async () => ({ "x-api-key": "byo-key" }),
+    };
+    const envelope = await uploadFile(
+      { provider: "anthropic", data, mediaType: "text/plain", filename: "a.txt" },
+      deps,
+    );
+    expect(calls[0]!.headers["x-api-key"]).toBe("byo-key");
+    await deleteFile(envelope.id, deps);
+    expect(calls[1]!.headers["x-api-key"]).toBe("byo-key");
+  });
+});

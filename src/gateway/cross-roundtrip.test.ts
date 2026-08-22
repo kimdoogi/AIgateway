@@ -35,13 +35,32 @@ function toIRResponse(adapter: OutboundAdapter, body: unknown, model: string): I
   });
 }
 
+/**
+ * 히스토리의 클라이언트 툴콜에 대응하는 결과 턴을 합성한다.
+ * 결과 없이 user 턴을 붙이면 그건 고아 쌍이라 재타게팅 패스(D6-10)가 정당하게 제거하고,
+ * 스냅샷은 "프로바이더가 400을 낼 요청"을 정답으로 굳히게 된다 (리뷰 2026-08-22).
+ */
+function toolResultTurn(history: Message): Message | null {
+  const blocks = history.blocks
+    .filter((b) => b.type === "toolCall" && !b.providerExecuted)
+    .map((b) => ({
+      type: "toolResult" as const,
+      toolCallId: (b as Extract<Message["blocks"][number], { type: "toolCall" }>).toolCallId,
+      toolName: (b as Extract<Message["blocks"][number], { type: "toolCall" }>).toolName,
+      output: { type: "text" as const, text: "(fixture tool result)" },
+    }));
+  return blocks.length > 0 ? { role: "tool", blocks } : null;
+}
+
 function followUp(history: Message, targetModel: string, extra?: Record<string, unknown>): IRRequest {
+  const toolTurn = toolResultTurn(history);
   return IRRequestSchema.parse({
     version: "0",
     model: targetModel,
     messages: [
       { role: "user", blocks: [{ type: "text", text: "start" }] },
       history,
+      ...(toolTurn ? [toolTurn] : []),
       { role: "user", blocks: [{ type: "text", text: "continue" }] },
     ],
     ...extra,

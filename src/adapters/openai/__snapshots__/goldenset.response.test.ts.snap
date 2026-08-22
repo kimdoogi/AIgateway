@@ -396,6 +396,7 @@ exports[`골든셋 ② openai 픽스처 → IR > oai-gate-bad-schema 1`] = `
   "provider": {
     "code": "invalid_json_schema",
     "key": "openai",
+    "param": "text.format.schema",
     "raw": {
       "error": {
         "code": "invalid_json_schema",
@@ -419,6 +420,7 @@ exports[`골든셋 ② openai 픽스처 → IR > oai-gate-pro-on-cc 1`] = `
   "provider": {
     "code": "invalid_request_error",
     "key": "openai",
+    "param": "model",
     "raw": {
       "error": {
         "code": null,
@@ -442,6 +444,7 @@ exports[`골든셋 ② openai 픽스처 → IR > oai-gate-sampling-reasoning 1`]
   "provider": {
     "code": "invalid_request_error",
     "key": "openai",
+    "param": "temperature",
     "raw": {
       "error": {
         "code": null,
@@ -465,6 +468,7 @@ exports[`골든셋 ② openai 픽스처 → IR > oai-gate-unknown-model 1`] = `
   "provider": {
     "code": "model_not_found",
     "key": "openai",
+    "param": "model",
     "raw": {
       "error": {
         "code": "model_not_found",

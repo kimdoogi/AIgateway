@@ -185,7 +185,11 @@ describe("폴백 트리 — 스트림 (§6.4)", () => {
     );
     const types = events.map((e) => e.type);
     expect(types).not.toContain("provider-switched");
-    expect(types.at(-1)).toBe("error-final"); // 콘텐츠 후 in-stream 에러 — 기존 종결 의미론 유지
+    // 콘텐츠 방출 후 실패는 error-partial — 기방출 델타는 유효하다 (ir-v0 §10, 절단 경로와 동일 규칙).
+    // willRetry:false이므로 세션은 여기서 done — 전환도 재시도도 없다
+    const last = events.at(-1)!;
+    expect(last.type).toBe("error-partial");
+    expect(last.type === "error-partial" && last.willRetry).toBe(false);
     expect(calls).toHaveLength(1);
   });
 

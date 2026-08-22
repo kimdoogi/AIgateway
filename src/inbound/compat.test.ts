@@ -9,6 +9,7 @@ import { GatewayError } from "../gateway/errors.js";
 import { anthropicAdapter } from "../adapters/anthropic/index.js";
 import { createStreamTransformer as createAnthropicStream } from "../adapters/anthropic/stream.js";
 import { createMessagesDownconverter } from "./anthropic-compat/stream.js";
+import { createChatDownconverter } from "./openai-compat/stream.js";
 import { toMessagesUsage as toMessagesUsageForTest } from "./anthropic-compat/response.js";
 
 // compat 인바운드 2종 (부록 (a)) — 변환 단위 + E2E(픽스처 mock — D9 네트워크 금지).
@@ -478,5 +479,75 @@ describe("리뷰 수정 검증 (2026-08-21 — G1·G2·G3·G5·G6)", () => {
     expect(tool["name"]).toBe("f");
     expect(tool["allowed_callers"]).toEqual(["x"]);
     expect(warnings.some((w) => w.code === "parameter-dropped" && w.path?.includes("wireExtras.name"))).toBe(true);
+  });
+});
+
+// ── 리뷰 2026-08-22 회귀 ──
+describe("compat 다운컨버터 — 폴백 중 error-partial은 종결이 아니다 (ir-v0 §6.4)", () => {
+  const retrying = {
+    type: "error-partial" as const,
+    seq: 3,
+    error: { category: "overloaded" as const, httpStatus: 529, message: "busy", fallbackEligible: true, billed: false },
+    willRetry: true,
+  };
+  const givingUp = { ...retrying, willRetry: false };
+
+  it("openai-compat: willRetry면 [DONE] 금지 (SDK가 스트림을 끊어 폴백 성공분이 유실된다)", () => {
+    const down = createChatDownconverter(false);
+    const frames = down(retrying);
+    expect(frames.map((f) => f.data)).not.toContain("[DONE]");
+    expect(down(givingUp).map((f) => f.data)).toContain("[DONE]");
+  });
+
+  it("anthropic-compat: willRetry면 error 이벤트 미방출", () => {
+    const down = createMessagesDownconverter(false);
+    expect(down(retrying)).toEqual([]);
+    expect(down(givingUp).map((f) => f.event)).toEqual(["error"]);
+  });
+
+  it("provider-switched는 finish의 gateway.warnings로 보고 (D5 — 조용한 전환 금지)", () => {
+    const down = createChatDownconverter(false);
+    down({
+      type: "provider-switched",
+      seq: 4,
+      from: { provider: "anthropic", model: "claude-haiku-4-5" },
+      to: { provider: "openai", model: "gpt-5.6-luna" },
+      reason: "overloaded — 폴백 체인 진행",
+    });
+    const finishFrames = down({
+      type: "finish",
+      seq: 9,
+      finishReason: { unified: "stop", raw: "stop" },
+      usage: {
+        input: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
+        output: { total: 1, text: 1, reasoning: 0 },
+        totalTokens: 2,
+        raw: {},
+      },
+    });
+    const gatewayChunk = finishFrames
+      .map((f) => (f.data.startsWith("{") ? (JSON.parse(f.data) as Record<string, any>) : null))
+      .find((c) => c?.["gateway"]);
+    expect(gatewayChunk!["gateway"]["warnings"].map((w: { code: string }) => w.code)).toContain(
+      "fallback-target-switched",
+    );
+  });
+});
+
+describe("openai-compat 요청 — 빈 system content (부록 (a) §3.1)", () => {
+  it("빈 문자열 system은 메시지 생략 — OpenAI가 수용하는 요청이 400이 되면 안 된다", () => {
+    const ir = compatChatToIR(
+      { model: "claude-haiku-4-5", messages: [{ role: "system", content: "" }, { role: "user", content: "hi" }] },
+      false,
+    );
+    expect(ir.messages.map((m) => m.role)).toEqual(["user"]);
+  });
+
+  it("내용 있는 system은 그대로 유지", () => {
+    const ir = compatChatToIR(
+      { model: "claude-haiku-4-5", messages: [{ role: "system", content: "be brief" }, { role: "user", content: "hi" }] },
+      false,
+    );
+    expect(ir.messages.map((m) => m.role)).toEqual(["system", "user"]);
   });
 });

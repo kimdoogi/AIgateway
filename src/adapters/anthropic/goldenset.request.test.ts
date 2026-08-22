@@ -253,7 +253,7 @@ const CASES: Array<{ name: string; request: IRRequest; ctx?: RequestContext }> =
     }),
   },
   {
-    name: "response-format+effort — output_config 조립, 미지원 effort는 클램프 + warning",
+    name: "response-format+effort — output_config 조립, effort 'none'은 드롭 + warning (on/off 경계 보존)",
     request: ir({
       messages: [user("json please")],
       maxOutputTokens: 200,
@@ -263,6 +263,14 @@ const CASES: Array<{ name: string; request: IRRequest; ctx?: RequestContext }> =
         schema: { type: "object", properties: { ok: { type: "boolean" } } },
         name: "result",
       },
+    }),
+  },
+  {
+    name: "effort-clamp — 지원 집합 밖 effort는 최근접 클램프 (ir-v0 §6.3)",
+    request: ir({
+      messages: [user("think hard")],
+      maxOutputTokens: 200,
+      reasoning: { effort: "minimal" },
     }),
   },
   {

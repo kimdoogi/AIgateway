@@ -182,3 +182,17 @@ describe("본문 로그 (ADR-0008)", () => {
     expect(body.providerMetadata.google.groundingMetadata).toEqual({ big: "data" });
   });
 });
+
+// ── 리뷰 2026-08-22 회귀 ──
+describe("InMemorySpendTracker 창 관리", () => {
+  it("창 밖 항목은 조회 시 정리 — 프로세스 수명 내내 증가하지 않는다", () => {
+    const tracker = new InMemorySpendTracker();
+    for (let i = 0; i < 100; i++) tracker.add("k1", 0.01, `2026-08-2${i % 2}T00:00:00.000Z`);
+    tracker.add("k1", 1, "2026-08-22T00:00:00.000Z");
+
+    // 창 안 지출만 합산
+    expect(tracker.spentSince("k1", "2026-08-22T00:00:00.000Z")).toBeCloseTo(1, 6);
+    // 두 번째 조회도 같은 값 (정리가 창 안 항목을 먹지 않는다)
+    expect(tracker.spentSince("k1", "2026-08-22T00:00:00.000Z")).toBeCloseTo(1, 6);
+  });
+});

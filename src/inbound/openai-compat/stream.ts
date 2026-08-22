@@ -3,6 +3,7 @@ import type { Block } from "../../ir/blocks.js";
 import type { NS, Warning } from "../../ir/common.js";
 import type { StreamEvent } from "../../ir/stream.js";
 import { toChatError, toChatFinishReason, toChatUsage } from "./response.js";
+import { makeWarning } from "../../adapters/shared.js";
 
 // IR 스트림 → CC chat.completion.chunk 재합성 (부록 (a) §6.1).
 // 상태: 툴콜 index 부여 + gateway.ir용 블록 累積(비-strict). reasoning은 CC 무표현 — 드롭.
@@ -120,8 +121,17 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
       case "warning":
         warnings.push(event.warning);
         return [];
-      case "usage-interim":
       case "provider-switched":
+        // 폴백 전환은 CC wire에 슬롯이 없다 — finish의 gateway.warnings로 보고 (D5 조용한 변조 금지)
+        warnings.push(
+          makeWarning(
+            "other",
+            "fallback-target-switched",
+            `폴백 전환 ${event.from.model} → ${event.to.model} (${event.reason})`,
+          ),
+        );
+        return [{ data: "", comment: `provider-switched: ${event.from.model} -> ${event.to.model}` }];
+      case "usage-interim":
       case "raw":
         return [];
       case "finish": {
@@ -146,6 +156,10 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
         return frames;
       }
       case "error-partial":
+        // willRetry:true는 논리적 터미널이 아니다 — 폴백 트리가 다음 타깃으로 이어간다 (ir-v0 §6.4).
+        // 여기서 [DONE]을 내보내면 SDK가 스트림을 끊어 폴백 성공분이 통째로 유실된다.
+        if (event.willRetry) return [{ data: "", comment: `retrying: ${event.error.category}` }];
+        return [{ data: JSON.stringify(toChatError(event.error)) }, { data: "[DONE]" }];
       case "error-final":
         return [{ data: JSON.stringify(toChatError(event.error)) }, { data: "[DONE]" }];
       default:

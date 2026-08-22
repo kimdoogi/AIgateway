@@ -103,6 +103,18 @@ export function credentialHeaders(rt: ProviderRuntime): Record<string, string> {
   return { [rt.auth.header]: `${rt.auth.prefix ?? ""}${secret}` };
 }
 
+/**
+ * 자격증명 해소 단일 지점 (ADR-0001 하이브리드): 테넌트 BYO 리졸버가 있으면 그것, 없으면 env 풀 키.
+ * 실행부뿐 아니라 count_tokens·Files·Batches 브리지도 이 함수를 통과해야 한다 —
+ * 직접 credentialHeaders를 부르면 BYO 테넌트가 풀 계정으로 나간다 (리뷰 2026-08-22).
+ */
+export async function resolveCredentials(
+  rt: ProviderRuntime,
+  deps: Pick<ExecuteDeps, "credentials">,
+): Promise<Record<string, string>> {
+  return deps.credentials ? await deps.credentials(rt) : credentialHeaders(rt);
+}
+
 interface PreparedCall {
   rt: ProviderRuntime;
   /** 표면 선택 결과 — 이 호출이 쓰는 어댑터 (ADR-0002 결과 절) */
@@ -183,7 +195,7 @@ async function dispatch(
   timer.unref?.();
   const combined = signal ? AbortSignal.any([signal, timeoutCtrl.signal]) : timeoutCtrl.signal;
   try {
-    const auth = await (deps.credentials?.(call.rt) ?? credentialHeaders(call.rt));
+    const auth = await resolveCredentials(call.rt, deps);
     return await fetchImpl(`${call.rt.baseUrl}${call.wire.path}`, {
       method: call.wire.method,
       headers: { ...call.wire.headers, ...auth },
@@ -412,10 +424,13 @@ export interface StreamOptions {
 }
 
 /** 어댑터 draft → 게이트웨이 draft (seq 없음 — 세션이 발급). envelope 소유 필드 enrich (§13.1) */
-function finalizeDraft(draft: AdapterStreamEvent, call: PreparedCall): StreamEventDraft {
+function finalizeDraft(draft: AdapterStreamEvent, call: PreparedCall, contentEmitted: boolean): StreamEventDraft {
   if (draft.type === "provider-error") {
-    // 단일 target v0 — 재시도 없음, error-final로 종결 (폴백 트리가 error-partial 판정 인계 — 로드맵 4)
-    return { type: "error-final", error: draft.error, usage: draft.usage };
+    // 절단 경로(아래 catch)와 같은 규칙: 콘텐츠 방출 후면 기방출분이 유효하므로 partial.
+    // final로 접으면 클라이언트가 이미 받은 유효 델타를 폐기한다 (ir-v0 §10 의미론)
+    return contentEmitted
+      ? { type: "error-partial", error: draft.error, usage: draft.usage, willRetry: false }
+      : { type: "error-final", error: draft.error, usage: draft.usage };
   }
   if (draft.type === "finish") {
     return { ...draft, billing: buildBilling(call.adapter.provider, call.ctx.modelId, draft.usage) }; // ADR-0007 §1
@@ -534,13 +549,13 @@ async function* executeStreamTarget(
     if (!body) throw new Error("응답 body 없음");
     for await (const frame of parseSSEStream(body)) {
       for (const draft of transformer.onEvent(frame.event, frame.data)) {
-        yield emit(finalizeDraft(draft, call));
+        yield emit(finalizeDraft(draft, call, contentEmitted));
         if (terminal) return;
       }
     }
     // 종료 신호 없는 절단 — 어댑터의 터미널 보장 경로 (try 안 — 어댑터 throw도 catch가 수습)
     for (const draft of transformer.onStreamEnd()) {
-      yield emit(finalizeDraft(draft, call));
+      yield emit(finalizeDraft(draft, call, contentEmitted));
       if (terminal) return;
     }
   } catch (err) {
@@ -553,7 +568,7 @@ async function* executeStreamTarget(
           if (draft.type === "provider-error") {
             harvested = { billed: draft.error.billed, ...(draft.usage ? { usage: draft.usage } : {}) };
           } else {
-            const finalized = finalizeDraft(draft, call);
+            const finalized = finalizeDraft(draft, call, contentEmitted);
             if (!TERMINAL_EVENT_SET.has(finalized.type)) yield emit(finalized); // 터미널은 abort 라벨로 대체
           }
         }
@@ -608,7 +623,7 @@ async function skipReason(target: string, req: IRRequest, deps: ExecuteDeps): Pr
   }
   try {
     const rt = getProvider(provider);
-    await (deps.credentials?.(rt) ?? credentialHeaders(rt)); // BYO/풀 해소 불가 타깃은 skip (매트릭스 BYO 행)
+    await resolveCredentials(rt, deps); // BYO/풀 해소 불가 타깃은 skip (매트릭스 BYO 행)
   } catch (err) {
     return `자격증명 해소 불가: ${err instanceof Error ? err.message : String(err)}`;
   }
@@ -799,7 +814,8 @@ const HEARTBEAT_MAX_SECONDS = 3600; // setInterval 2^31ms 오버플로 방지 �
  */
 export function startStreamSession(req: IRRequest, deps: StreamSessionDeps): StreamSession {
   const id = genRequestId(deps);
-  const session = deps.sessions.create(id);
+  // 소유 테넌트를 세션에 새긴다 — 재개·취소 권한 검사 기준 (ADR-0006 §3)
+  const session = deps.sessions.create(id, deps.tenantContext?.tenant);
 
   let heartbeatMs = deps.heartbeatMs ?? HEARTBEAT_MS;
   const extraWarnings: Warning[] = [];

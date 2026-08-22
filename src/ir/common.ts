@@ -59,6 +59,7 @@ export const WARNING_CODES = [
   "cache-breakpoint-ignored",
   "budget-soft-warning",
   "budget-exhausted-next-request-blocked",
+  "fallback-target-switched",
 ] as const;
 export type WarningCode = (typeof WARNING_CODES)[number];
 

@@ -1,7 +1,8 @@
 # 운영 평면 실행 계획 — 가상 키·예산·정산 + 서버 상태 레지스트리 + 본문 로그
 
 - 상태: **구현 완료 (2026-08-21 — 6단계 전부, 테스트 421개)**. 결정 확정: D1 마스터 키 env ✓ / D2 **DB 암호화 저장**(권고와 달리 — AES-256-GCM + `GATEWAY_KEY_ENCRYPTION_KEY`, KMS 2차) ✓ / D3 기본 on ✓
-- 잔여 좌석: compat 인바운드 인증(현재 /v0/*만), 스트림 응답 본문 로그(요청만 v1), 스트림 finish PM 리소스 등록, Redis 지출 집계(현재 인메모리 트래커 — 인터페이스 뒤), TTL 스윕 자동화(현재 관리 API 트리거)
+- **2026-08-22 전면 리뷰 반영**: compat 인바운드 인증 좌석 **클로즈** — `/compat/*`도 동일 미들웨어 통과 + 인바운드 전처리(파일 ref·BYO·리소스 검증) 공용화. 브리지(Files/Batches)·count_tokens가 풀 키를 고정 사용하던 것도 리졸버 경유로 교정. 스트림 세션에 소유 테넌트 기록 → 재개·취소 격리(영속 버퍼 키도 테넌트 스코프)
+- 잔여 좌석: 스트림 응답 본문 로그(요청만 v1), 스트림 finish PM 리소스 등록, Redis 지출 집계(현재 인메모리 트래커 — 인터페이스 뒤, 창 밖 항목은 조회 시 정리), TTL 스윕 자동화(현재 관리 API 트리거)
 - 근거: [ADR-0006 §3](../decisions/ADR-0006-state-layer.md)(리소스 레지스트리) · [ADR-0007](../decisions/ADR-0007-billing-envelope.md)(라인아이템·예산·정산) · [ADR-0008](../decisions/ADR-0008-observability.md)(본문 로그)
 - 선행 완료: 원장(usage_ledger)·가격표(gateway/pricing.ts)·FileStore/BatchStore의 tenant 좌석
 

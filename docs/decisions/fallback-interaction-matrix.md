@@ -39,3 +39,5 @@
 | 폴백 × 세션 터미널 | `error-partial(willRetry: true)`는 터미널이 아니다 — 세션 done 처리 예외 (problem log 2026-08-21 예고의 해소) |
 | 폴백 × 원장 attempt 번호 | 타깃별 리트라이 attempt는 타깃 내 1부터 — 원장 행은 (requestId, provider, attempt)로 구분 (requestId는 전 타깃 공유) |
 | 폴백 × 폴백 타깃 prepare 실패 | 1차 타깃 prepare 실패는 즉시 반환(기존과 동일), **폴백 타깃**의 prepare 실패(미라우팅 모델 등)는 skipped 처리 후 다음 타깃 — 오타 하나가 전체 요청을 죽이지 않게 |
+| 폴백 × compat 다운컨버트 (2026-08-22 리뷰) | `error-partial(willRetry:true)`는 compat wire에서도 **종결로 번역 금지** — openai-compat은 `[DONE]` 미방출(SSE 주석만), anthropic-compat은 `error` 이벤트 미방출. 전환 사실은 finish의 `gateway.warnings`에 `fallback-target-switched`로 (부록 (a) §6.1/6.2) |
+| 폴백 × 세션 소유권 (2026-08-22 리뷰) | 세션은 생성 시 소유 테넌트를 새긴다 — 폴백으로 타깃이 바뀌어도 소유자는 불변(요청 발신 테넌트). 재개·취소는 소유자만, 불일치는 미지 세션과 동일한 410 |

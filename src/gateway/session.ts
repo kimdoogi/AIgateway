@@ -31,7 +31,18 @@ export interface StoredEvent {
 
 export type AbortReason = "cancel" | "grace" | "backpressure";
 
+/**
+ * 영속 버퍼 키 — 테넌트로 스코프한다 (ADR-0006 §3 격리).
+ * 프로세스 재시작 후 재생 경로는 인메모리 세션 객체가 없어 소유권을 대조할 수 없으므로,
+ * 키 자체를 분리해 타 테넌트 버퍼에 도달하지 못하게 한다 (리뷰 2026-08-22).
+ */
+export function sessionPersistenceKey(id: string, tenant: string | undefined): string {
+  return tenant === undefined ? id : `${tenant}:${id}`;
+}
+
 export interface SessionOptions {
+  /** 소유 테넌트 — 재개·취소 권한 검사 기준. 개방 모드(인증 미설정)면 undefined */
+  tenant?: string;
   graceMs?: number;
   ttlMs?: number;
   maxBufferBytes?: number;
@@ -43,6 +54,9 @@ const DEFAULTS = { graceMs: 30_000, ttlMs: 300_000, maxBufferBytes: 8 * 1024 * 1
 
 export class StreamSession {
   readonly id: string;
+  /** 소유 테넌트 (ADR-0006 §3) — 다른 테넌트의 재개·취소를 막는다 */
+  readonly tenant: string | undefined;
+  private readonly persistId: string;
   private readonly events: StoredEvent[] = [];
   private byteSize = 0;
   private done = false;
@@ -63,9 +77,16 @@ export class StreamSession {
   constructor(id: string, abortController: AbortController, opts: SessionOptions = {}) {
     this.id = id;
     this.abortController = abortController;
-    const { persistence, ...rest } = opts;
+    const { persistence, tenant, ...rest } = opts;
     this.persistence = persistence;
+    this.tenant = tenant;
+    this.persistId = sessionPersistenceKey(id, tenant);
     this.opts = { ...DEFAULTS, ...rest };
+  }
+
+  /** 요청자가 이 세션을 볼 수 있는가 — 소유 테넌트 일치 (개방 모드는 양쪽 undefined) */
+  ownedBy(tenant: string | undefined): boolean {
+    return this.tenant === tenant;
   }
 
   get upstreamSignal(): AbortSignal {
@@ -113,12 +134,12 @@ export class StreamSession {
     if (this.persistence && !this.persistBroken) {
       const persistence = this.persistence;
       this.persistTail = this.persistTail
-        .then(() => persistence.appendEvent(this.id, stamped.seq, json))
+        .then(() => persistence.appendEvent(this.persistId, stamped.seq, json))
         .catch((err) => {
           if (this.persistBroken) return;
           this.persistBroken = true;
           console.error(`[session-persistence] append 실패 — 버퍼 무효화 (${this.id})`, err);
-          persistence.invalidate(this.id).catch(() => {});
+          persistence.invalidate(this.persistId).catch(() => {});
         });
     }
     // error-partial(willRetry:true)는 논리적 터미널이 아니다 — 폴백 트리가 다음 타깃으로 이어간다
@@ -203,7 +224,7 @@ export class StreamSession {
     if (this.persistence && !this.persistBroken) {
       const persistence = this.persistence;
       this.persistTail = this.persistTail
-        .then(() => persistence.markEnded(this.id, Math.ceil(this.opts.ttlMs / 1000)))
+        .then(() => persistence.markEnded(this.persistId, Math.ceil(this.opts.ttlMs / 1000)))
         .catch((err) => console.error("[session-persistence]", err));
     }
     this.onDone?.();
@@ -222,8 +243,11 @@ export class SessionStore {
   private readonly sessions = new Map<string, StreamSession>();
   constructor(private readonly opts: SessionOptions = {}) {}
 
-  create(id: string): StreamSession {
-    const session = new StreamSession(id, new AbortController(), this.opts);
+  create(id: string, tenant?: string): StreamSession {
+    const session = new StreamSession(id, new AbortController(), {
+      ...this.opts,
+      ...(tenant !== undefined ? { tenant } : {}),
+    });
     this.sessions.set(id, session);
     session.onDone = () => {
       const ttl = setTimeout(() => this.sessions.delete(id), this.opts.ttlMs ?? DEFAULTS.ttlMs);

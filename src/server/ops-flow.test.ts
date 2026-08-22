@@ -142,3 +142,127 @@ describe("운영 평면 E2E", () => {
     expect(wrongKey.status).toBe(401);
   });
 });
+
+// ── 리뷰 2026-08-22 회귀: compat 평면·세션 격리·브리지 자격증명 ──
+
+const compatBody = JSON.stringify({
+  model: "claude-haiku-4-5",
+  max_tokens: 100,
+  messages: [{ role: "user", content: "hi" }],
+});
+
+/** 인증 켠 앱 + 발급된 가상 키 시크릿 */
+async function appWithKey(extra: Record<string, unknown> = {}) {
+  const keys = new InMemoryKeyStore();
+  const ledger = new InMemoryLedger();
+  const { fetchImpl, calls } = mockFetch();
+  const app = createApp({ keys, ledger, fetchImpl, ...extra });
+  const issued = await app.request("/v0/admin/keys", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer admin-master" },
+    body: JSON.stringify({ tenant: "t-compat" }),
+  });
+  const { secret } = (await issued.json()) as { secret: string };
+  return { app, secret, ledger, calls, keys };
+}
+
+describe("compat 인바운드도 운영 평면을 통과한다 (ops-plane 좌석 클로즈)", () => {
+  const paths = ["/compat/openai/v1/chat/completions", "/compat/anthropic/v1/messages"] as const;
+
+  it.each(paths)("%s — 무키 401 (인증 활성 시 무인증 유료 경로 없음)", async (path) => {
+    const { app, calls } = await appWithKey();
+    const res = await app.request(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: compatBody,
+    });
+    expect(res.status).toBe(401);
+    expect(calls).toHaveLength(0); // 업스트림 호출 자체가 없어야 한다
+  });
+
+  it("유효 키면 통과 + 원장 행에 tenant·keyId 귀속", async () => {
+    const { app, secret, ledger } = await appWithKey();
+    const res = await app.request("/compat/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
+      body: compatBody,
+    });
+    expect(res.status).toBe(200);
+    expect(ledger.rows).toHaveLength(1);
+    expect(ledger.rows[0]).toMatchObject({ tenant: "t-compat", outcome: "success" });
+    expect(ledger.rows[0]!.keyId).toMatch(/^gwkid_/);
+  });
+
+  it("compat도 BYO 프로바이더 키를 쓴다 (풀 키 고정 아님)", async () => {
+    const providerKeys = new InMemoryProviderKeyStore();
+    const { app, secret, calls } = await appWithKey({ providerKeys });
+    await app.request("/v0/admin/provider-keys", {
+      method: "PUT",
+      headers: { "content-type": "application/json", authorization: "Bearer admin-master" },
+      body: JSON.stringify({ tenant: "t-compat", provider: "anthropic", key: "byo-secret-key" }),
+    });
+    await app.request("/compat/anthropic/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
+      body: compatBody,
+    });
+    expect(calls[0]!.headers["x-api-key"]).toBe("byo-secret-key");
+  });
+});
+
+describe("스트림 세션 테넌트 격리 (ADR-0006 §3)", () => {
+  async function twoTenants() {
+    const keys = new InMemoryKeyStore();
+    const app = createApp({
+      keys,
+      fetchImpl: (async () =>
+        new Response(
+          `event: message_start\ndata: ${JSON.stringify({ type: "message_start", message: { id: "msg_x", model: "claude-haiku-4-5", usage: { input_tokens: 1 } } })}\n\n`,
+          { status: 200, headers: { "content-type": "text/event-stream" } },
+        )) as typeof fetch,
+      heartbeatMs: 60_000,
+    });
+    const secrets: string[] = [];
+    for (const tenant of ["tenant-a", "tenant-b"]) {
+      const issued = await app.request("/v0/admin/keys", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer admin-master" },
+        body: JSON.stringify({ tenant }),
+      });
+      secrets.push(((await issued.json()) as { secret: string }).secret);
+    }
+    return { app, a: secrets[0]!, b: secrets[1]! };
+  }
+
+  it("타 테넌트는 재개·취소 모두 410 (존재 노출 금지)", async () => {
+    const { app, a, b } = await twoTenants();
+    const started = await app.request("/v0/responses", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${a}` },
+      body: JSON.stringify({
+        version: "0",
+        model: "claude-haiku-4-5",
+        maxOutputTokens: 100,
+        stream: true,
+        messages: [{ role: "user", blocks: [{ type: "text", text: "hi" }] }],
+      }),
+    });
+    const id = started.headers.get("x-gateway-request-id")!;
+    await started.text(); // 스트림 소비 종료
+
+    const foreignResume = await app.request(`/v0/streams/${id}`, { headers: { authorization: `Bearer ${b}` } });
+    expect(foreignResume.status).toBe(410);
+    const foreignCancel = await app.request(`/v0/streams/${id}/cancel`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${b}` },
+    });
+    expect(foreignCancel.status).toBe(410);
+
+    // 소유 테넌트는 정상 접근
+    const own = await app.request(`/v0/streams/${id}/cancel`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${a}` },
+    });
+    expect(own.status).toBe(200);
+  });
+});

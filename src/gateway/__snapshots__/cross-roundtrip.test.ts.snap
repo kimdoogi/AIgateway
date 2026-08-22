@@ -108,6 +108,14 @@ exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → gemini 요청 > to
       {
         "parts": [
           {
+            "functionResponse": {
+              "name": "get_weather",
+              "response": {
+                "output": "(fixture tool result)",
+              },
+            },
+          },
+          {
             "text": "continue",
           },
         ],
@@ -471,6 +479,11 @@ exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > to
         "type": "function_call",
       },
       {
+        "call_id": "toolu_fixture0002",
+        "output": "(fixture tool result)",
+        "type": "function_call_output",
+      },
+      {
         "content": [
           {
             "text": "continue",
@@ -511,6 +524,11 @@ exports[`골든셋 ④ 크로스 왕복: anthropic 응답 → openai 요청 > to
         "call_id": "toolu_fixture0002",
         "name": "get_weather",
         "type": "function_call",
+      },
+      {
+        "call_id": "toolu_fixture0002",
+        "output": "(fixture tool result)",
+        "type": "function_call_output",
       },
       {
         "content": [
@@ -770,6 +788,11 @@ exports[`골든셋 ④ 크로스 왕복: gemini 응답 → anthropic 요청 > ge
       {
         "content": [
           {
+            "content": "(fixture tool result)",
+            "tool_use_id": "call_fixture0002",
+            "type": "tool_result",
+          },
+          {
             "text": "continue",
             "type": "text",
           },
@@ -820,6 +843,11 @@ exports[`골든셋 ④ 크로스 왕복: gemini 응답 → anthropic 요청 > ge
       },
       {
         "content": [
+          {
+            "content": "(fixture tool result)",
+            "tool_use_id": "call_fixture0002",
+            "type": "tool_result",
+          },
           {
             "text": "continue",
             "type": "text",

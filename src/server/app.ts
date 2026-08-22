@@ -38,7 +38,7 @@ import { createChatDownconverter } from "../inbound/openai-compat/stream.js";
 import { compatMessagesToIR } from "../inbound/anthropic-compat/request.js";
 import { toMessagesError, toMessagesResponse } from "../inbound/anthropic-compat/response.js";
 import { createMessagesDownconverter } from "../inbound/anthropic-compat/stream.js";
-import { SessionStore, type StreamSession } from "../gateway/session.js";
+import { SessionStore, sessionPersistenceKey, type StreamSession } from "../gateway/session.js";
 import type { SessionPersistence } from "../state/types.js";
 
 // native 인바운드 (walking-skeleton 6단계) — IR envelope 그대로 (ir-v0 §6/§7/§10.4).
@@ -113,8 +113,10 @@ export function createApp(deps: AppDeps = {}): Hono {
   const opsCtx = new WeakMap<Request, OpsContext>();
 
   // ── 가상 키 인증 (ADR-0007 §3 — keys 설정 시 활성, 미설정 = 개방 모드/로컬) ──
-  app.use("/v0/*", async (c, next) => {
-    if (!deps.keys || c.req.path.startsWith("/v0/admin")) return next();
+  // native(/v0/*)와 compat(/compat/*)에 동일 적용 — 한쪽만 걸면 무인증 유료 경로가 남는다
+  // (리뷰 2026-08-22: ops-plane "compat 인바운드 인증" 좌석 클로즈)
+  const authenticate = async (c: Context, next: () => Promise<void>) => {
+    if (!deps.keys) return next();
     const auth = c.req.header("authorization") ?? "";
     const secret = auth.startsWith("Bearer ") ? auth.slice(7) : "";
     let key: VirtualKey;
@@ -132,7 +134,12 @@ export function createApp(deps: AppDeps = {}): Hono {
     }
     opsCtx.set(c.req.raw, { key, preWarnings, resolver: tenantCredentialResolver(key.tenant, deps.providerKeys) });
     return next();
+  };
+  app.use("/v0/*", async (c, next) => {
+    if (c.req.path.startsWith("/v0/admin")) return next(); // 관리 API는 마스터 키 (아래 미들웨어)
+    return authenticate(c, next);
   });
+  app.use("/compat/*", authenticate);
 
   // ── 관리 API 인증 (사용자 결정 D1 — GATEWAY_ADMIN_KEY 마스터 키, 상수 시간 비교) ──
   app.use("/v0/admin/*", async (c, next) => {
@@ -163,6 +170,34 @@ export function createApp(deps: AppDeps = {}): Hono {
   }
   const tenantOf = (c: Context): string | undefined => opsCtx.get(c.req.raw)?.key.tenant;
 
+  /**
+   * 인바운드 공통 전처리 — native와 compat이 같은 운영 평면을 통과한다 (부록 (a) §1: 실행 경로 동일).
+   * ① refs.gateway → 프로바이더 파일 id 치환 ② 테넌트·BYO 자격증명·사전 warning
+   * ③ 서버 상태 리소스 참조 검증 (테넌트 격리)
+   */
+  async function prepareInbound(
+    c: Context,
+    req: IRRequest,
+  ): Promise<{ request: IRRequest; execDeps: Partial<GatewayExecuteDeps> }> {
+    let targetProvider: string | undefined;
+    try {
+      targetProvider = resolveModel(req.model).provider;
+    } catch { /* 미라우팅 모델은 실행부의 라우팅 에러 경로로 */ }
+    const ops = opsCtx.get(c.req.raw);
+    let request = req;
+    if (targetProvider) {
+      request = (await resolveGatewayFileRefs(request, targetProvider, deps.files, ops?.key.tenant)).request;
+    }
+    const execDeps = await withOps(c, targetProvider);
+    if (targetProvider && deps.resources && ops) {
+      const resourceWarnings = await checkInboundResources(request, targetProvider, ops.key.tenant, deps.resources);
+      if (resourceWarnings.length > 0) {
+        execDeps.preWarnings = [...(execDeps.preWarnings ?? []), ...resourceWarnings];
+      }
+    }
+    return { request, execDeps };
+  }
+
   app.post("/v0/responses", async (c) => {
     let json: unknown;
     try {
@@ -177,26 +212,11 @@ export function createApp(deps: AppDeps = {}): Hono {
         provider: { key: "gateway", status: 400, raw: z.treeifyError(parsed.error) as JSONValue },
       });
     }
-    let req = parsed.data;
-    // refs.gateway → 프로바이더 파일 id 치환 (부록 (b) §2). 미라우팅 모델은 실행부가 일관 처리
-    let targetProvider: string | undefined;
-    try {
-      targetProvider = resolveModel(req.model).provider;
-    } catch { /* 실행부의 라우팅 에러 경로로 */ }
     const ops = opsCtx.get(c.req.raw);
+    let req: IRRequest;
     let opsDeps: Partial<GatewayExecuteDeps>;
     try {
-      if (targetProvider) {
-        req = (await resolveGatewayFileRefs(req, targetProvider, deps.files, ops?.key.tenant)).request;
-      }
-      opsDeps = await withOps(c, targetProvider);
-      // 서버 상태 리소스 참조 검증 (ADR-0006 §3 — 테넌트 격리·미등록 기본 거부)
-      if (targetProvider && deps.resources && ops) {
-        const resourceWarnings = await checkInboundResources(req, targetProvider, ops.key.tenant, deps.resources);
-        if (resourceWarnings.length > 0) {
-          opsDeps.preWarnings = [...(opsDeps.preWarnings ?? []), ...resourceWarnings];
-        }
-      }
+      ({ request: req, execDeps: opsDeps } = await prepareInbound(c, parsed.data));
     } catch (err) {
       return errJson(c, toIRError(err));
     }
@@ -252,15 +272,8 @@ export function createApp(deps: AppDeps = {}): Hono {
     const id = genRequestId(deps);
     c.header("x-gateway-request-id", id);
     try {
-      let req = parsed.data;
-      let targetProvider: string | undefined;
-      try {
-        targetProvider = resolveModel(req.model).provider;
-      } catch { /* 실행부의 라우팅 에러 경로로 */ }
-      if (targetProvider) {
-        req = (await resolveGatewayFileRefs(req, targetProvider, deps.files, tenantOf(c))).request;
-      }
-      return c.json(await executeCountTokens(req, { ...deps, ...(await withOps(c, targetProvider)), genId: () => id }));
+      const { request: req, execDeps } = await prepareInbound(c, parsed.data);
+      return c.json(await executeCountTokens(req, { ...deps, ...execDeps, genId: () => id }));
     } catch (err) {
       return errJson(c, toIRError(err));
     }
@@ -269,8 +282,13 @@ export function createApp(deps: AppDeps = {}): Hono {
   // ── Files 브리지 (부록 (b) §2) ──
   const fileDeps = (c: Context) => {
     if (!deps.files) return undefined;
-    const tenant = tenantOf(c);
-    return { ...deps, files: deps.files, ...(tenant ? { tenant } : {}) };
+    const ops = opsCtx.get(c.req.raw);
+    // 업로드/삭제도 본 요청과 같은 계정으로 — 풀 키로 올린 파일은 BYO 요청에서 404가 된다
+    return {
+      ...deps,
+      files: deps.files,
+      ...(ops ? { tenant: ops.key.tenant, credentials: ops.resolver.credentials } : {}),
+    };
   };
 
   app.post("/v0/files", async (c) => {
@@ -333,8 +351,14 @@ export function createApp(deps: AppDeps = {}): Hono {
   // ── Batches 브리지 (부록 (b) §3) ──
   const batchDeps = (c: Context) => {
     if (!deps.batches) return undefined;
-    const tenant = tenantOf(c);
-    return { ...deps, batches: deps.batches, ...(tenant ? { tenant } : {}) };
+    const ops = opsCtx.get(c.req.raw);
+    return {
+      ...deps,
+      batches: deps.batches,
+      ...(ops
+        ? { tenant: ops.key.tenant, keyId: ops.key.keyId, credentials: ops.resolver.credentials }
+        : {}),
+    };
   };
   const noBatchStore = (c: Context) =>
     errJson(c, irError("invalid_request", 501, "배치 스토어 미설정 (AppDeps.batches)"));
@@ -520,11 +544,18 @@ export function createApp(deps: AppDeps = {}): Hono {
       return errJson(c, irError("invalid_request", 400, "Last-Event-ID는 안전 정수 범위의 십진 seq여야 합니다"));
     }
     const session = sessions.get(c.req.param("id"));
-    if (session) return sseFromSession(c, session, afterSeq);
+    // 소유 테넌트 불일치는 미지 세션과 동일 응답 — 존재를 노출하지 않는다 (ADR-0006 §3)
+    if (session) {
+      if (!session.ownedBy(tenantOf(c))) return errJson(c, goneStream());
+      return sseFromSession(c, session, afterSeq);
+    }
 
     // 인메모리 부재 — 영속 버퍼에서 재생 전용 폴백 (프로세스 재시작 시나리오).
     // null = 미지/만료 → 410; [] = 존재하나 커서 이후 없음 → 빈 재생 (리뷰 E1-r4)
-    const persisted = await deps.persistence?.loadEvents(c.req.param("id"), afterSeq).catch(() => null);
+    // 키는 테넌트 스코프 — 재시작 후에도 타 테넌트 버퍼에 닿지 않는다
+    const persisted = await deps.persistence
+      ?.loadEvents(sessionPersistenceKey(c.req.param("id"), tenantOf(c)), afterSeq)
+      .catch(() => null);
     if (persisted === null || persisted === undefined) return errJson(c, goneStream());
     return streamSSE(c, async (stream) => {
       let lastSeq = afterSeq;
@@ -585,27 +616,40 @@ export function createApp(deps: AppDeps = {}): Hono {
       }
       const allowUnknown = c.req.header("x-gateway-allow-unknown") === "true";
       const strict = c.req.header("x-gateway-compat") === "strict"; // §2 — gateway 확장 미부가
+      const ops = opsCtx.get(c.req.raw);
       let req: IRRequest;
+      let opsDeps: Partial<GatewayExecuteDeps>;
       try {
         req = format.toIR(json, allowUnknown, c);
+        // native와 동일한 운영 평면 통과 — 인증·예산은 미들웨어, 여기는 파일 ref·BYO·리소스 검증
+        ({ request: req, execDeps: opsDeps } = await prepareInbound(c, req));
       } catch (err) {
         if (err instanceof GatewayError) return compatErr(err.irError);
         throw err;
       }
+      const bodyLogEnabled = deps.bodyLog !== undefined && ops?.key.bodyLogOptOut !== true;
 
       if (!req.stream) {
         const id = genRequestId(deps);
         c.header("x-gateway-request-id", id);
         try {
-          const response = await executeNonStream(req, { ...deps, genId: () => id }, c.req.raw.signal);
+          const response = await executeNonStream(req, { ...deps, ...opsDeps, genId: () => id }, c.req.raw.signal);
+          if (bodyLogEnabled) {
+            const logCtx = { tenant: ops?.key.tenant, now: deps.now };
+            await logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "request", body: json });
+            await logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "response", body: response });
+          }
           return c.json(format.toWireResponse(response, strict));
         } catch (err) {
           return compatErr(toIRError(err));
         }
       }
 
-      const session = startStreamSession(req, { ...deps, sessions });
+      const session = startStreamSession(req, { ...deps, ...opsDeps, sessions });
       c.header("x-gateway-request-id", session.id);
+      if (bodyLogEnabled) {
+        await logBody(deps.bodyLog, { requestId: session.id, tenant: ops?.key.tenant, direction: "request", body: json, now: deps.now });
+      }
       const downconvert = format.downconverter(strict);
       return streamSSE(c, async (stream) => {
         session.attach();
@@ -632,8 +676,9 @@ export function createApp(deps: AppDeps = {}): Hono {
 
   app.post("/v0/streams/:id/cancel", (c) => {
     const session = sessions.get(c.req.param("id"));
-    // GET 재개와 동일 상태 = 동일 status (리뷰 E5 — 404/410 드리프트 방지)
-    if (!session) return errJson(c, goneStream());
+    // GET 재개와 동일 상태 = 동일 status (리뷰 E5 — 404/410 드리프트 방지).
+    // 타 테넌트 세션도 동일 취급 — 취소는 파괴적 작업이라 소유권 검사 필수 (ADR-0006 §3)
+    if (!session || !session.ownedBy(tenantOf(c))) return errJson(c, goneStream());
     const wasLive = !session.isDone;
     session.cancel(); // D7 — 명시적 abort는 grace 없이 즉시. 터미널은 펌프가 적재
     return c.json({ canceled: wasLive }); // 이미 종료된 스트림 취소는 false (리뷰 E6)

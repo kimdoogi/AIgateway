@@ -5,13 +5,14 @@ import type { FinishReason } from "../ir/finish.js";
 import type { Usage } from "../ir/usage.js";
 import type { IRRequest } from "../ir/request.js";
 import type { Message } from "../ir/message.js";
-import type { OutboundAdapter, WireRequest } from "../adapters/types.js";
+import type { WireRequest } from "../adapters/types.js";
 import { AdapterInvalidRequestError } from "../adapters/shared.js";
 import type { BatchJob, BatchStore, UsageLedger } from "../state/types.js";
-import { credentialHeaders, genRequestId, type ExecuteDeps } from "../gateway/execute.js";
+import { genRequestId, resolveCredentials, type ExecuteDeps } from "../gateway/execute.js";
 import { GatewayError, irError } from "../gateway/errors.js";
 import { getProvider, resolveModel, selectSurface, type ProviderRuntime } from "../gateway/registry.js";
 import { retargetRequest } from "../gateway/retarget.js";
+import { buildBilling } from "../ops/billing.js";
 import { DEFAULT_TENANT } from "./files.js";
 
 // Batches 브리지 (부록 (b) §3) — 항목 wire는 어댑터의 같은 순수 변환을 재사용하고,
@@ -25,6 +26,9 @@ export interface BatchBridgeDeps extends ExecuteDeps {
   ledger?: UsageLedger;
   /** 미설정 시 "default" */
   tenant?: string;
+  /** 발급 가상 키 — 원장 행 귀속·예산 집계 기준 (ADR-0007 §3) */
+  keyId?: string;
+  keySource?: "byo" | "pool";
 }
 
 export interface BatchItemInput {
@@ -84,13 +88,16 @@ interface RawResultItem {
   terminal?: "canceled" | "expired";
 }
 
+type BatchAuth = Record<string, string>;
+
 interface BatchProviderOps {
   /** 배치가 요구하는 표면 (어댑터 선택 검증용). null = 표면 선택자 결과 사용 */
   surface: string | null;
-  create(items: PreparedItem[], rt: ProviderRuntime, fetchImpl: typeof fetch): Promise<CreateResult>;
-  poll(job: BatchJob, rt: ProviderRuntime, fetchImpl: typeof fetch): Promise<PollResult>;
-  results(job: BatchJob, rt: ProviderRuntime, fetchImpl: typeof fetch): Promise<RawResultItem[]>;
-  cancel(job: BatchJob, rt: ProviderRuntime, fetchImpl: typeof fetch): Promise<void>;
+  // auth는 호출측이 해소해 주입한다 (테넌트 BYO > env 풀 — resolveCredentials)
+  create(items: PreparedItem[], rt: ProviderRuntime, auth: BatchAuth, fetchImpl: typeof fetch): Promise<CreateResult>;
+  poll(job: BatchJob, rt: ProviderRuntime, auth: BatchAuth, fetchImpl: typeof fetch): Promise<PollResult>;
+  results(job: BatchJob, rt: ProviderRuntime, auth: BatchAuth, fetchImpl: typeof fetch): Promise<RawResultItem[]>;
+  cancel(job: BatchJob, rt: ProviderRuntime, auth: BatchAuth, fetchImpl: typeof fetch): Promise<void>;
 }
 
 async function jsonOrThrow(provider: string, res: Response, action: string): Promise<Record<string, unknown>> {
@@ -153,10 +160,10 @@ const anthropicHeaders = { "anthropic-version": "2023-06-01" };
 const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
   anthropic: {
     surface: "messages",
-    async create(items, rt, fetchImpl) {
+    async create(items, rt, auth, fetchImpl) {
       const res = await fetchImpl(`${rt.baseUrl}/v1/messages/batches`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...anthropicHeaders, ...credentialHeaders(rt) },
+        headers: { "content-type": "application/json", ...anthropicHeaders, ...auth },
         body: JSON.stringify({ requests: items.map((i) => ({ custom_id: i.customId, params: i.wire.body })) }),
       });
       const body = await jsonOrThrow("anthropic", res, "생성");
@@ -166,9 +173,9 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
         ...(typeof body["expires_at"] === "string" ? { expiresAt: body["expires_at"] } : {}),
       };
     },
-    async poll(job, rt, fetchImpl) {
+    async poll(job, rt, auth, fetchImpl) {
       const res = await fetchImpl(`${rt.baseUrl}/v1/messages/batches/${job.providerBatchId}`, {
-        headers: { ...anthropicHeaders, ...credentialHeaders(rt) },
+        headers: { ...anthropicHeaders, ...auth },
       });
       const body = await jsonOrThrow("anthropic", res, "조회");
       const raw = String(body["processing_status"] ?? "in_progress");
@@ -183,9 +190,9 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
         ...(Object.keys(state).length > 0 ? { bridgeState: state } : {}),
       };
     },
-    async results(job, rt, fetchImpl) {
+    async results(job, rt, auth, fetchImpl) {
       const url = job.bridgeState?.["resultsUrl"] ?? `${rt.baseUrl}/v1/messages/batches/${job.providerBatchId}/results`;
-      const res = await fetchImpl(url, { headers: { ...anthropicHeaders, ...credentialHeaders(rt) } });
+      const res = await fetchImpl(url, { headers: { ...anthropicHeaders, ...auth } });
       if (!res.ok) await jsonOrThrow("anthropic", res, "결과");
       const lines = parseJsonl(await res.text());
       return lines.map((line) => {
@@ -197,10 +204,10 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
         return { customId, terminal: (type === "expired" ? "expired" : "canceled") as "expired" | "canceled" };
       });
     },
-    async cancel(job, rt, fetchImpl) {
+    async cancel(job, rt, auth, fetchImpl) {
       const res = await fetchImpl(`${rt.baseUrl}/v1/messages/batches/${job.providerBatchId}/cancel`, {
         method: "POST",
-        headers: { ...anthropicHeaders, ...credentialHeaders(rt) },
+        headers: { ...anthropicHeaders, ...auth },
       });
       await jsonOrThrow("anthropic", res, "취소");
     },
@@ -208,7 +215,7 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
 
   openai: {
     surface: "responses",
-    async create(items, rt, fetchImpl) {
+    async create(items, rt, auth, fetchImpl) {
       // JSONL 업로드(purpose: batch) → 배치 생성 (인벤토리 — 파일 기반 구조)
       const jsonl = items
         .map((i) => JSON.stringify({ custom_id: i.customId, method: "POST", url: "/v1/responses", body: i.wire.body }))
@@ -216,13 +223,13 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
       const form = new FormData();
       form.append("purpose", "batch");
       form.append("file", new Blob([jsonl], { type: "application/jsonl" }), "batch-input.jsonl");
-      const up = await fetchImpl(`${rt.baseUrl}/v1/files`, { method: "POST", headers: credentialHeaders(rt), body: form });
+      const up = await fetchImpl(`${rt.baseUrl}/v1/files`, { method: "POST", headers: auth, body: form });
       const upBody = await jsonOrThrow("openai", up, "입력 파일 업로드");
       const inputFileId = String(upBody["id"] ?? "");
 
       const res = await fetchImpl(`${rt.baseUrl}/v1/batches`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...credentialHeaders(rt) },
+        headers: { "content-type": "application/json", ...auth },
         body: JSON.stringify({ input_file_id: inputFileId, endpoint: "/v1/responses", completion_window: "24h" }),
       });
       const body = await jsonOrThrow("openai", res, "생성");
@@ -232,8 +239,8 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
         bridgeState: { inputFileId },
       };
     },
-    async poll(job, rt, fetchImpl) {
-      const res = await fetchImpl(`${rt.baseUrl}/v1/batches/${job.providerBatchId}`, { headers: credentialHeaders(rt) });
+    async poll(job, rt, auth, fetchImpl) {
+      const res = await fetchImpl(`${rt.baseUrl}/v1/batches/${job.providerBatchId}`, { headers: auth });
       const body = await jsonOrThrow("openai", res, "조회");
       const raw = String(body["status"] ?? "in_progress");
       const rc = (body["request_counts"] ?? {}) as Record<string, unknown>;
@@ -249,12 +256,12 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
         bridgeState: state,
       };
     },
-    async results(job, rt, fetchImpl) {
+    async results(job, rt, auth, fetchImpl) {
       const out: RawResultItem[] = [];
       for (const key of ["outputFileId", "errorFileId"] as const) {
         const fileId = job.bridgeState?.[key];
         if (!fileId) continue;
-        const res = await fetchImpl(`${rt.baseUrl}/v1/files/${fileId}/content`, { headers: credentialHeaders(rt) });
+        const res = await fetchImpl(`${rt.baseUrl}/v1/files/${fileId}/content`, { headers: auth });
         if (!res.ok) await jsonOrThrow("openai", res, "결과 파일");
         for (const line of parseJsonl(await res.text())) {
           const customId = String(line["custom_id"] ?? "");
@@ -271,10 +278,10 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
       }
       return out;
     },
-    async cancel(job, rt, fetchImpl) {
+    async cancel(job, rt, auth, fetchImpl) {
       const res = await fetchImpl(`${rt.baseUrl}/v1/batches/${job.providerBatchId}/cancel`, {
         method: "POST",
-        headers: credentialHeaders(rt),
+        headers: auth,
       });
       await jsonOrThrow("openai", res, "취소");
     },
@@ -283,12 +290,12 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
   google: {
     // 2026-08-22 실검증: 생성(BATCH_STATE_PENDING)·폴링(RUNNING)·취소(CANCELLED) wire 확정
     surface: "generate-content",
-    async create(items, rt, fetchImpl) {
+    async create(items, rt, auth, fetchImpl) {
       // 배치당 단일 모델 (모델이 경로에 — 부록 (b) §3.1). 혼합은 createBatch에서 사전 400
       const model = items[0]!.model;
       const res = await fetchImpl(`${rt.baseUrl}/v1beta/models/${model}:batchGenerateContent`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...credentialHeaders(rt) },
+        headers: { "content-type": "application/json", ...auth },
         body: JSON.stringify({
           batch: {
             displayName: `gw-${items.length}items`,
@@ -303,15 +310,15 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
         rawStatus: String(meta["state"] ?? "BATCH_STATE_PENDING"),
       };
     },
-    async poll(job, rt, fetchImpl) {
-      const res = await fetchImpl(`${rt.baseUrl}/v1beta/${job.providerBatchId}`, { headers: credentialHeaders(rt) });
+    async poll(job, rt, auth, fetchImpl) {
+      const res = await fetchImpl(`${rt.baseUrl}/v1beta/${job.providerBatchId}`, { headers: auth });
       const body = await jsonOrThrow("google", res, "조회");
       const meta = (body["metadata"] ?? {}) as Record<string, unknown>;
       const raw = String(meta["state"] ?? (body["done"] === true ? "BATCH_STATE_SUCCEEDED" : "BATCH_STATE_RUNNING"));
       return { status: normalizeStatus(raw), rawStatus: raw };
     },
-    async results(job, rt, fetchImpl) {
-      const res = await fetchImpl(`${rt.baseUrl}/v1beta/${job.providerBatchId}`, { headers: credentialHeaders(rt) });
+    async results(job, rt, auth, fetchImpl) {
+      const res = await fetchImpl(`${rt.baseUrl}/v1beta/${job.providerBatchId}`, { headers: auth });
       const body = await jsonOrThrow("google", res, "결과");
       const response = (body["response"] ?? {}) as Record<string, unknown>;
       const inlined = ((response["inlinedResponses"] ?? {}) as Record<string, unknown>)["inlinedResponses"];
@@ -327,10 +334,10 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
         return { customId, wireBody: e["response"] };
       });
     },
-    async cancel(job, rt, fetchImpl) {
+    async cancel(job, rt, auth, fetchImpl) {
       const res = await fetchImpl(`${rt.baseUrl}/v1beta/${job.providerBatchId}:cancel`, {
         method: "POST",
-        headers: credentialHeaders(rt),
+        headers: auth,
       });
       await jsonOrThrow("google", res, "취소");
     },
@@ -340,10 +347,10 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
     // 2026-08-22 실검증: 생성·폴링(pending/running)·취소 wire 확정. 주의 — 배치는 모델 게이트 있음:
     // grok-4.3·grok-4.20 계열 지원, grok-4.6/4.5/build-0.1은 400 "not supported for batch processing"
     surface: "chat-completions",
-    async create(items, rt, fetchImpl) {
+    async create(items, rt, auth, fetchImpl) {
       const created = await fetchImpl(`${rt.baseUrl}/v1/batches`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...credentialHeaders(rt) },
+        headers: { "content-type": "application/json", ...auth },
         body: JSON.stringify({ name: `gw-${items.length}items` }),
       });
       const body = await jsonOrThrow("xai", created, "생성");
@@ -351,7 +358,7 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
       // 2026-08-22 실측: 등록 필드는 batch_requests (요청 `requests` 가정은 422로 반증 — problem log)
       const reg = await fetchImpl(`${rt.baseUrl}/v1/batches/${providerBatchId}/requests`, {
         method: "POST",
-        headers: { "content-type": "application/json", ...credentialHeaders(rt) },
+        headers: { "content-type": "application/json", ...auth },
         body: JSON.stringify({
           // batch_request는 태그드 유니온 (2026-08-22 실측: chat_get_completion|responses|image_generation|…)
           batch_requests: items.map((i) => ({
@@ -365,15 +372,15 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
       await jsonOrThrow("xai", reg, "요청 등록");
       return { providerBatchId, rawStatus: "pending" };
     },
-    async poll(job, rt, fetchImpl) {
-      const res = await fetchImpl(`${rt.baseUrl}/v1/batches/${job.providerBatchId}`, { headers: credentialHeaders(rt) });
+    async poll(job, rt, auth, fetchImpl) {
+      const res = await fetchImpl(`${rt.baseUrl}/v1/batches/${job.providerBatchId}`, { headers: auth });
       const body = await jsonOrThrow("xai", res, "조회");
       const raw = String(body["status"] ?? "running");
       return { status: normalizeStatus(raw), rawStatus: raw };
     },
-    async results(job, rt, fetchImpl) {
+    async results(job, rt, auth, fetchImpl) {
       const res = await fetchImpl(`${rt.baseUrl}/v1/batches/${job.providerBatchId}/results`, {
-        headers: credentialHeaders(rt),
+        headers: auth,
       });
       const body = await jsonOrThrow("xai", res, "결과");
       const results = body["results"];
@@ -387,10 +394,10 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
         return { customId, wireBody: e["response"] ?? e["body"] };
       });
     },
-    async cancel(job, rt, fetchImpl) {
+    async cancel(job, rt, auth, fetchImpl) {
       const res = await fetchImpl(`${rt.baseUrl}/v1/batches/${job.providerBatchId}:cancel`, {
         method: "POST",
-        headers: credentialHeaders(rt),
+        headers: auth,
       });
       await jsonOrThrow("xai", res, "취소");
     },
@@ -442,7 +449,6 @@ export async function createBatch(items: BatchItemInput[], deps: BatchBridgeDeps
   const prepared: PreparedItem[] = [];
   let provider: string | undefined;
   let surface: string | undefined;
-  let adapterUsed: OutboundAdapter | undefined;
   const itemModels: Record<string, string> = {};
   for (const item of items) {
     const route = resolveModel(item.request.model);
@@ -466,7 +472,6 @@ export async function createBatch(items: BatchItemInput[], deps: BatchBridgeDeps
     if (effectiveAdapter.surface !== surface) {
       throw new GatewayError(irError("invalid_request", 400, `배치 내 표면 혼합 불가 (§3.4) — ${surface} vs ${effectiveAdapter.surface}`));
     }
-    adapterUsed = effectiveAdapter;
     try {
       const { request: wire, warnings } = effectiveAdapter.transformRequest(retargeted, {
         requestId: `batch_${item.customId}`,
@@ -490,10 +495,8 @@ export async function createBatch(items: BatchItemInput[], deps: BatchBridgeDeps
       throw new GatewayError(irError("invalid_request", 400, `google 배치는 단일 모델 (모델이 경로에 — §3.1): ${[...models].join(", ")}`));
     }
   }
-  void adapterUsed;
-
   const rt = getProvider(provider!);
-  const created = await batchOps(provider!).create(prepared, rt, deps.fetchImpl ?? fetch);
+  const created = await batchOps(provider!).create(prepared, rt, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
   if (!created.providerBatchId) {
     throw new GatewayError(irError("provider_error", 502, `${provider} 배치 생성 응답에 id 없음`));
   }
@@ -522,7 +525,8 @@ async function loadJob(gatewayBatchId: string, deps: BatchBridgeDeps): Promise<B
 
 export async function getBatch(gatewayBatchId: string, deps: BatchBridgeDeps): Promise<BatchEnvelope> {
   let job = await loadJob(gatewayBatchId, deps);
-  const polled = await batchOps(job.provider).poll(job, getProvider(job.provider), deps.fetchImpl ?? fetch);
+  const rt = getProvider(job.provider);
+  const polled = await batchOps(job.provider).poll(job, rt, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
   job = {
     ...job,
     status: polled.status,
@@ -540,7 +544,8 @@ export async function listBatches(deps: BatchBridgeDeps): Promise<BatchEnvelope[
 
 export async function cancelBatch(gatewayBatchId: string, deps: BatchBridgeDeps): Promise<BatchEnvelope> {
   const job = await loadJob(gatewayBatchId, deps);
-  await batchOps(job.provider).cancel(job, getProvider(job.provider), deps.fetchImpl ?? fetch);
+  const rt = getProvider(job.provider);
+  await batchOps(job.provider).cancel(job, rt, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
   return getBatch(gatewayBatchId, deps); // 취소는 비동기 — 최신 상태 재조회 (§3.2)
 }
 
@@ -549,7 +554,7 @@ export async function getBatchResults(gatewayBatchId: string, deps: BatchBridgeD
   const job = await loadJob(gatewayBatchId, deps);
   const rt = getProvider(job.provider);
   const ops = batchOps(job.provider);
-  const raw = await ops.results(job, rt, deps.fetchImpl ?? fetch);
+  const raw = await ops.results(job, rt, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
 
   const out: BatchResultItem[] = [];
   for (const item of raw) {
@@ -599,11 +604,12 @@ export async function getBatchResults(gatewayBatchId: string, deps: BatchBridgeD
     const createdAt = (deps.now?.() ?? new Date()).toISOString();
     for (const r of out) {
       try {
+        const itemModel = job.itemModels[r.customId] ?? job.provider;
         await deps.ledger.record({
           requestId: `${gatewayBatchId}:${r.customId}`,
           attempt: 1,
           provider: job.provider,
-          model: job.itemModels[r.customId] ?? job.provider,
+          model: itemModel,
           surface: ops.surface ?? rt.defaultSurface,
           stream: false,
           outcome: r.response ? "success" : "error",
@@ -613,6 +619,14 @@ export async function getBatchResults(gatewayBatchId: string, deps: BatchBridgeD
           billed: r.response !== undefined,
           durationMs: 0, // 배치는 요청 단위 소요 미제공
           createdAt,
+          // 귀속 없는 행은 예산 집계(withSpendTracking)와 테넌트 정산에서 통째로 빠진다 (리뷰 2026-08-22)
+          tenant: job.tenant,
+          ...(deps.keyId ? { keyId: deps.keyId } : {}),
+          ...(deps.keySource ? { keySource: deps.keySource } : {}),
+          // 배치 할인 SKU 기준 비용 (부록 (b) §3.4) — 동기 경로의 recordAttempt와 대칭
+          ...(r.response
+            ? { costUsd: buildBilling(job.provider, itemModel, r.response.usage, { batch: true }).total }
+            : {}),
         });
       } catch (err) {
         console.error("[batch-ledger]", err instanceof Error ? err.message : err);

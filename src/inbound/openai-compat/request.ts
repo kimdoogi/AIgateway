@@ -134,9 +134,13 @@ export function compatChatToIR(wire: unknown, allowUnknown: boolean): IRRequest 
     const role = String(m["role"] ?? "");
     const path = `messages[${mi}]`;
     if (role === "system" || role === "developer") {
+      // 빈 content는 메시지 자체를 생략 — user/assistant와 동일 규칙.
+      // 생략하지 않으면 MessageSchema.blocks.min(1)에 걸려 OpenAI가 수용하는 요청이 400이 된다
+      const blocks = contentToBlocks(m["content"], path);
+      if (blocks.length === 0) return;
       messages.push({
         role: "system",
-        blocks: contentToBlocks(m["content"], path),
+        blocks,
         ...(role === "developer" ? { providerOptions: { openai: { role: "developer" } } } : {}),
       });
       return;

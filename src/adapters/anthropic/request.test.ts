@@ -205,15 +205,32 @@ describe("anthropic transformRequest", () => {
     expect(warnings.map((w) => w.code)).toContain("parameter-defaulted");
   });
 
-  it("effort none은 low로 클램프 + warning, betas는 헤더로", () => {
+  // ir-v0 §6.3 — on/off 경계는 클램프하지 않는다: 'none'을 'low'로 올리면 "추론 끄기" 요청이
+  // "추론 켜기 + thinking 토큰 과금"으로 반전된다 (리뷰 2026-08-22)
+  it("effort none은 클램프하지 않고 드롭 + 보고, betas는 헤더로", () => {
     const req = baseReq({
       reasoning: { effort: "none" },
       providerOptions: { anthropic: { betas: ["compact-2026-01-12"] } },
     });
     const { request, warnings } = transformRequest(req, ctx);
-    expect((request.body["output_config"] as Record<string, unknown>)["effort"]).toBe("low");
-    expect(warnings.map((x) => x.code)).toContain("parameter-clamped");
+    expect(request.body["output_config"]).toBeUndefined(); // effort 미방출 → 모델 기본 동작
+    const dropped = warnings.filter((w) => w.code === "parameter-dropped" && w.path === "reasoning.effort");
+    expect(dropped).toHaveLength(1);
+    expect(warnings.map((x) => x.code)).not.toContain("parameter-clamped");
     expect(request.headers["anthropic-beta"]).toBe("compact-2026-01-12");
+  });
+
+  it("strictParameters면 표현 불가 effort는 4xx (D5)", () => {
+    expect(() =>
+      transformRequest(baseReq({ reasoning: { effort: "none" }, strictParameters: true }), ctx),
+    ).toThrow(AdapterInvalidRequestError);
+  });
+
+  it("지원 집합 밖 effort는 최근접으로 클램프 (최저 고정 아님)", () => {
+    const narrow = { ...ctx, capabilities: { supportedEfforts: ["low", "medium", "high"] } };
+    const { request, warnings } = transformRequest(baseReq({ reasoning: { effort: "max" } }), narrow);
+    expect((request.body["output_config"] as Record<string, unknown>)["effort"]).toBe("high");
+    expect(warnings.map((x) => x.code)).toContain("parameter-clamped");
   });
 
   it("metadata: userId 외 키는 드롭 + 보고 (리뷰 R6c)", () => {

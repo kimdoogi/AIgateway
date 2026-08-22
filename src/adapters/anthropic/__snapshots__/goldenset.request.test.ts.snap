@@ -66,6 +66,45 @@ exports[`골든셋 ① IR → anthropic wire > count-tokens — count_tokens 경
 }
 `;
 
+exports[`골든셋 ① IR → anthropic wire > effort-clamp — 지원 집합 밖 effort는 최근접 클램프 (ir-v0 §6.3) 1`] = `
+{
+  "request": {
+    "body": {
+      "max_tokens": 200,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "think hard",
+              "type": "text",
+            },
+          ],
+          "role": "user",
+        },
+      ],
+      "model": "claude-haiku-4-5",
+      "output_config": {
+        "effort": "low",
+      },
+    },
+    "headers": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    "method": "POST",
+    "path": "/v1/messages",
+  },
+  "warnings": [
+    {
+      "code": "parameter-clamped",
+      "message": "effort 'minimal' → 'low' 최근접 클램프",
+      "path": "reasoning.effort",
+      "type": "compatibility",
+    },
+  ],
+}
+`;
+
 exports[`골든셋 ① IR → anthropic wire > mid-system-supported — capability 있으면 messages 내 role system 유지 1`] = `
 {
   "request": {
@@ -389,7 +428,7 @@ exports[`골든셋 ① IR → anthropic wire > reasoning-replay — anthropic op
 }
 `;
 
-exports[`골든셋 ① IR → anthropic wire > response-format+effort — output_config 조립, 미지원 effort는 클램프 + warning 1`] = `
+exports[`골든셋 ① IR → anthropic wire > response-format+effort — output_config 조립, effort 'none'은 드롭 + warning (on/off 경계 보존) 1`] = `
 {
   "request": {
     "body": {
@@ -407,7 +446,6 @@ exports[`골든셋 ① IR → anthropic wire > response-format+effort — output
       ],
       "model": "claude-haiku-4-5",
       "output_config": {
-        "effort": "low",
         "format": {
           "name": "result",
           "schema": {
@@ -431,10 +469,10 @@ exports[`골든셋 ① IR → anthropic wire > response-format+effort — output
   },
   "warnings": [
     {
-      "code": "parameter-clamped",
-      "message": "effort 'none' → 'low' 클램프",
+      "code": "parameter-dropped",
+      "message": "anthropic 모델이 추론 비활성(effort 'none')을 표현할 수 없음 — output_config.effort 미방출 (모델 기본 동작)",
       "path": "reasoning.effort",
-      "type": "compatibility",
+      "type": "unsupported",
     },
   ],
 }

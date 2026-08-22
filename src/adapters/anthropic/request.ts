@@ -3,7 +3,7 @@ import type { Block, FileBlock, ToolResultBlock } from "../../ir/blocks.js";
 import type { NS, Warning } from "../../ir/common.js";
 import type { IRRequest } from "../../ir/request.js";
 import type { RequestContext, TransformedRequest } from "../types.js";
-import { AdapterInvalidRequestError, dropUnsupportedParams, makeWarning } from "../shared.js";
+import { AdapterInvalidRequestError, dropUnsupportedParams, gateEffort, makeWarning } from "../shared.js";
 import { parseAnthropicRequestOptions, readBlockCacheControl, readBlockWireType, readWireExtras } from "./options.js";
 import { AnthropicWireRequestSchema } from "./wire.js";
 
@@ -400,17 +400,21 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   );
 
   // ── reasoning effort → output_config.effort (capability 게이트 — 리뷰 A3) ──
+  // 클램프 규칙은 shared.gateEffort 공통 (ir-v0 §6.3 — 최근접 + on/off 경계 보존)
   const outputConfig: JSONObject = {};
   if (req.reasoning?.effort) {
-    const supported = ctx.capabilities?.supportedEfforts ?? DEFAULT_EFFORTS;
-    let effort: string = req.reasoning.effort;
-    if (!supported.includes(effort)) {
-      warnings.push(
-        makeWarning("compatibility", "parameter-clamped", `effort '${effort}' → 'low' 클램프`, "reasoning.effort"),
-      );
-      effort = "low";
-    }
-    outputConfig["effort"] = effort;
+    const effort = gateEffort(
+      req.reasoning.effort,
+      ctx.capabilities?.supportedEfforts ?? DEFAULT_EFFORTS,
+      {
+        strict: req.strictParameters,
+        label: "anthropic",
+        noneMessage:
+          "anthropic 모델이 추론 비활성(effort 'none')을 표현할 수 없음 — output_config.effort 미방출 (모델 기본 동작)",
+      },
+      warnings,
+    );
+    if (effort !== undefined) outputConfig["effort"] = effort;
   }
   if (req.responseFormat && req.responseFormat.type === "json") {
     // TODO(녹화 검증): output_config.format wire 형태를 골든셋 녹화에서 확정

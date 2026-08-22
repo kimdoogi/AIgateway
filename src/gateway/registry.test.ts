@@ -146,3 +146,41 @@ describe("registry 표면 축", () => {
     ).toThrow(/중복/);
   });
 });
+
+// ── 리뷰 2026-08-22 회귀 ──
+describe("표면 게이트는 조용히 변조하지 않는다 (D5)", () => {
+  beforeEach(() => {
+    clearProviders();
+    registerProvider({
+      adapters: openaiAdapters,
+      baseUrl: "https://api.openai.com",
+      auth: { envVar: "OPENAI_API_KEY", header: "authorization", prefix: "Bearer " },
+      selectSurface: selectOpenAISurface,
+    });
+  });
+
+  it("히스토리가 없어도 무시된 명시 오버라이드를 보고한다", () => {
+    // 신규 대화(prev 없음) + 모델이 해당 표면 미지원 → 조용히 바뀌면 클라이언트가 알 길이 없다
+    const req = ir({ model: "gpt-5.6-pro", providerOptions: { openai: { surface: "chat-completions" } } });
+    const { adapter, warnings } = selectSurface(getProvider("openai"), req, {
+      provider: "openai",
+      modelId: "gpt-5.6-pro",
+      capabilities: { surfaces: ["responses"] },
+    });
+    expect(adapter.surface).toBe("responses");
+    const switched = warnings.filter((w) => w.code === "surface-switched");
+    expect(switched).toHaveLength(1);
+    expect(switched[0]!.path).toBe("providerOptions.openai.surface");
+    expect(switched[0]!.message).toContain("chat-completions");
+  });
+
+  it("오버라이드가 그대로 적용되면 warning 없음", () => {
+    const req = ir({ providerOptions: { openai: { surface: "chat-completions" } } });
+    const { adapter, warnings } = selectSurface(getProvider("openai"), req, {
+      provider: "openai",
+      modelId: "gpt-5.6-luna",
+    });
+    expect(adapter.surface).toBe("chat-completions");
+    expect(warnings).toEqual([]);
+  });
+});

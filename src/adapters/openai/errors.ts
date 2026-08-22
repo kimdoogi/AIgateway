@@ -188,8 +188,8 @@ export function mapOpenAIError(status: number, body: unknown, headers?: Record<s
       key: OPENAI_PROVIDER,
       status,
       ...(code ?? type ? { code: code ?? type! } : {}),
+      ...(param ? { param } : {}),
       ...(body !== undefined ? { raw: body as JSONValue } : {}),
-      ...(param ? {} : {}),
     },
   };
 }

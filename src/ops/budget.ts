@@ -21,7 +21,14 @@ export class InMemorySpendTracker implements SpendTracker {
     this.entries.set(keyId, list);
   }
   spentSince(keyId: string, sinceIso: string): number {
-    return (this.entries.get(keyId) ?? []).filter((e) => e.at >= sinceIso).reduce((s, e) => s + e.usd, 0);
+    const list = this.entries.get(keyId);
+    if (!list) return 0;
+    // 창 밖 선두 항목은 여기서 잘라낸다 — add만 하면 프로세스 수명 내내 단조 증가하고
+    // 요청마다 도는 이 스캔이 계속 길어진다 (리뷰 2026-08-22)
+    let cut = 0;
+    while (cut < list.length && list[cut]!.at < sinceIso) cut += 1;
+    if (cut > 0) list.splice(0, cut);
+    return list.reduce((s, e) => (e.at >= sinceIso ? s + e.usd : s), 0);
   }
 }
 

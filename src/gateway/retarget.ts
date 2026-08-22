@@ -79,8 +79,10 @@ function repairToolPairs(messages: readonly Message[], warnings: Warning[]): Mes
     }
   });
 
-  const dropCall = (id: string, mi: number): boolean =>
-    !resultIds.has(id) && mi !== lastAssistantWithCalls;
+  // 예외는 그 assistant 턴이 대화의 **마지막** 메시지일 때만 성립한다 — 뒤에 user 턴이 붙었다면
+  // 결과 없는 toolCall은 진행 중 루프가 아니라 그냥 고아이고, 프로바이더가 400을 낸다 (리뷰 2026-08-22)
+  const inFlightTurn = lastAssistantWithCalls === messages.length - 1 ? lastAssistantWithCalls : -1;
+  const dropCall = (id: string, mi: number): boolean => !resultIds.has(id) && mi !== inFlightTurn;
   const dropResult = (id: string): boolean => !callIds.has(id);
 
   let changed = false;
@@ -115,7 +117,7 @@ function repairToolPairs(messages: readonly Message[], warnings: Warning[]): Mes
       blocks.push(b);
     });
     // 블록이 전부 제거된 메시지는 생략 (MessageSchema.min(1) — §13.1 빈 응답 규칙과 동일 취지)
-    if (blocks.length > 0) repaired.push(blocks === msg.blocks ? msg : { ...msg, blocks });
+    if (blocks.length > 0) repaired.push(blocks.length === msg.blocks.length ? msg : { ...msg, blocks });
     else changed = true;
   });
   return changed ? repaired : null;

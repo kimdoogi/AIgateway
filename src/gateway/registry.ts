@@ -269,6 +269,20 @@ export function selectSurface(rt: ProviderRuntime, req: IRRequest, route: Resolv
       }),
     );
   }
+  // 전환 보고 (D5 조용한 변조 금지) — 두 사실은 별개이므로 각각 보고한다.
+  // ① 클라이언트가 명시 지목한 표면이 무시됨: prev 유무와 무관하게 반드시 보고해야 한다
+  //    (신규 대화에는 prev가 없어, prev 조건에 묶어두면 조용히 무시됐다 — 리뷰 2026-08-22)
+  if (override !== undefined && override !== surface) {
+    warnings.push(
+      makeWarning(
+        "compatibility",
+        "surface-switched",
+        `명시 표면 ${override} → ${surface} 전환 (${switchReason ?? "표면 게이트"}) — providerOptions.surface 지시가 적용되지 않음`,
+        `providerOptions.${rt.provider}.surface`,
+      ),
+    );
+  }
+  // ② 직전 턴 표면(sticky)이 깨짐 — 캐시 미스·reasoning 연속성 소실
   if (switchReason && prev && prev !== surface) {
     warnings.push(
       makeWarning(

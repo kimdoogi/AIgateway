@@ -233,3 +233,47 @@ describeAdapterConformance(xaiResponsesAdapter, IRRequestSchema.parse({ version:
   output: [{ type: "message", id: "msg_conf", role: "assistant", content: [{ type: "output_text", text: "ok", annotations: [] }] }],
   usage: { input_tokens: 1, output_tokens: 1 },
 });
+
+// ── 리뷰 2026-08-22 회귀 ──
+describe("리맵은 타 프로바이더 표식을 소비하지 않는다 (ir-v0 §2)", () => {
+  it("providerOptions.openai는 xAI wire로 새지 않는다", () => {
+    // openai로 돌던 대화를 grok으로 재타게팅한 상황 — openai 지시는 xai 것이 아니다
+    const req = ir({
+      messages: [{ role: "user", blocks: [{ type: "text", text: "hi" }] }],
+      maxOutputTokens: 100,
+      providerOptions: { openai: { serviceTier: "flex" } },
+    });
+    const { request } = xaiChatAdapter.transformRequest(req, ctx);
+    expect(request.body["service_tier"]).toBeUndefined();
+  });
+
+  it("자기 네임스페이스(xai)는 정상 소비", () => {
+    const req = ir({
+      messages: [{ role: "user", blocks: [{ type: "text", text: "hi" }] }],
+      maxOutputTokens: 100,
+      providerOptions: { xai: { serviceTier: "flex" } },
+    });
+    const { request } = xaiChatAdapter.transformRequest(req, ctx);
+    expect(request.body["service_tier"]).toBe("flex");
+  });
+
+  it("타사 encrypted reasoning은 외래로 취급 — 자기 것으로 복원하지 않는다", () => {
+    const req = ir({
+      maxOutputTokens: 100,
+      messages: [
+        { role: "user", blocks: [{ type: "text", text: "hi" }] },
+        {
+          role: "assistant",
+          blocks: [
+            { type: "reasoning", text: "openai 추론", opaqueState: { provider: "openai", data: "ENC_OPENAI" } },
+            { type: "text", text: "답" },
+          ],
+        },
+        { role: "user", blocks: [{ type: "text", text: "계속" }] },
+      ],
+    });
+    const { request, warnings } = xaiResponsesAdapter.transformRequest(req, ctx);
+    expect(JSON.stringify(request.body)).not.toContain("ENC_OPENAI");
+    expect(warnings.map((w) => w.code)).toContain("reasoning-dropped");
+  });
+});

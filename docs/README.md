@@ -134,3 +134,12 @@
 1. ~~IR 설계 게이트 + 운영 결정 클로즈~~ (완료) → 2. ~~IR 스키마 v0~~ (작성·검증·개정 완료 — 사용자 승인 대기) → 3. **Walking skeleton** ([실행 계획](plan/walking-skeleton.md) — native → Anthropic, stream 포함 + 골든셋 캡처 하네스 + docker-compose + 메타 로그·OTel) → 4. OpenAI 어댑터 + 재타게팅 패스 v0 + 크로스 왕복 골든셋 + **부록 (a) 선행 후** 호환 인바운드 2종 → 5. Gemini·xAI 확장 + **Batches/Files 브리지(부록 (b) 선행)** + 레지스트리·커버리지 CI + 운영 평면(가상 키·예산·정산, 서버 상태 레지스트리, 본문 로그 파이프라인)
 
 원칙: 4사 동시 착수 금지 (2사로 인터페이스 검증 후 확장), 골든셋 하네스는 어댑터와 동시 또는 선행. v1 정의는 넓지만(정산·관리형 서버 상태 포함) 구현 순서는 코어 파이프라인 우선 — 운영 평면은 5단계에 집중.
+
+### 2026-08-22 — 전면 코드리뷰 + 확정 15건 수정 (계층 경계 결함)
+
+- `src`·`tools` 전체(21k LOC) 10각도 리뷰 → 확정 15건 전부 수정, 회귀 테스트 32개 추가 (430 → **462개 통과**). 결함이 세 축으로 묶였고 원인이 축마다 같았다 — *기능 추가 시 그 기능이 통과해야 할 다른 평면을 함께 배선하지 않음*. 전문: [problem log](problems/problem-log.md)
+- **축 1 compat 평면**: 인증·예산이 `/v0/*`에만 걸려 있어 `/compat/*`가 **무인증으로 풀 키 실행**(귀속·예산 동시 무력화) → 미들웨어 공용화 + 인바운드 전처리(`prepareInbound`) native·compat 통합. 폴백 트리의 `error-partial{willRetry:true}`를 다운컨버터 2종이 종결로 번역해 **폴백 성공분이 유실**되던 것 → 부록 (a) §6.1/6.2 규범화 + `fallback-target-switched` 코드 신설
+- **축 2 자격증명 계약**: count_tokens·Files·Batches가 `deps.credentials`를 무시하고 env 풀 키 직행 → `resolveCredentials` 단일 지점 경유. 동반 발견 — 배치 원장 행에 tenant·keyId·costUsd 누락으로 **배치 지출이 예산·정산에서 통째 누락**(할인 SKU 경로도 사문화) → 세 필드 병기 + `buildBilling(batch:true)` 배선
+- **축 3 effort on/off 경계**: `'none'`(추론 비활성)은 강도 눈금이 아니라 스위치인데 gemini만 알고 있었다 — anthropic은 `'low'` 고정 클램프로 **끄기가 켜기로 반전**, openai/xai는 가드 부재. 반대 방향(`minimal`→`none`) 반전은 **골든셋 스냅샷이 정답으로 굳혀두고 있었다** → `shared.gateEffort` 단일 구현 + [ir-v0 §6.3](specs/ir-v0.md) 양방향 경계 규범
+- 그 밖: 명시 표면 오버라이드 조용한 무시(D5 위반), xai 리맵이 타사 네임스페이스·opaqueState 소비(§2 위반 — 중립 라벨 밀어내기로 해소), 스트림 세션 테넌트 소유권 부재(재개·취소 격리 + 영속 키 스코프), 콘텐츠 방출 후 provider-error의 partial/final 오분류, 고아 toolCall 예외 범위 초과(크로스 왕복 골든셋도 같은 형태를 스냅샷 중이었음), 빈 system content 400, `error.param` 사문화(→ ir-v0 §12 정식 슬롯), 지출 트래커 무한 증가, 가격표 매 호출 정렬
+- **[ops-plane](plan/ops-plane.md) "compat 인바운드 인증" 좌석 클로즈**. 리뷰 교훈 3가지(좌석 문구가 위험도를 감춤 · 새 이벤트 의미론의 소비자 전수 · 골든셋이 결함을 굳힘)는 problem log에 기록

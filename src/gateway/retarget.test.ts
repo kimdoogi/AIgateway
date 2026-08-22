@@ -130,3 +130,39 @@ describe("passthroughParams 타깃 불일치 (§13.3 — 2026-08-21 구현)", ()
     expect(warnings).toEqual([]);
   });
 });
+
+// ── 리뷰 2026-08-22 회귀 ──
+describe("고아 tool 쌍 수리의 '진행 중 루프' 예외 범위 (D6-10)", () => {
+  const call = {
+    role: "assistant",
+    blocks: [{ type: "toolCall", toolCallId: "t1", toolName: "get_weather", input: { type: "json", value: {} } }],
+  };
+
+  it("assistant 툴콜이 마지막 메시지면 보존 (진행 중 루프)", () => {
+    const { request, warnings } = retargetRequest(ir({ messages: [user, call] }), "anthropic");
+    expect(request.messages).toHaveLength(2);
+    expect(warnings).toEqual([]);
+  });
+
+  it("뒤에 user 턴이 붙으면 고아 — 제거 + 보고 (프로바이더 400 방지)", () => {
+    const { request, warnings } = retargetRequest(
+      ir({ messages: [user, call, { role: "user", blocks: [{ type: "text", text: "됐어" }] }] }),
+      "anthropic",
+    );
+    expect(request.messages.some((m) => m.blocks.some((b) => b.type === "toolCall"))).toBe(false);
+    expect(warnings.map((w) => w.code)).toContain("tool-pair-repaired");
+  });
+
+  it("결과가 있으면 쌍이므로 보존", () => {
+    const result = {
+      role: "tool",
+      blocks: [{ type: "toolResult", toolCallId: "t1", toolName: "get_weather", output: { type: "text", text: "맑음" } }],
+    };
+    const { request, warnings } = retargetRequest(
+      ir({ messages: [user, call, result, { role: "user", blocks: [{ type: "text", text: "고마워" }] }] }),
+      "anthropic",
+    );
+    expect(request.messages).toHaveLength(4);
+    expect(warnings).toEqual([]);
+  });
+});

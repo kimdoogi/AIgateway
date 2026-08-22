@@ -83,6 +83,10 @@
 - anthropic-compat의 `cache_control`은 항상 `providerOptions.anthropic.cacheControl`로 실린다. **타깃이 anthropic이 아니면** 아웃바운드 어댑터는 타 네임스페이스를 무시하므로(§2) 캐시 지시가 조용히 사라진다 — 이를 막기 위해 **인바운드 어댑터가 라우팅 결과를 알 수 없으므로, 재타게팅 패스가 타깃 상이 시 `warning(cache-breakpoint-ignored)`를 낸다** (retarget.ts의 서버 상태 PO 처리와 동일 지점, 데이터 테이블에 `anthropic.cacheControl` 추가).
 - openai-compat의 CC 전용 파라미터가 비-openai 타깃으로 가면 아웃바운드 어댑터의 표준 드롭 경로(D5 warning)가 처리한다.
 
+### 3.4 빈 content 메시지 — 2026-08-22 리뷰
+
+`content`가 빈 문자열/빈 배열인 메시지는 **역할과 무관하게 메시지 자체를 생략**한다. IR `MessageSchema.blocks`는 `min(1)`이라 빈 블록 메시지를 만들면 검증 실패로 4xx가 되는데, OpenAI/Anthropic은 빈 system을 정상 수용하므로 게이트웨이만 거부하는 비대칭이 생긴다 (user/assistant에는 이미 적용돼 있었고 system/developer만 빠져 있었다).
+
 ## 4. 응답 방향 — finishReason 다운컨버트 표
 
 ### 4.1 → CC `finish_reason`
@@ -137,8 +141,10 @@ origin 일치 시 usage.raw를 우선 복원 (무손실).
 | tool-call | — (delta 누적으로 재현 완료. input.type=text인 경우만 보정 chunk) |
 | citation-delta | `delta.annotations` 근사 — v0는 드롭 + 최종 gateway.ir |
 | finish | finish_reason chunk → usage chunk → gateway.ir chunk(비-strict) → `[DONE]` |
-| error-partial/final | CC 에러 JSON을 SSE data로 (OpenAI 관례) 후 종료 |
-| provider-switched/heartbeat/usage-interim/warning | 드롭 (heartbeat는 SSE 주석 `: ping`으로) |
+| error-partial(`willRetry:false`)/error-final | CC 에러 JSON을 SSE data로 (OpenAI 관례) 후 `[DONE]` |
+| error-partial(`willRetry:true`) | **종결 금지** — SSE 주석 `: retrying:{category}`만. 폴백 트리가 다음 타깃으로 이어가는 중이므로(§6.4) `[DONE]`을 내보내면 SDK가 스트림을 끊어 폴백 성공분이 통째로 유실된다 |
+| provider-switched | SSE 주석 + finish의 `gateway.warnings`에 `fallback-target-switched` (CC wire에 전환 슬롯이 없다 — 조용한 전환 금지, D5) |
+| heartbeat/usage-interim/warning | 드롭 (heartbeat는 SSE 주석 `: ping`으로) |
 | passthrough/custom/file/source | 드롭 + 최종 gateway.ir에 포함 |
 
 ### 6.2 IR → Anthropic SSE
@@ -151,7 +157,9 @@ origin 일치 시 usage.raw를 우선 복원 (무손실).
 | tool-input-start/-delta/-end | `content_block_start(tool_use)` / `input_json_delta` / `content_block_stop` |
 | citation-delta | `content_block_delta(citations_delta)` |
 | finish | `message_delta`(stop_reason·usage) → `message_stop` |
-| error-* | `error` 이벤트 |
+| error-partial(`willRetry:false`)/error-final | `error` 이벤트 |
+| error-partial(`willRetry:true`) | **미방출** — 폴백 진행 중이며 터미널이 아니다 (§6.4). `error`를 내면 SDK가 턴을 실패로 종결한다 |
+| provider-switched | `ping`(연결 유지) + finish의 `gateway.warnings`에 `fallback-target-switched` |
 | heartbeat | `ping` |
 | passthrough(provider==anthropic) | 원문 이벤트 복원 |
 | 기타 (custom/file/source/provider-switched 등) | 드롭 — `gateway` 확장(§2.2)과 native 재개 API로 보완 |

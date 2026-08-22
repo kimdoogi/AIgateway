@@ -26,12 +26,12 @@ const PRICE_TABLE: Array<{ prefix: string; price: ModelPrice }> = [
 /** 미지 모델 폴백 — Opus급 상한 근사 (캡 가드가 과소평가하지 않게 보수적으로) */
 const FALLBACK_PRICE: ModelPrice = { input: 5.0, output: 25.0, ...DEFAULT_MULTIPLIERS };
 
+// 최장 접두 우선 — 삽입 순서 의존 제거 (리뷰 F18). 정렬은 모듈 로드 시 1회:
+// lookupPrice는 시도마다·응답마다 불린다 (recordAttempt·buildBilling)
+const PRICE_BY_LONGEST_PREFIX = [...PRICE_TABLE].sort((a, b) => b.prefix.length - a.prefix.length);
+
 export function lookupPrice(model: string): ModelPrice {
-  // 최장 접두 우선 — 삽입 순서 의존 제거 (리뷰 F18)
-  const hit = [...PRICE_TABLE]
-    .sort((a, b) => b.prefix.length - a.prefix.length)
-    .find((e) => model.startsWith(e.prefix));
-  return hit?.price ?? FALLBACK_PRICE;
+  return PRICE_BY_LONGEST_PREFIX.find((e) => model.startsWith(e.prefix))?.price ?? FALLBACK_PRICE;
 }
 
 /** usage → 근사 비용 (캡처 하드 캡·예산 소프트 집계용 — 정산은 billing 라인아이템으로) */

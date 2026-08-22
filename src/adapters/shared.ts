@@ -121,6 +121,59 @@ export function gateUnsupportedParams<T extends Record<string, unknown>>(
   return out;
 }
 
+// ir-v0 §6.3 — effort 강도 순서. 클램프 거리 계산의 canonical 축 (전 어댑터 공유)
+export const EFFORT_ORDER: readonly string[] = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
+
+/**
+ * 모델 effort 게이트 (ir-v0 §6.3): 지원 집합 밖의 값은 **최근접** 지원 레벨로 클램프한다.
+ * 단 on/off 경계는 클램프하지 않는다 — 'none'(추론 비활성)을 위로 올리면 "끄기" 요청이
+ * "켜기 + 추론 토큰 과금"으로 반전되므로, 표현 불가 시 설정 미방출 + 드롭 보고.
+ * 반환 undefined = wire에 effort를 싣지 않는다 (모델 기본 동작).
+ * 드롭은 strictParameters면 4xx, 클램프는 warning만 (D5).
+ */
+export function gateEffort(
+  effort: string,
+  supported: readonly string[],
+  opts: { strict?: boolean | undefined; label: string; noneMessage?: string; emptyMessage?: string },
+  warnings: Warning[],
+): string | undefined {
+  if (supported.includes(effort)) return effort;
+  const drop = (message: string): undefined => {
+    if (opts.strict) throw new AdapterInvalidRequestError(`${message} (strictParameters)`);
+    warnings.push(makeWarning("unsupported", "parameter-dropped", message, "reasoning.effort"));
+    return undefined;
+  };
+  if (supported.length === 0) {
+    return drop(opts.emptyMessage ?? `${opts.label} 모델이 reasoning effort를 지원하지 않음 — effort 드롭`);
+  }
+  if (effort === "none") {
+    return drop(
+      opts.noneMessage ??
+        `${opts.label} 모델이 추론 비활성(effort 'none')을 표현할 수 없음 — thinking 설정 미방출 (모델 기본 동작)`,
+    );
+  }
+  // 'none'은 클램프 **대상**도 아니다 — 'minimal'을 최근접으로 내리면 켜기 요청이 끄기로 반전된다.
+  // 정확 일치일 때만 'none'이 선택된다 (위 분기에서 이미 처리).
+  const candidates = supported.filter((s) => s !== "none");
+  if (candidates.length === 0) {
+    return drop(opts.emptyMessage ?? `${opts.label} 모델이 추론 활성(effort '${effort}')을 표현할 수 없음 — effort 드롭`);
+  }
+  const want = EFFORT_ORDER.indexOf(effort);
+  let best = candidates[0]!;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const s of candidates) {
+    const dist = Math.abs(EFFORT_ORDER.indexOf(s) - want);
+    if (dist < bestDist) {
+      best = s;
+      bestDist = dist;
+    }
+  }
+  warnings.push(
+    makeWarning("compatibility", "parameter-clamped", `effort '${effort}' → '${best}' 최근접 클램프`, "reasoning.effort"),
+  );
+  return best;
+}
+
 /** 프로바이더 미지원 파라미터의 D5 처리: strict면 4xx, 아니면 드롭 + warning */
 export function dropUnsupportedParams(
   values: Record<string, unknown>,

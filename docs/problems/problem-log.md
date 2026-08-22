@@ -217,3 +217,48 @@
 - **xai 배치 모델 게이트 발견**: grok-4.6/4.5/grok-build-0.1 = 400 "not supported for batch processing", **grok-4.3·grok-4.20 계열 = 지원**. `/v1/language-models`에 배치 capability 필드는 미노출 — 레지스트리 capability(`batchUnsupported`?) 등재 후보 좌석.
 - **openai: 미판정** — `.env`에서 OPENAI_API_KEY가 제거된 상태(로드맵 4 녹화 이후). 키 재투입 시 `pnpm smoke:batches openai`로 판정 가능. 완료·결과 경로의 실검증은 여전히 anthropic만 (google·xai는 취소 경로까지 — 24h 창 내 완료 관찰은 기회 채집).
 - **부수**: 취소 직후 xai raw status는 `running` 유지 — 취소는 비동기(§3.2 명세와 정합). 검증 도구는 `pnpm smoke:batches [providers]`로 상시 재실행 가능(비중단·전사 수집형).
+
+## 2026-08-22 — 전면 코드리뷰 (src·tools 21k LOC): 결함은 "계층 경계"에 몰려 있었다
+
+리뷰 방식: 10각도 탐색 → 1표 적대적 검증 → 갭 스윕. 확정 15건 전부 수정 + 회귀 테스트 32개 추가(430→462). **단일 결함 유형이 아니라 세 개의 축**으로 묶였고, 축마다 원인이 같았다 — *기능을 추가할 때 그 기능이 통과해야 할 다른 평면을 함께 배선하지 않았다*.
+
+### 축 1 — compat 평면이 운영 평면·폴백 트리를 따라가지 못했다
+
+- **무인증 유료 경로**: 인증·예산 미들웨어가 `app.use("/v0/*")`로만 걸려 있어 `/compat/*` 2종이 통째로 우회 — 인증을 켠 배포에서 무키 요청이 **게이트웨이 풀 키로 실행**되고 원장 행에 tenant·keyId가 비어 과금 귀속과 hard 예산이 동시에 무력화. ops-plane의 "잔여 좌석"으로 등재돼 있었으나, 인증을 켠 상태에서 우회로가 열려 있다는 사실이 좌석 문구에 드러나지 않았다.
+  → 미들웨어를 `authenticate`로 추출해 `/compat/*`에도 적용. 더 근본적으로 **인바운드 전처리(`prepareInbound`)를 native·compat 공용**으로 올림 — 파일 ref 치환·BYO 자격증명·리소스 소유권 검증이 한 곳을 지나간다(부록 (a) §0 "실행 경로 동일"의 실제 이행).
+- **폴백 중 스트림 조기 종결**: 폴백 트리(2026-08-22)가 신설한 `error-partial{willRetry:true}`를 compat 다운컨버터 2종이 모르고 종결로 처리 — openai-compat은 `[DONE]`, anthropic-compat은 `error` 이벤트를 방출했다. 세션은 done이 아니라서 뒤이어 후속 타깃의 청크가 계속 흘렀고, SDK는 이미 스트림을 닫은 뒤 → **폴백으로 성공한 응답이 통째로 유실**. 새 IR 이벤트 의미론을 추가할 때 다운컨버터 2종을 소비자로 세지 않은 것이 원인.
+  → 부록 (a) §6.1/6.2에 willRetry 규범 명문화 + `fallback-target-switched` warning 코드 신설(ir-v0 §5) — compat wire에 전환 슬롯이 없으므로 `gateway.warnings`로 보고(D5).
+
+### 축 2 — `deps.credentials` 계약을 실행부만 지켰다
+
+count_tokens·Files·Batches 브리지가 리졸버를 무시하고 `credentialHeaders(rt)`(env 풀 키)를 직접 호출. count_tokens는 `withOps()`가 리졸버를 **넘겨주는데도** 안 썼다. 실 피해: BYO 테넌트가 올린 파일이 풀 계정에 생성되고, 그 `gwf_` id를 참조한 본 요청은 BYO 키로 나가 프로바이더 404. 배치는 풀 계정으로 제출.
+→ `resolveCredentials(rt, deps)` 단일 해소 지점 신설, 4개 경로 전부 경유. 브리지 ops 시그니처에 `auth` 주입(Files 브리지의 기존 모양으로 통일 — "어댑터·브리지는 비밀을 만지지 않는다").
+
+**배치 회계 누락(동반 발견)**: 배치 원장 행이 `recordAttempt`를 우회해 직접 조립되면서 tenant·keyId·costUsd가 전부 빈 채로 적재 — `withSpendTracking`은 `keyId && costUsd>0`에서만 트래커를 갱신하므로 **배치 지출이 예산에 한 푼도 안 잡히고**, 정산 리포트는 배치를 $0·`(none)` 그룹으로 집계했다. 부록 (b) §3.4의 배치 할인 SKU 경로(`buildBilling(..., {batch:true})`)도 호출자가 없어 사문화. → 세 필드 병기 + 할인 SKU 경유 costUsd 산출로 동시 해소.
+
+### 축 3 — effort 클램프가 어댑터마다 달랐다 (on/off 경계 반전)
+
+`none`(추론 비활성)은 강도 축의 한 눈금이 아니라 스위치인데, 이를 아는 것은 gemini 어댑터뿐이었다.
+
+- anthropic: 미지원 값을 **최근접이 아닌 `'low'` 고정**. `effort:'none'` → `'low'` → **끄기 요청이 켜기 + thinking 토큰 과금으로 반전**.
+- openai/xai(공유 `clampEffort`): `none` 가드 없음 → grok-4.6(supported에 none 없음)에서 같은 반전.
+- **골든셋이 반대 방향 반전을 정답으로 굳혀두고 있었다**: `effort:'minimal'` + supported에 `none` 포함 → 거리 동률 tie-break로 `'none'` 선택 → 켜기 요청이 조용히 꺼짐. 스냅샷이 이 wire를 정답으로 저장 중이었고, 리뷰 수정 중 스냅샷 diff로 드러났다. **골든셋은 "현재 동작"을 굳히므로 결함도 함께 굳힌다** — 스냅샷 갱신 시 diff를 규범과 대조해야 한다는 교훈.
+  → `shared.gateEffort` 단일 구현으로 통합 + ir-v0 §6.3에 **양방향 on/off 경계 규범** 명문화(`none`은 클램프 출발점도 도착점도 아니다). 어댑터 3종 재구현 금지.
+
+### 그 밖의 확정 결함
+
+- **명시 표면 오버라이드가 조용히 무시**: `surface-switched` warning이 `prev`(직전 턴 표면) 있을 때만 발화 — 신규 대화에서 `providerOptions.openai.surface`가 모델 capability 게이트에 막히면 **경고 0건**으로 다른 표면 실행. D5 정면 위반. → 오버라이드 무시와 sticky 파기를 별개 사실로 각각 보고.
+- **xai 리맵이 타사 네임스페이스를 소비**: `remapNS`가 `xai` 키 부재 시 NS를 그대로 반환 → `providerOptions.openai.*`가 base 어댑터에 그대로 도달해 **xAI wire로 방출**(ir-v0 §2 "자기 네임스페이스만 소비" 위반). opaqueState·origin·custom.kind도 동일 — 타사 encrypted reasoning이 xAI로 갈 수 있었다. → 요청 방향 리맵에 **중립 라벨(`openai~foreign`) 밀어내기** 도입: 진짜 openai 표식은 base가 "외래"로 취급 → 재타게팅 정책이 정상 작동.
+- **스트림 세션에 소유자가 없었다**: Files/Batches는 `store.get(tenant, id)`로 격리하는데 세션만 id 조회 — 타 테넌트가 재개(본문 전량 열람)·취소(파괴적) 가능. id는 128bit 랜덤이나 응답 헤더·로그로 노출된다. → 세션에 tenant 기록, 불일치는 미지와 동일한 410(존재 노출 금지). 영속 버퍼 키도 테넌트 스코프(재시작 후 재생 경로에는 대조할 객체가 없으므로 키 자체를 분리).
+- **콘텐츠 방출 후 provider-error가 error-final**: `finalizeDraft`가 `contentEmitted`를 모른 채 항상 final로 접었다 — 같은 파일의 절단 경로는 partial/final을 구분하는데 이 경로만 달랐다. final은 "기방출분 무효" 의미라 클라이언트가 유효한 델타를 폐기. → 두 경로 동일 규칙.
+- **고아 toolCall 예외 범위 초과**: D6-10의 "진행 중 툴 루프" 예외가 *마지막 assistant-with-calls*이기만 하면 성립 — 뒤에 user 턴이 붙어도 보존돼 프로바이더 400(수리 패스가 막으려던 바로 그 실패). → 예외를 *대화의 마지막 메시지*일 때로 한정. **크로스 왕복 골든셋도 이 형태(결과 없는 툴콜 + user 턴)를 스냅샷 중이었다** — 히스토리에 실제 tool_result 턴을 합성해 진짜 쌍 왕복을 검증하도록 교정.
+- **빈 system content가 400**: user/assistant에는 있던 빈 블록 생략 가드가 system/developer에만 없어, OpenAI가 수용하는 `{"role":"system","content":""}`를 게이트웨이만 거부. → 부록 (a) §3.4 규범화.
+- **`error.param` 사문화**: `mapOpenAIError`에 `...(param ? {} : {})` — 양 분기 모두 빈 객체인 죽은 삼항. 파싱해 놓고 버렸다. → ir-v0 §12 error 모델에 `provider.param` 정식 슬롯 추가 후 적재(실 400 픽스처에서 `text.format.schema`·`model`·`temperature`가 드러남).
+- **지출 트래커 무한 증가**: `InMemorySpendTracker.add`가 append만 — 예산 기간이 지난 항목이 영구 잔류하고 요청마다 도는 `spentSince` 스캔이 계속 길어진다. → 조회 시 창 밖 선두 정리.
+- **가격표 매 호출 정렬**: `lookupPrice`가 조회마다 배열 복사+정렬. 시도마다·응답마다 불린다. → 모듈 로드 시 1회.
+
+### 리뷰 자체에서 얻은 것
+
+1. **"잔여 좌석" 문구는 위험도를 담아야 한다** — "compat 인바운드 인증(현재 /v0/*만)"은 미구현으로 읽히지만 실제로는 *인증을 켜면 열리는 우회로*였다. 좌석 등재가 곧 안전 표시가 아니다.
+2. **새 IR 이벤트 의미론을 추가하면 소비자 전수를 세어야 한다** — willRetry는 세션(`push`)에는 반영했으나 다운컨버터 2종을 놓쳤다. 이벤트 타입별 소비자 목록이 없다는 게 구조적 원인.
+3. **골든셋은 결함도 굳힌다** — 이번에 스냅샷 3건이 "프로바이더가 거부하거나 의미가 반전된 wire"를 정답으로 보관 중이었다. 갱신 시 diff를 규범과 대조하는 절차가 필요하다.

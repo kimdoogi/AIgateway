@@ -2,7 +2,7 @@ import type { NS, Warning } from "../ir/common.js";
 import type { IRRequest } from "../ir/request.js";
 import type { ResolvedModel } from "../ir/response.js";
 import { AdapterInvalidRequestError } from "../adapters/shared.js";
-import { credentialHeaders, genRequestId, type ExecuteDeps } from "./execute.js";
+import { genRequestId, resolveCredentials, type ExecuteDeps } from "./execute.js";
 import { GatewayError } from "./errors.js";
 import { getProvider, resolveModel, selectSurface } from "./registry.js";
 import { retargetRequest } from "./retarget.js";
@@ -52,9 +52,11 @@ export async function executeCountTokens(req: IRRequest, deps: ExecuteDeps = {})
   }
 
   const fetchImpl = deps.fetchImpl ?? fetch;
+  // 테넌트 BYO 우선 — 본 요청과 같은 계정으로 세야 캐시·쿼터 회계가 어긋나지 않는다 (리뷰 2026-08-22)
+  const auth = await resolveCredentials(rt, deps);
   const response = await fetchImpl(`${rt.baseUrl}${transformed.request.path}`, {
     method: transformed.request.method,
-    headers: { ...transformed.request.headers, ...credentialHeaders(rt) },
+    headers: { ...transformed.request.headers, ...auth },
     body: JSON.stringify(transformed.request.body),
   });
   if (response.status !== 200) {

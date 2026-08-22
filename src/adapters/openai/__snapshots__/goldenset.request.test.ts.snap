@@ -296,7 +296,7 @@ exports[`골든셋 ① IR → openai responses wire > effort-clamp — supported
       ],
       "model": "gpt-5.6-luna",
       "reasoning": {
-        "effort": "none",
+        "effort": "low",
       },
       "store": false,
     },
@@ -309,7 +309,7 @@ exports[`골든셋 ① IR → openai responses wire > effort-clamp — supported
   "warnings": [
     {
       "code": "parameter-clamped",
-      "message": "effort 'minimal' → 'none' 클램프",
+      "message": "effort 'minimal' → 'low' 최근접 클램프",
       "path": "reasoning.effort",
       "type": "compatibility",
     },

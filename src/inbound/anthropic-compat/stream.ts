@@ -2,6 +2,7 @@ import type { JSONObject, JSONValue } from "../../ir/json.js";
 import type { Warning } from "../../ir/common.js";
 import type { StreamEvent } from "../../ir/stream.js";
 import { blockToWire, toMessagesError, toMessagesStopReason, toMessagesUsage } from "./response.js";
+import { makeWarning } from "../../adapters/shared.js";
 
 // IR 스트림 → anthropic-compat SSE 재합성 (부록 (a) §6.2).
 // 블록 인덱스: IR 블록 id 등장 순서대로 0부터 재부여 (Anthropic wire는 index 기반).
@@ -123,10 +124,19 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
       case "warning":
         warnings.push(event.warning); // 소멸 금지 — finish gateway 확장으로 (리뷰 G2)
         return [];
+      case "provider-switched":
+        // Messages wire에 전환 슬롯이 없다 — finish의 gateway.warnings로 보고 (D5)
+        warnings.push(
+          makeWarning(
+            "other",
+            "fallback-target-switched",
+            `폴백 전환 ${event.from.model} → ${event.to.model} (${event.reason})`,
+          ),
+        );
+        return [frame("ping", {})]; // 연결 유지 — 전환 대기 동안 유휴 타임아웃 방지
       case "file":
       case "source":
       case "usage-interim":
-      case "provider-switched":
       case "raw":
         return [];
       case "heartbeat":
@@ -147,6 +157,9 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
         return [frame("message_delta", deltaBody), frame("message_stop", {})];
       }
       case "error-partial":
+        // willRetry:true는 터미널이 아니다 (ir-v0 §6.4) — error 이벤트를 내면 SDK가 턴을 실패로 끝낸다
+        if (event.willRetry) return [];
+        return [frame("error", { error: (toMessagesError(event.error)["error"] ?? {}) as JSONObject })];
       case "error-final":
         return [frame("error", { error: (toMessagesError(event.error)["error"] ?? {}) as JSONObject })];
       default:

@@ -290,7 +290,8 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   // ── reasoning effort (CC는 단일 필드 — 인벤토리 §1) ──
   if (req.reasoning?.effort) {
     const supported = ctx.capabilities?.supportedEfforts ?? DEFAULT_EFFORTS;
-    body["reasoning_effort"] = clampEffort(req.reasoning.effort, supported, warnings);
+    const effort = clampEffort(req.reasoning.effort, supported, warnings, req.strictParameters);
+    if (effort !== undefined) body["reasoning_effort"] = effort;
   }
 
   // ── 구조화 출력 ──

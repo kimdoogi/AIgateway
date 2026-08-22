@@ -3,7 +3,7 @@ import type { Block, FileBlock, ToolResultBlock } from "../../ir/blocks.js";
 import type { Warning } from "../../ir/common.js";
 import type { IRRequest } from "../../ir/request.js";
 import type { RequestContext, TransformedRequest } from "../types.js";
-import { AdapterInvalidRequestError, makeWarning } from "../shared.js";
+import { AdapterInvalidRequestError, gateEffort, makeWarning } from "../shared.js";
 import { parseGoogleRequestOptions, readPartExtras } from "./options.js";
 import { GeminiWireRequestSchema } from "./wire.js";
 
@@ -14,7 +14,6 @@ import { GeminiWireRequestSchema } from "./wire.js";
 // 2.5 세대는 검증 없음이라 무해). 첫 functionCall part에만 필수 (병렬 규칙).
 const DUMMY_THOUGHT_SIGNATURE = "skip_thought_signature_validator";
 
-const EFFORT_ORDER = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 const DEFAULT_EFFORTS: readonly string[] = ["minimal", "low", "medium", "high"]; // thinkingLevel 집합 (3세대)
 
 // 어댑터가 조립하는 핵심 필드 — passthrough/extra가 이미 설정된 값을 덮어쓰면 명시적 에러
@@ -297,44 +296,28 @@ function mergeExternal(body: JSONObject, entries: JSONObject, label: string): vo
   }
 }
 
-/** effort를 지원 집합에서 최근접으로 클램프 (§6.3 — 최근접 클램프 + warning) */
+/**
+ * effort 게이트 — shared.gateEffort 위임 (§6.3 최근접 클램프 + on/off 경계 보존).
+ * 드롭 사유 문구만 gemini 세대 사정(2.5는 thinkingBudget)을 반영해 주입한다.
+ */
 function clampEffort(
   effort: string,
   supported: readonly string[],
-  dropParam: DropParam,
+  strict: boolean | undefined,
   warnings: Warning[],
 ): string | undefined {
-  if (supported.includes(effort)) return effort;
-  if (supported.length === 0) {
-    dropParam(
-      `모델이 thinkingLevel 미지원 (2.5 세대는 providerOptions.google.thinkingConfig.thinkingBudget 사용) — effort 드롭`,
-      "reasoning.effort",
-    );
-    return undefined;
-  }
-  // on/off 경계는 클램프하지 않는다: 'none'(추론 비활성)을 minimal로 올리면 끄기 요청이
-  // thinking 켜기 + thoughts 과금으로 반전된다 → thinking 설정 미방출 + 드롭 보고
-  if (effort === "none") {
-    dropParam(
-      "모델이 추론 비활성(effort 'none')을 표현할 수 없음 — thinking 설정 미방출 (모델 기본 동작)",
-      "reasoning.effort",
-    );
-    return undefined;
-  }
-  const idx = EFFORT_ORDER.indexOf(effort as (typeof EFFORT_ORDER)[number]);
-  let best = supported[0]!;
-  let bestDist = Number.POSITIVE_INFINITY;
-  for (const s of supported) {
-    const d = Math.abs(EFFORT_ORDER.indexOf(s as (typeof EFFORT_ORDER)[number]) - idx);
-    if (d < bestDist) {
-      best = s;
-      bestDist = d;
-    }
-  }
-  warnings.push(
-    makeWarning("compatibility", "parameter-clamped", `effort '${effort}' → '${best}' 최근접 클램프`, "reasoning.effort"),
+  return gateEffort(
+    effort,
+    supported,
+    {
+      strict,
+      label: "google",
+      emptyMessage:
+        "모델이 thinkingLevel 미지원 (2.5 세대는 providerOptions.google.thinkingConfig.thinkingBudget 사용) — effort 드롭",
+      noneMessage: "모델이 추론 비활성(effort 'none')을 표현할 수 없음 — thinking 설정 미방출 (모델 기본 동작)",
+    },
+    warnings,
   );
-  return best;
 }
 
 export function transformRequest(req: IRRequest, ctx: RequestContext): TransformedRequest {
@@ -517,7 +500,7 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
     gen["thinkingConfig"] = opts.thinkingConfig;
   } else if (req.reasoning?.effort) {
     const supported = ctx.capabilities?.supportedEfforts ?? DEFAULT_EFFORTS;
-    const level = clampEffort(req.reasoning.effort, supported, dropParam, warnings);
+    const level = clampEffort(req.reasoning.effort, supported, req.strictParameters, warnings);
     // includeThoughts: reasoning 요청 = thought summary 수신 의도 (타 프로바이더의 reasoning 노출과 대칭)
     if (level !== undefined) gen["thinkingConfig"] = { includeThoughts: true, thinkingLevel: level };
   }

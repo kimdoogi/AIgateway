@@ -4,7 +4,7 @@ import type { IRRequest } from "../ir/request.js";
 import type { Message } from "../ir/message.js";
 import type { Block } from "../ir/blocks.js";
 import type { FileMapping, FileStore } from "../state/types.js";
-import { credentialHeaders, genRequestId, type ExecuteDeps } from "../gateway/execute.js";
+import { genRequestId, resolveCredentials, type ExecuteDeps } from "../gateway/execute.js";
 import { GatewayError, irError } from "../gateway/errors.js";
 import { getProvider } from "../gateway/registry.js";
 
@@ -185,7 +185,8 @@ export async function uploadFile(input: UploadInput, deps: FileBridgeDeps): Prom
   const ops = providerOps(input.provider);
   const rt = getProvider(input.provider);
   const fetchImpl = deps.fetchImpl ?? fetch;
-  const result = await ops.upload(input, rt.baseUrl, credentialHeaders(rt), fetchImpl);
+  // 테넌트 BYO 키 우선 — 풀 키로 올리면 본 요청(BYO)에서 file_id를 못 찾는다 (리뷰 2026-08-22)
+  const result = await ops.upload(input, rt.baseUrl, await resolveCredentials(rt, deps), fetchImpl);
   if (!result.providerFileId) {
     throw new GatewayError(irError("provider_error", 502, `${input.provider} 업로드 응답에 파일 id 없음`));
   }
@@ -219,7 +220,7 @@ export async function deleteFile(gatewayFileId: string, deps: FileBridgeDeps): P
   if (!m) throw new GatewayError(irError("not_found", 404, `파일 없음: ${gatewayFileId}`));
   const ops = providerOps(m.provider);
   const rt = getProvider(m.provider);
-  await ops.remove(m.providerFileId, rt.baseUrl, credentialHeaders(rt), deps.fetchImpl ?? fetch);
+  await ops.remove(m.providerFileId, rt.baseUrl, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
   await deps.files.delete(deps.tenant ?? DEFAULT_TENANT, gatewayFileId);
 }
 
