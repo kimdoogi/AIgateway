@@ -53,26 +53,79 @@ ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS key_source TEXT;
 ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS cost_usd DOUBLE PRECISION;
 `;
 
+/**
+ * 프로세스당 공유 커넥션 풀 (리뷰 2026-08-22).
+ * 스토어마다 풀을 만들면 레플리카당 23커넥션이 나와 Postgres max_connections를 금방 태운다.
+ * DDL은 라벨별 1회 + **advisory lock**으로 직렬화 — 다중 레플리카 동시 부팅 시
+ * ALTER TABLE이 ACCESS EXCLUSIVE 락을 경합해 "tuple concurrently updated"로 죽는 것을 막는다.
+ */
+export class PostgresPool {
+  readonly pool: pg.Pool;
+  private readonly migrations = new Map<string, Promise<void>>();
+
+  constructor(connectionString: string, max = Number(process.env["PGPOOL_MAX"] ?? 10)) {
+    this.pool = new pg.Pool({ connectionString, max });
+    // 유휴 커넥션 단절은 'error' 이벤트로 온다 — 무리스너면 프로세스 크래시 (리뷰 SW1-r4)
+    this.pool.on("error", (err) => console.error("[pg-pool]", err.message));
+  }
+
+  /** 라벨별 DDL 1회 실행. 실패 시 캐시 리셋 — 일시 장애가 영구 불능이 되지 않게 (리뷰 D1-r4) */
+  migrate(label: string, ddl: string): Promise<void> {
+    let running = this.migrations.get(label);
+    if (!running) {
+      running = this.runLocked(label, ddl).catch((err: unknown) => {
+        this.migrations.delete(label);
+        throw err;
+      });
+      this.migrations.set(label, running);
+    }
+    return running;
+  }
+
+  /** advisory lock 하에 DDL 실행 — 락은 세션 스코프라 전용 커넥션에서 잡고 반드시 푼다 */
+  private async runLocked(label: string, ddl: string): Promise<void> {
+    const key = advisoryKey(label);
+    const client = await this.pool.connect();
+    try {
+      await client.query("SELECT pg_advisory_lock($1)", [key]);
+      try {
+        await client.query(ddl);
+      } finally {
+        await client.query("SELECT pg_advisory_unlock($1)", [key]);
+      }
+    } finally {
+      client.release();
+    }
+  }
+
+  /** 연결 확인 — readiness 프로브용 (ADR-0008 운영) */
+  async ping(): Promise<void> {
+    await this.pool.query("SELECT 1");
+  }
+
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
+}
+
+/** 라벨 → 64bit advisory lock 키 (결정론적 해시 — 같은 DDL은 전 레플리카가 같은 락을 잡는다) */
+function advisoryKey(label: string): string {
+  let hash = 0n;
+  for (const ch of label) hash = (hash * 131n + BigInt(ch.codePointAt(0) ?? 0)) % 9223372036854775783n;
+  return hash.toString();
+}
+
 export class PostgresLedger implements QueryableLedger {
   private readonly pool: pg.Pool;
-  private ready: Promise<void> | undefined;
+  private readonly db: PostgresPool;
 
-  constructor(connectionString: string) {
-    this.pool = new pg.Pool({ connectionString, max: 5 });
-    // 유휴 커넥션 단절은 'error' 이벤트로 온다 — 무리스너면 프로세스 크래시 (리뷰 SW1-r4)
-    this.pool.on("error", (err) => console.error("[ledger-pool]", err.message));
+  constructor(db: PostgresPool) {
+    this.db = db;
+    this.pool = db.pool;
   }
 
   private init(): Promise<void> {
-    // 실패 시 캐시 리셋 — 일시 장애가 영구 불능이 되지 않게 (리뷰 D1-r4)
-    this.ready ??= this.pool.query(DDL).then(
-      () => undefined,
-      (err) => {
-        this.ready = undefined;
-        throw err;
-      },
-    );
-    return this.ready;
+    return this.db.migrate("usage_ledger", DDL);
   }
 
   async record(row: LedgerRow): Promise<void> {
@@ -131,9 +184,6 @@ export class PostgresLedger implements QueryableLedger {
     }));
   }
 
-  async close(): Promise<void> {
-    await this.pool.end();
-  }
 }
 
 // ── 운영 평면 스토어 (ADR-0006/0007 — 2026-08-21) ──────────────
@@ -177,32 +227,21 @@ CREATE TABLE IF NOT EXISTS body_logs (
 CREATE INDEX IF NOT EXISTS body_logs_request_idx ON body_logs (request_id);
 `;
 
+/** 운영 평면 스토어 공통 — 공유 풀 위에서 OPS_DDL 1회 (리뷰 2026-08-22: 풀 분리 제거) */
 class OpsPool {
   readonly pool: pg.Pool;
-  private ready: Promise<void> | undefined;
-  constructor(connectionString: string, label: string) {
-    this.pool = new pg.Pool({ connectionString, max: 3 });
-    this.pool.on("error", (err) => console.error(`[${label}]`, err.message));
+  constructor(private readonly db: PostgresPool) {
+    this.pool = db.pool;
   }
   init(): Promise<void> {
-    this.ready ??= this.pool.query(OPS_DDL).then(
-      () => undefined,
-      (err) => {
-        this.ready = undefined;
-        throw err;
-      },
-    );
-    return this.ready;
-  }
-  async close(): Promise<void> {
-    await this.pool.end();
+    return this.db.migrate("ops_plane", OPS_DDL);
   }
 }
 
 export class PostgresKeyStore implements KeyStore {
   private readonly db: OpsPool;
-  constructor(connectionString: string) {
-    this.db = new OpsPool(connectionString, "key-store-pool");
+  constructor(db: PostgresPool) {
+    this.db = new OpsPool(db);
   }
   private rowToKey(row: Record<string, unknown>): VirtualKey {
     return {
@@ -243,15 +282,12 @@ export class PostgresKeyStore implements KeyStore {
     const r = await this.db.pool.query(`SELECT * FROM virtual_keys ORDER BY created_at`);
     return r.rows.map((row) => this.rowToKey(row));
   }
-  async close(): Promise<void> {
-    await this.db.close();
-  }
 }
 
 export class PostgresProviderKeyStore implements ProviderKeyStore {
   private readonly db: OpsPool;
-  constructor(connectionString: string) {
-    this.db = new OpsPool(connectionString, "provider-key-pool");
+  constructor(db: PostgresPool) {
+    this.db = new OpsPool(db);
   }
   async put(key: TenantProviderKey): Promise<void> {
     await this.db.init();
@@ -280,15 +316,12 @@ export class PostgresProviderKeyStore implements ProviderKeyStore {
     await this.db.init();
     await this.db.pool.query(`DELETE FROM tenant_provider_keys WHERE tenant = $1 AND provider = $2`, [tenant, provider]);
   }
-  async close(): Promise<void> {
-    await this.db.close();
-  }
 }
 
 export class PostgresResourceStore implements ResourceStore {
   private readonly db: OpsPool;
-  constructor(connectionString: string) {
-    this.db = new OpsPool(connectionString, "resource-pool");
+  constructor(db: PostgresPool) {
+    this.db = new OpsPool(db);
   }
   async register(r: ServerResource): Promise<void> {
     await this.db.init();
@@ -330,15 +363,12 @@ export class PostgresResourceStore implements ResourceStore {
       [provider, resourceType, externalId],
     );
   }
-  async close(): Promise<void> {
-    await this.db.close();
-  }
 }
 
 export class PostgresBodyLog implements BodyLogSink {
   private readonly db: OpsPool;
-  constructor(connectionString: string) {
-    this.db = new OpsPool(connectionString, "body-log-pool");
+  constructor(db: PostgresPool) {
+    this.db = new OpsPool(db);
   }
   async record(entry: BodyLogEntry): Promise<void> {
     await this.db.init();
@@ -346,9 +376,6 @@ export class PostgresBodyLog implements BodyLogSink {
       `INSERT INTO body_logs (request_id, tenant, direction, body, created_at) VALUES ($1,$2,$3,$4,$5)`,
       [entry.requestId, entry.tenant ?? null, entry.direction, JSON.stringify(entry.body), entry.createdAt],
     );
-  }
-  async close(): Promise<void> {
-    await this.db.close();
   }
 }
 
@@ -371,21 +398,23 @@ CREATE TABLE IF NOT EXISTS gateway_files (
 
 export class PostgresFileStore implements FileStore {
   private readonly pool: pg.Pool;
-  private ready: Promise<void> | undefined;
+  private readonly db: PostgresPool;
 
-  constructor(connectionString: string) {
-    this.pool = new pg.Pool({ connectionString, max: 3 });
-    this.pool.on("error", (err) => console.error("[file-store-pool]", err.message));
+  constructor(db: PostgresPool) {
+    this.db = db;
+    this.pool = db.pool;
   }
   private init(): Promise<void> {
-    this.ready ??= this.pool.query(FILES_DDL).then(
-      () => undefined,
-      (err) => {
-        this.ready = undefined;
-        throw err;
-      },
-    );
-    return this.ready;
+    return this.db.migrate("gateway_files", FILES_DDL);
+  }
+  private rowToMapping(row: Record<string, any>): FileMapping {
+    return {
+      tenant: row["tenant"], gatewayFileId: row["gateway_file_id"], provider: row["provider"],
+      providerFileId: row["provider_file_id"], mediaType: row["media_type"], sizeBytes: Number(row["size_bytes"]),
+      ...(row["filename"] ? { filename: row["filename"] } : {}),
+      createdAt: new Date(row["created_at"]).toISOString(),
+      ...(row["expires_at"] ? { expiresAt: new Date(row["expires_at"]).toISOString() } : {}),
+    };
   }
   async put(m: FileMapping): Promise<void> {
     await this.init();
@@ -402,14 +431,7 @@ export class PostgresFileStore implements FileStore {
       [tenant, gatewayFileId],
     );
     const row = r.rows[0];
-    if (!row) return null;
-    return {
-      tenant: row.tenant, gatewayFileId: row.gateway_file_id, provider: row.provider,
-      providerFileId: row.provider_file_id, mediaType: row.media_type, sizeBytes: Number(row.size_bytes),
-      ...(row.filename ? { filename: row.filename } : {}),
-      createdAt: new Date(row.created_at).toISOString(),
-      ...(row.expires_at ? { expiresAt: new Date(row.expires_at).toISOString() } : {}),
-    };
+    return row ? this.rowToMapping(row) : null;
   }
   async delete(tenant: string, gatewayFileId: string): Promise<void> {
     await this.init();
@@ -417,16 +439,9 @@ export class PostgresFileStore implements FileStore {
   }
   async list(tenant: string): Promise<FileMapping[]> {
     await this.init();
-    const r = await this.pool.query(`SELECT gateway_file_id FROM gateway_files WHERE tenant = $1 ORDER BY created_at`, [tenant]);
-    const out: FileMapping[] = [];
-    for (const row of r.rows) {
-      const m = await this.get(tenant, row.gateway_file_id);
-      if (m) out.push(m);
-    }
-    return out;
-  }
-  async close(): Promise<void> {
-    await this.pool.end();
+    // 단일 쿼리 — id 조회 후 행마다 get()은 N+1이었다 (리뷰 2026-08-22)
+    const r = await this.pool.query(`SELECT * FROM gateway_files WHERE tenant = $1 ORDER BY created_at`, [tenant]);
+    return r.rows.map((row) => this.rowToMapping(row));
   }
 }
 
@@ -449,21 +464,25 @@ CREATE TABLE IF NOT EXISTS gateway_batches (
 
 export class PostgresBatchStore implements BatchStore {
   private readonly pool: pg.Pool;
-  private ready: Promise<void> | undefined;
+  private readonly db: PostgresPool;
 
-  constructor(connectionString: string) {
-    this.pool = new pg.Pool({ connectionString, max: 3 });
-    this.pool.on("error", (err) => console.error("[batch-store-pool]", err.message));
+  constructor(db: PostgresPool) {
+    this.db = db;
+    this.pool = db.pool;
   }
   private init(): Promise<void> {
-    this.ready ??= this.pool.query(BATCHES_DDL).then(
-      () => undefined,
-      (err) => {
-        this.ready = undefined;
-        throw err;
-      },
-    );
-    return this.ready;
+    return this.db.migrate("gateway_batches", BATCHES_DDL);
+  }
+  private rowToJob(row: Record<string, any>): BatchJob {
+    return {
+      tenant: row["tenant"], gatewayBatchId: row["gateway_batch_id"], provider: row["provider"],
+      providerBatchId: row["provider_batch_id"],
+      ...(row["bridge_state"] ? { bridgeState: row["bridge_state"] } : {}),
+      status: row["status"], ...(row["raw_status"] ? { rawStatus: row["raw_status"] } : {}),
+      counts: row["counts"], itemModels: row["item_models"],
+      createdAt: new Date(row["created_at"]).toISOString(),
+      ...(row["expires_at"] ? { expiresAt: new Date(row["expires_at"]).toISOString() } : {}),
+    };
   }
   async put(j: BatchJob): Promise<void> {
     await this.init();
@@ -486,28 +505,11 @@ export class PostgresBatchStore implements BatchStore {
       [tenant, gatewayBatchId],
     );
     const row = r.rows[0];
-    if (!row) return null;
-    return {
-      tenant: row.tenant, gatewayBatchId: row.gateway_batch_id, provider: row.provider,
-      providerBatchId: row.provider_batch_id,
-      ...(row.bridge_state ? { bridgeState: row.bridge_state } : {}),
-      status: row.status, ...(row.raw_status ? { rawStatus: row.raw_status } : {}),
-      counts: row.counts, itemModels: row.item_models,
-      createdAt: new Date(row.created_at).toISOString(),
-      ...(row.expires_at ? { expiresAt: new Date(row.expires_at).toISOString() } : {}),
-    };
+    return row ? this.rowToJob(row) : null;
   }
   async list(tenant: string): Promise<BatchJob[]> {
     await this.init();
-    const r = await this.pool.query(`SELECT gateway_batch_id FROM gateway_batches WHERE tenant = $1 ORDER BY created_at`, [tenant]);
-    const out: BatchJob[] = [];
-    for (const row of r.rows) {
-      const j = await this.get(tenant, row.gateway_batch_id);
-      if (j) out.push(j);
-    }
-    return out;
-  }
-  async close(): Promise<void> {
-    await this.pool.end();
+    const r = await this.pool.query(`SELECT * FROM gateway_batches WHERE tenant = $1 ORDER BY created_at`, [tenant]);
+    return r.rows.map((row) => this.rowToJob(row));
   }
 }

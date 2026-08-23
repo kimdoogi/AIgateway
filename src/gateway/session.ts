@@ -259,4 +259,28 @@ export class SessionStore {
   get(id: string): StreamSession | null {
     return this.sessions.get(id) ?? null;
   }
+
+  /** 진행 중(터미널 미도달) 세션 수 — shutdown drain 판정 기준 */
+  get activeCount(): number {
+    let active = 0;
+    for (const session of this.sessions.values()) if (!session.isDone) active += 1;
+    return active;
+  }
+
+  /**
+   * 전 세션이 종료될 때까지 대기 (graceful shutdown). 초과 시 남은 수를 반환한다.
+   * 반환값 > 0 = 강제 종료된 스트림 수 — 호출측이 로그로 가시화해야 한다.
+   */
+  async drain(timeoutMs: number, pollMs = 200): Promise<number> {
+    const deadline = Date.now() + timeoutMs;
+    while (this.activeCount > 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, pollMs));
+    }
+    return this.activeCount;
+  }
+
+  /** 남은 세션의 업스트림을 즉시 취소 — drain 시한 초과 후 마지막 정리 */
+  cancelAll(): void {
+    for (const session of this.sessions.values()) if (!session.isDone) session.cancel();
+  }
 }

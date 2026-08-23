@@ -3,6 +3,7 @@ import { bootstrapProviders } from "../gateway/bootstrap.js";
 import { InMemoryKeyStore, InMemoryLedger, InMemoryProviderKeyStore } from "../state/memory.js";
 import { InMemorySpendTracker, withSpendTracking } from "../ops/budget.js";
 import { createApp } from "./app.js";
+import { SessionStore } from "../gateway/session.js";
 
 // 운영 평면 E2E — 인증→예산→BYO 자격증명→원장(tenant·cost)→billing→정산 리포트 (D9 mock fetch)
 
@@ -264,5 +265,80 @@ describe("스트림 세션 테넌트 격리 (ADR-0006 §3)", () => {
       headers: { authorization: `Bearer ${a}` },
     });
     expect(own.status).toBe(200);
+  });
+});
+
+// ── 운영 프로브·드레인 (오케스트레이터 배포 — 리뷰 2026-08-22) ──
+
+describe("health / readiness 프로브", () => {
+  it("/health는 인증 밖 + 의존성과 무관하게 200 (재시작 루프 방지)", async () => {
+    // 인증을 켜고 의존성 프로브가 전부 실패해도 liveness는 200이어야 한다 —
+    // 여기서 503을 내면 DB 장애에 오케스트레이터가 컨테이너를 계속 죽인다
+    const app = createApp({
+      keys: new InMemoryKeyStore(),
+      readiness: [{ name: "postgres", check: () => Promise.reject(new Error("down")) }],
+      version: "test-sha",
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: "ok", version: "test-sha" });
+  });
+
+  it("/ready는 의존성 실패 시 503 + 실패 사유를 이름별로 노출", async () => {
+    const app = createApp({
+      readiness: [
+        { name: "postgres", check: () => Promise.resolve() },
+        { name: "redis", check: () => Promise.reject(new Error("ECONNREFUSED")) },
+      ],
+    });
+    const res = await app.request("/ready");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { status: string; checks: Record<string, string> };
+    expect(body.status).toBe("degraded");
+    expect(body.checks["postgres"]).toBe("ok");
+    expect(body.checks["redis"]).toContain("ECONNREFUSED");
+  });
+
+  it("의존성 정상이면 200", async () => {
+    const app = createApp({ readiness: [{ name: "postgres", check: () => Promise.resolve() }] });
+    expect((await app.request("/ready")).status).toBe(200);
+  });
+
+  it("드레인 진입 시 /ready 503 — LB가 먼저 빠지고 /health는 살아 있다", async () => {
+    let draining = false;
+    const app = createApp({ isDraining: () => draining });
+    expect((await app.request("/ready")).status).toBe(200);
+    draining = true;
+    const res = await app.request("/ready");
+    expect(res.status).toBe(503);
+    expect((await res.json()) as { status: string }).toMatchObject({ status: "draining" });
+    expect((await app.request("/health")).status).toBe(200); // 아직 살아서 in-flight를 처리 중
+  });
+
+  it("프로브는 가상 키 인증을 요구하지 않는다", async () => {
+    const app = createApp({ keys: new InMemoryKeyStore() }); // 인증 활성
+    expect((await app.request("/health")).status).toBe(200);
+    expect((await app.request("/ready")).status).toBe(200);
+  });
+});
+
+describe("전역 onError — 미포착 예외도 IRError 형태 (ir-v0 §12)", () => {
+  it("try 밖에서 던진 예외가 맨 500이 아니라 IRError로 나온다", async () => {
+    // startStreamSession은 라우트 try 밖 호출이라, 여기서 던지면 onError만이 형태를 지킨다
+    const brokenSessions = new SessionStore();
+    brokenSessions.create = () => {
+      throw new TypeError("세션 스토어 결함");
+    };
+    const app = createApp({ sessions: brokenSessions });
+    const res = await app.request("/v0/responses", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...JSON.parse(irBody), stream: true }),
+    });
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: { category: string; message: string; gatewayException?: boolean } };
+    expect(body.error.category).toBe("gateway_error");
+    expect(body.error.gatewayException).toBe(true); // 내부 결함 마킹 — 폴백 트리 오염 방지
+    expect(body.error.message).toContain("세션 스토어 결함");
   });
 });

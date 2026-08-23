@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server/index.js",
     "capture": "tsx tools/capture/capture.ts",
     "smoke:roadmap4": "tsx tools/smoke-roadmap4.ts",
     "smoke:xai": "tsx tools/smoke-xai.ts",
@@ -21,6 +22,7 @@
     "dev": "tsx src/server/index.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^1",
     "@opentelemetry/api": "^1.9.1",
     "hono": "^4",
     "pg": "^8.23.0",
@@ -28,7 +30,6 @@
     "zod": "^4"
   },
   "devDependencies": {
-    "@hono/node-server": "^1",
     "@types/node": "^22",
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.12",

@@ -54,6 +54,12 @@ export class RedisSessionPersistence implements SessionPersistence {
     await this.client.del(KEY_PREFIX + sessionId);
   }
 
+  /** 연결 확인 — readiness 프로브용 */
+  async ping(): Promise<void> {
+    await this.connect();
+    await this.client.ping();
+  }
+
   async close(): Promise<void> {
     await this.client.quit();
   }

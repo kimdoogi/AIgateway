@@ -1,5 +1,27 @@
 # 로컬 개발용 상태 계층 (ADR-0006): Postgres(durable) + Redis(휘발/고속)
+# + 게이트웨이 서비스 — 프로덕션과 같은 이미지·같은 기동 경로를 로컬에서 재현한다.
+#   docker compose up --build   (게이트웨이는 :8787)
+#   상태 계층만: docker compose up postgres redis
 services:
+  gateway:
+    build: .
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: 8787
+      DATABASE_URL: postgres://gateway:gateway@postgres:5432/gateway
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - path: .env # 프로바이더 API 키·GATEWAY_ADMIN_KEY 등 (없으면 개방 모드로 기동)
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # 컨테이너 SIGTERM → 드레인 완료까지의 여유 (SHUTDOWN_HARD_EXIT_MS보다 커야 한다)
+    stop_grace_period: 45s
+
   postgres:
     image: postgres:17-alpine
     environment:

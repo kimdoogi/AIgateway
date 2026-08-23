@@ -67,6 +67,13 @@ export interface AppDeps extends ExecuteDeps {
   bodyLog?: BodyLogSink;
   /** 예산 실시간 집계 (ADR-0007 §3) — withSpendTracking으로 원장에 배선 */
   spendTracker?: SpendTracker;
+  // ── 운영 프로브 (오케스트레이터 배포 — 2026-08-22) ──
+  /** readiness 의존성 검사 — 하나라도 실패하면 /ready 503 */
+  readiness?: ReadonlyArray<{ name: string; check: () => Promise<void> }>;
+  /** 종료 절차 진입 여부 — true면 /ready가 503을 내 LB가 먼저 빠진다 */
+  isDraining?: () => boolean;
+  /** 빌드 식별자 — /health 응답에 병기 (배포 추적) */
+  version?: string;
 }
 
 /** 인증 미들웨어가 요청별로 해석한 운영 컨텍스트 */
@@ -111,6 +118,41 @@ export function createApp(deps: AppDeps = {}): Hono {
   const app = new Hono();
   const sessions = deps.sessions ?? new SessionStore({ persistence: deps.persistence }); // 기본 스토어도 영속화 배선 (리뷰 F3-r4)
   const opsCtx = new WeakMap<Request, OpsContext>();
+
+  // ── 운영 프로브 (인증 밖 — 오케스트레이터가 자격증명 없이 찔러야 한다) ──
+  // liveness: 프로세스 생존만. 의존성 상태와 무관하게 200 — 여기서 503을 내면
+  // DB 일시 장애에 컨테이너가 재시작 루프에 빠진다 (재시작이 DB를 고치지 않는다).
+  app.get("/health", (c) =>
+    c.json({ status: "ok", ...(deps.version ? { version: deps.version } : {}) }),
+  );
+
+  // readiness: 트래픽 수용 가능 여부. 종료 절차 진입·의존성 장애 시 503 → LB가 이 파드를 뺀다.
+  app.get("/ready", async (c) => {
+    if (deps.isDraining?.()) {
+      return c.json({ status: "draining", checks: {} }, 503);
+    }
+    const checks: Record<string, string> = {};
+    let healthy = true;
+    await Promise.all(
+      (deps.readiness ?? []).map(async (probe) => {
+        try {
+          await probe.check();
+          checks[probe.name] = "ok";
+        } catch (err) {
+          healthy = false;
+          checks[probe.name] = err instanceof Error ? err.message : String(err);
+        }
+      }),
+    );
+    return c.json({ status: healthy ? "ok" : "degraded", checks }, healthy ? 200 : 503);
+  });
+
+  // ── 전역 예외 안전망 — 핸들러가 던진 비-GatewayError도 IRError 형태로 (ir-v0 §12) ──
+  app.onError((err, c) => {
+    const irErr = toIRError(err);
+    if (irErr.gatewayException) console.error("[gateway] 미포착 예외", err);
+    return errJson(c, irErr);
+  });
 
   // ── 가상 키 인증 (ADR-0007 §3 — keys 설정 시 활성, 미설정 = 개방 모드/로컬) ──
   // native(/v0/*)와 compat(/compat/*)에 동일 적용 — 한쪽만 걸면 무인증 유료 경로가 남는다

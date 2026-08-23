@@ -17,3 +17,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm build
+
+  # 패키징 회귀 방어 — tsc는 "런타임 의존성이 devDependencies에 있음"을 잡지 못한다.
+  # 실제로 @hono/node-server가 dev에 있어 --prod 설치 이미지가 기동 불가였다 (2026-08-22).
+  # 이미지 빌드 + 기동 + /health 확인까지가 이 잡의 계약.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ai-gateway:ci .
+      - name: 기동 + liveness 프로브
+        run: |
+          docker run -d --name gw -p 8787:8787 ai-gateway:ci
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8787/health; then echo " — 기동 확인"; exit 0; fi
+            sleep 1
+          done
+          echo "기동 실패 — 로그:"; docker logs gw; exit 1
+      - name: graceful shutdown (SIGTERM에 코드 0)
+        run: |
+          docker kill -s TERM gw
+          test "$(docker wait gw)" = "0" || { docker logs gw; exit 1; }

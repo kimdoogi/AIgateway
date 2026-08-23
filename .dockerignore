@@ -1,0 +1,17 @@
+# 시크릿 — 이미지에 절대 들어가면 안 된다
+.env
+.env.*
+!.env.example
+
+node_modules
+dist
+coverage
+.git
+.github
+docs
+fixtures
+tools
+*.tsbuildinfo
+.DS_Store
+**/*.test.ts
+**/__snapshots__
