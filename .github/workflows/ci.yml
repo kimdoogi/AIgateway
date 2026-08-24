@@ -37,6 +37,8 @@ jobs:
           echo "기동 실패 — 로그:"; docker logs gw; exit 1
       - name: 콘솔 페이지 패키징 확인 (build cp 누락 검출)
         run: curl -fsS http://127.0.0.1:8787/console | grep -q "ai-gateway 콘솔"
+      - name: 포털 페이지 패키징 확인
+        run: curl -fsS http://127.0.0.1:8787/portal | grep -q "ai-gateway 포털"
       - name: graceful shutdown (SIGTERM에 코드 0)
         run: |
           docker kill -s TERM gw

@@ -1,6 +1,7 @@
 import pg from "pg";
 import { MIGRATIONS, checksum, validateMigrationList } from "./migrations.js";
 import type {
+  AccountStore,
   BatchJob,
   BatchStore,
   BodyLogEntry,
@@ -9,6 +10,9 @@ import type {
   FileStore,
   KeyStore,
   LedgerRow,
+  PortalAccount,
+  PortalSessionRecord,
+  PortalSessionStore,
   ProviderKeyStore,
   QueryableLedger,
   ResourceStore,
@@ -426,6 +430,90 @@ export class PostgresBodyLog implements BodyLogSink {
   async deleteOlderThan(iso: string): Promise<number> {
     await this.db.init();
     const r = await this.db.pool.query(`DELETE FROM body_logs WHERE created_at < $1`, [iso]);
+    return r.rowCount ?? 0;
+  }
+}
+
+// ── 셀프 가입 포털 (2026-08-24) — 계정·세션 ──────────────────────
+
+export class PostgresAccountStore implements AccountStore {
+  private readonly pool: pg.Pool;
+  private readonly db: PostgresPool;
+  constructor(db: PostgresPool) {
+    this.db = db;
+    this.pool = db.pool;
+  }
+  private init(): Promise<void> {
+    return this.db.ensureSchema();
+  }
+  private rowToAccount(row: Record<string, any>): PortalAccount {
+    return {
+      accountId: row["account_id"],
+      email: row["email"],
+      passwordHash: row["pw_hash"],
+      tenant: row["tenant"],
+      ...(row["disabled"] ? { disabled: true } : {}),
+      createdAt: new Date(row["created_at"]).toISOString(),
+    };
+  }
+  async create(a: PortalAccount): Promise<boolean> {
+    await this.init();
+    // 중복 판정은 유니크 제약이 진실 — 사전 SELECT는 경합에서 진다
+    const r = await this.pool.query(
+      `INSERT INTO portal_accounts (account_id, email, pw_hash, tenant, disabled, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (email) DO NOTHING`,
+      [a.accountId, a.email, a.passwordHash, a.tenant, a.disabled ?? false, a.createdAt],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+  async getByEmail(email: string): Promise<PortalAccount | null> {
+    await this.init();
+    const r = await this.pool.query(`SELECT * FROM portal_accounts WHERE email = $1`, [email]);
+    return r.rows[0] ? this.rowToAccount(r.rows[0]) : null;
+  }
+  async get(accountId: string): Promise<PortalAccount | null> {
+    await this.init();
+    const r = await this.pool.query(`SELECT * FROM portal_accounts WHERE account_id = $1`, [accountId]);
+    return r.rows[0] ? this.rowToAccount(r.rows[0]) : null;
+  }
+}
+
+export class PostgresPortalSessionStore implements PortalSessionStore {
+  private readonly pool: pg.Pool;
+  private readonly db: PostgresPool;
+  constructor(db: PostgresPool) {
+    this.db = db;
+    this.pool = db.pool;
+  }
+  private init(): Promise<void> {
+    return this.db.ensureSchema();
+  }
+  async put(s: PortalSessionRecord): Promise<void> {
+    await this.init();
+    await this.pool.query(
+      `INSERT INTO portal_sessions (token_hash, account_id, expires_at, created_at) VALUES ($1,$2,$3,$4)`,
+      [s.tokenHash, s.accountId, s.expiresAt, s.createdAt],
+    );
+  }
+  async get(tokenHash: string): Promise<PortalSessionRecord | null> {
+    await this.init();
+    const r = await this.pool.query(`SELECT * FROM portal_sessions WHERE token_hash = $1`, [tokenHash]);
+    const row = r.rows[0];
+    if (!row) return null;
+    return {
+      tokenHash: row.token_hash,
+      accountId: row.account_id,
+      expiresAt: new Date(row.expires_at).toISOString(),
+      createdAt: new Date(row.created_at).toISOString(),
+    };
+  }
+  async delete(tokenHash: string): Promise<void> {
+    await this.init();
+    await this.pool.query(`DELETE FROM portal_sessions WHERE token_hash = $1`, [tokenHash]);
+  }
+  async deleteExpired(nowIso: string): Promise<number> {
+    await this.init();
+    const r = await this.pool.query(`DELETE FROM portal_sessions WHERE expires_at <= $1`, [nowIso]);
     return r.rowCount ?? 0;
   }
 }

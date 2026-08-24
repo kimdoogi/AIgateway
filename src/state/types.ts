@@ -161,6 +161,42 @@ export interface StreamControl {
   close(): Promise<void>;
 }
 
+// ── 셀프 가입 포털 (2026-08-24) — 계정 = 테넌트 1:1 ─────────────
+
+export interface PortalAccount {
+  accountId: string; // acc_...
+  email: string; // 소문자 정규화 저장
+  /** scrypt (s1:salt:hash) — 평문·복호 가능 형태 저장 금지 */
+  passwordHash: string;
+  /** 이 계정의 리소스 스코프 — 가상 키·BYO·원장 귀속이 전부 이 값으로 격리된다 */
+  tenant: string;
+  disabled?: boolean;
+  createdAt: string;
+}
+
+export interface AccountStore {
+  /** 생성. 이메일 중복이면 false (경합 안전 — 유니크 제약이 진실) */
+  create(account: PortalAccount): Promise<boolean>;
+  getByEmail(email: string): Promise<PortalAccount | null>;
+  get(accountId: string): Promise<PortalAccount | null>;
+}
+
+/** 포털 세션 — 토큰 원문은 쿠키에만, 저장은 sha256 해시 (가상 키와 동일 원칙) */
+export interface PortalSessionRecord {
+  tokenHash: string;
+  accountId: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface PortalSessionStore {
+  put(session: PortalSessionRecord): Promise<void>;
+  get(tokenHash: string): Promise<PortalSessionRecord | null>;
+  delete(tokenHash: string): Promise<void>;
+  /** 만료분 정리 (관리 스윕이 호출) — 삭제 행 수 반환 */
+  deleteExpired?(nowIso: string): Promise<number>;
+}
+
 /** 게이트웨이 파일 매핑 (부록 (b) §2, ADR-0006 §1 — 테넌트 격리 포함) */
 export interface FileMapping {
   gatewayFileId: string; // gwf_...

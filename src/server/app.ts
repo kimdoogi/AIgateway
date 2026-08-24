@@ -42,7 +42,8 @@ import { toMessagesError, toMessagesResponse } from "../inbound/anthropic-compat
 import { createMessagesDownconverter } from "../inbound/anthropic-compat/stream.js";
 import { SessionStore, sessionPersistenceKey, type StreamSession } from "../gateway/session.js";
 import { consoleHtml } from "./console.js";
-import type { SessionPersistence, StreamControl } from "../state/types.js";
+import type { AccountStore, PortalSessionStore, SessionPersistence, StreamControl } from "../state/types.js";
+import { registerPortalRoutes } from "./portal.js";
 
 // native 인바운드 (walking-skeleton 6단계) — IR envelope 그대로 (ir-v0 §6/§7/§10.4).
 // 스트림 오케스트레이션(펌프·heartbeat·seq)은 게이트웨이 소관 — 여기는 파싱 + SSE 인코딩만.
@@ -74,6 +75,9 @@ export interface AppDeps extends ExecuteDeps {
   spendTracker?: SpendTracker;
   /** 요청 빈도 제한 — 키의 rateLimit 설정이 있을 때만 발동 (리뷰 2026-08-22 #14) */
   rateLimiter?: RateLimiter;
+  // ── 셀프 가입 포털 (2026-08-24) — 둘 다 + keys 설정 시 /portal 활성 ──
+  accounts?: AccountStore;
+  portalSessions?: PortalSessionStore;
   // ── 운영 프로브 (오케스트레이터 배포 — 2026-08-22) ──
   /** readiness 의존성 검사 — 하나라도 실패하면 /ready 503 */
   readiness?: ReadonlyArray<{ name: string; check: () => Promise<void> }>;
@@ -136,6 +140,7 @@ export function createApp(deps: AppDeps = {}): Hono {
   app.post("/v0/files", bodyLimit({ maxSize: uploadLimit, onError: tooLarge(uploadLimit) }));
   app.use("/v0/*", bodyLimit({ maxSize: jsonLimit, onError: tooLarge(jsonLimit) }));
   app.use("/compat/*", bodyLimit({ maxSize: jsonLimit, onError: tooLarge(jsonLimit) }));
+  app.use("/portal/*", bodyLimit({ maxSize: jsonLimit, onError: tooLarge(jsonLimit) }));
 
   // ── 운영 프로브 (인증 밖 — 오케스트레이터가 자격증명 없이 찔러야 한다) ──
   // liveness: 프로세스 생존만. 의존성 상태와 무관하게 200 — 여기서 503을 내면
@@ -175,6 +180,9 @@ export function createApp(deps: AppDeps = {}): Hono {
   // ── 운영 콘솔 (정적 1페이지 — 비밀 없음, 모든 데이터는 키 인증 뒤) ──
   app.get("/", (c) => c.redirect("/console"));
   app.get("/console", (c) => c.html(consoleHtml()));
+
+  // ── 셀프 가입 포털 — 세션 쿠키 인증, 계정=테넌트 격리 (server/portal.ts) ──
+  registerPortalRoutes(app, deps);
 
   // ── 가상 키 인증 (ADR-0007 §3 — keys 설정 시 활성, 미설정 = 개방 모드/로컬) ──
   // native(/v0/*)와 compat(/compat/*)에 동일 적용 — 한쪽만 걸면 무인증 유료 경로가 남는다
@@ -653,13 +661,22 @@ export function createApp(deps: AppDeps = {}): Hono {
         const cutoff = new Date((deps.now?.() ?? new Date()).getTime() - retentionDays * 86_400_000).toISOString();
         bodyLogsDeleted = await deps.bodyLog.deleteOlderThan(cutoff);
       }
+      // 만료 포털 세션 정리 — 같은 유지보수 트리거에 태운다
+      let portalSessionsPurged: number | undefined;
+      if (deps.portalSessions?.deleteExpired) {
+        portalSessionsPurged = await deps.portalSessions.deleteExpired((deps.now?.() ?? new Date()).toISOString());
+      }
       const result = await sweepExpiredResources(deps.resources, {
         ...(deps.now ? { now: deps.now } : {}),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
         baseUrlFor: (p) => getProvider(p).baseUrl,
         credentialsFor: (p) => credentialHeaders(getProvider(p)),
       });
-      return c.json({ ...result, ...(bodyLogsDeleted !== undefined ? { bodyLogsDeleted } : {}) });
+      return c.json({
+        ...result,
+        ...(bodyLogsDeleted !== undefined ? { bodyLogsDeleted } : {}),
+        ...(portalSessionsPurged !== undefined ? { portalSessionsPurged } : {}),
+      });
     } catch (err) {
       return errJson(c, toIRError(err));
     }

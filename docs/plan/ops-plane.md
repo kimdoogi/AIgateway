@@ -5,7 +5,8 @@
 - **2026-08-22 프로덕션 배포 P0/P1/P2 반영**: 예산 집계·요청 빈도 제한·취소 전파가 Redis 뒤로 이관돼 **다중 레플리카에서 성립**(실 Redis 검증). 본문 로그는 비블로킹 + `BODY_LOG_RETENTION_DAYS` 보관 정책(관리 스윕이 집행). OTel은 `OTEL_EXPORTER_OTLP_ENDPOINT` 설정 시 실제 등록(이전에는 SDK 미등록으로 전 span no-op)
 - **스키마 마이그레이션 (2026-08-22)**: 버전 관리 도입 — `schema_migrations` 이력 테이블 + 순서 있는 append-only 목록 + 체크섬(적용분 편집 거부) + advisory lock 직렬화. `pnpm migrate`(적용) / `pnpm migrate --status`(현황, 종료 코드로 판정). 오케스트레이터 권장: `MIGRATE_ON_BOOT=false` + 배포 전 Job/initContainer. 스키마가 뒤처지거나 드리프트한 파드는 `/ready` 503
 - **운영 콘솔 v1 (2026-08-24)**: `GET /console` — 게이트웨이가 자체 서빙하는 단일 HTML(의존성 0, 전 렌더링 DOM API — XSS 안전). 키 발급/비활성·BYO 등록/삭제·사용량 리포트(CSV)·플레이그라운드(SSE 스트림·취소)·셀프서비스 `GET /v0/usage`. `/v0/usage`는 인증은 받되 쿼터·예산 게이트 **면제** — 402/429의 원인을 보는 창구가 같은 402/429로 막히면 순환이고, 대시보드 폴링이 실호출 쿼터를 갉아먹으면 안 된다. 패키징(build cp)은 CI image 잡이 컨테이너에서 /console을 curl해 검증
-- 잔여 좌석: 스트림 응답 본문 로그(요청만 v1), 스트림 finish PM 리소스 등록, TTL 스윕 자동화(현재 관리 API 트리거), 가격표 실단가 확충(현재 미등재 모델은 `billing-price-estimated` warning + 폴백 단가)
+- **셀프 가입 포털 (2026-08-24)**: `GET /portal` — 계정=테넌트 1:1, 이메일+scrypt·세션은 sha256 해시 저장(HttpOnly·SameSite=Strict 쿠키). 포털 발급 키는 **항상 기본 한도**(rpm·기간 예산, env `PORTAL_*`) 부착 — 셀프서비스가 무한도 지출로 못 이어진다. 남용 방어: `PORTAL_INVITE_CODE` 게이트, 로그인 이메일별 10/분(Redis면 크로스노드), 가입 전역 20/분, 미존재 계정도 동일 401+동일 scrypt 비용. CSRF는 Strict 쿠키+JSON content-type 강제 이중. 마이그레이션 `0005_portal`, 만료 세션은 관리 스윕이 정리
+- 잔여 좌석: 스트림 응답 본문 로그(요청만 v1), 스트림 finish PM 리소스 등록, TTL 스윕 자동화(현재 관리 API 트리거), 가격표 실단가 확충(현재 미등재 모델은 `billing-price-estimated` warning + 폴백 단가), 포털 비밀번호 재설정·이메일 검증(v2 — 현재는 재가입 외 복구 수단 없음)
 - 근거: [ADR-0006 §3](../decisions/ADR-0006-state-layer.md)(리소스 레지스트리) · [ADR-0007](../decisions/ADR-0007-billing-envelope.md)(라인아이템·예산·정산) · [ADR-0008](../decisions/ADR-0008-observability.md)(본문 로그)
 - 선행 완료: 원장(usage_ledger)·가격표(gateway/pricing.ts)·FileStore/BatchStore의 tenant 좌석
 

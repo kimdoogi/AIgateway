@@ -1,4 +1,5 @@
 import type {
+  AccountStore,
   BatchJob,
   BatchStore,
   BodyLogEntry,
@@ -7,6 +8,9 @@ import type {
   FileStore,
   KeyStore,
   LedgerRow,
+  PortalAccount,
+  PortalSessionRecord,
+  PortalSessionStore,
   ProviderKeyStore,
   QueryableLedger,
   ResourceStore,
@@ -124,6 +128,41 @@ export class InMemorySessionPersistence implements SessionPersistence {
 
   async invalidate(sessionId: string): Promise<void> {
     this.events.delete(sessionId);
+  }
+}
+
+export class InMemoryAccountStore implements AccountStore {
+  private readonly byEmail = new Map<string, PortalAccount>();
+  private readonly byId = new Map<string, PortalAccount>();
+  async create(account: PortalAccount): Promise<boolean> {
+    if (this.byEmail.has(account.email)) return false;
+    this.byEmail.set(account.email, account);
+    this.byId.set(account.accountId, account);
+    return true;
+  }
+  async getByEmail(email: string): Promise<PortalAccount | null> {
+    return this.byEmail.get(email) ?? null;
+  }
+  async get(accountId: string): Promise<PortalAccount | null> {
+    return this.byId.get(accountId) ?? null;
+  }
+}
+
+export class InMemoryPortalSessionStore implements PortalSessionStore {
+  private readonly sessions = new Map<string, PortalSessionRecord>();
+  async put(session: PortalSessionRecord): Promise<void> {
+    this.sessions.set(session.tokenHash, session);
+  }
+  async get(tokenHash: string): Promise<PortalSessionRecord | null> {
+    return this.sessions.get(tokenHash) ?? null;
+  }
+  async delete(tokenHash: string): Promise<void> {
+    this.sessions.delete(tokenHash);
+  }
+  async deleteExpired(nowIso: string): Promise<number> {
+    let purged = 0;
+    for (const [hash, s] of this.sessions) if (s.expiresAt <= nowIso) { this.sessions.delete(hash); purged += 1; }
+    return purged;
   }
 }
 

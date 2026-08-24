@@ -10,12 +10,13 @@ describe("마이그레이션 목록 무결성", () => {
     expect(validateMigrationList()).toEqual([]);
   });
 
-  it("baseline 4건이 존재한다 (기존 DDL 채택분)", () => {
+  it("목록 = baseline 4건 + 증분 (append-only 순서)", () => {
     expect(MIGRATIONS.map((m) => m.id)).toEqual([
       "0001_usage_ledger",
       "0002_ops_plane",
       "0003_gateway_files",
       "0004_gateway_batches",
+      "0005_portal",
     ]);
   });
 

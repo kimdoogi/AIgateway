@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ai-gateway 포털</title>
+<link rel="icon" href="data:,">
+<style>
+/* 셀프 가입 포털 — 콘솔과 같은 시각 언어, 대상만 다르다(운영자 → 키 사용자) */
+:root{
+  --bg:#0d1117; --panel:#151b23; --panel2:#1c2532; --line:#2a3441;
+  --tx:#d7e0ea; --tx2:#8b98a9; --acc:#2dd4bf; --acc-dim:#0f3d38;
+  --ok:#34d399; --warn:#f5a524; --err:#f87171; --r:10px;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.55 system-ui,-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+.topbar{display:flex;align-items:center;gap:14px;padding:14px 26px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:10}
+.brand{font-weight:700;font-size:15px} .brand .muted{color:var(--tx2);font-weight:400;font-size:12px;margin-left:4px}
+.topbar .spacer{flex:1}
+main{max-width:960px;margin:0 auto;padding:26px 22px 80px}
+h1{font-size:19px;margin:0 0 4px} .sub{color:var(--tx2);margin:0 0 20px;font-size:13px}
+h2{font-size:14px;margin:26px 0 10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11.5px;color:var(--tx2)}
+input,select{background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--tx);padding:9px 11px;font:inherit;min-width:0}
+input:focus,select:focus{outline:1px solid var(--acc);border-color:var(--acc)}
+input.w-m{width:180px} input.w-l{width:100%}
+button.btn{background:var(--acc);border:none;color:#04211d;font-weight:600;padding:9px 16px;border-radius:8px;cursor:pointer;font-size:13.5px}
+button.btn:hover{filter:brightness(1.08)} button.btn:disabled{opacity:.4;cursor:default}
+button.btn.ghost{background:var(--panel2);color:var(--tx);border:1px solid var(--line)}
+button.btn.danger{background:transparent;color:var(--err);border:1px solid var(--err);padding:4px 10px;font-size:12px}
+button.copy{all:unset;cursor:pointer;color:var(--tx2);font-size:11.5px;padding:2px 8px;border:1px solid var(--line);border-radius:6px}
+button.copy:hover{color:var(--acc);border-color:var(--acc)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{color:var(--tx2);font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--line)} tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-family:var(--mono)}
+.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+code,pre{font-family:var(--mono);font-size:12px}
+pre.snippet{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;margin:0;white-space:pre}
+.sniphead{display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px}
+.badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid var(--line);color:var(--tx2)}
+.badge.ok{color:var(--ok);border-color:var(--ok)} .badge.err{color:var(--err);border-color:var(--err)} .badge.warn{color:var(--warn);border-color:var(--warn)}
+.mono{font-family:var(--mono)} .muted{color:var(--tx2)} .small{font-size:12px}
+.hint{font-size:11.5px;color:var(--tx2);margin-top:6px}
+.bar{height:9px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;position:relative;overflow:hidden;margin:6px 0 3px}
+.bar>i{position:absolute;inset:0 auto 0 0;background:var(--acc);border-radius:999px}
+.bar>s{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--warn)}
+.auth-wrap{min-height:calc(100vh - 60px);display:flex;align-items:center;justify-content:center;padding:24px}
+.auth{width:min(400px,94vw)}
+.tabs{display:flex;gap:4px;margin-bottom:14px}
+.tabs button{all:unset;cursor:pointer;flex:1;text-align:center;padding:9px;border-radius:8px;color:var(--tx2);border:1px solid var(--line);font-size:13.5px}
+.tabs button.on{background:var(--acc-dim);color:var(--acc);border-color:var(--acc);font-weight:600}
+.auth .field{margin-bottom:10px}
+.authmsg{min-height:18px;font-size:12.5px;color:var(--err);margin:4px 0 10px}
+.limits{font-size:11.5px;color:var(--tx2);margin-top:12px;line-height:1.7}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal.hidden,.toast.hidden,.hidden{display:none!important}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;width:min(560px,92vw)}
+.secret{background:var(--panel2);border:1px dashed var(--acc);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:13px;word-break:break-all;margin:12px 0}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font-size:13px;z-index:60;max-width:80vw}
+.toast.err{border-color:var(--err);color:var(--err)} .toast.ok{border-color:var(--ok)}
+.keycell{display:flex;flex-direction:column;gap:2px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">▣ ai-gateway<span class="muted">portal</span></div>
+  <div class="spacer"></div>
+  <span id="whoami" class="muted small mono hidden"></span>
+  <button id="logoutBtn" class="btn ghost hidden" style="padding:6px 12px;font-size:12.5px">로그아웃</button>
+</div>
+
+<!-- ══ 비활성 안내 ══ -->
+<div id="offView" class="auth-wrap hidden"><div class="card auth">
+  <h1>포털 비활성</h1>
+  <p class="sub" style="margin:8px 0 0">게이트웨이가 개방 모드로 떠 있습니다. <code>GATEWAY_ADMIN_KEY</code>를 설정해 인증 모드로 기동하면 셀프 가입 포털이 열립니다.</p>
+</div></div>
+
+<!-- ══ 로그인 / 가입 ══ -->
+<div id="authView" class="auth-wrap hidden"><div class="card auth">
+  <h1 style="margin-bottom:14px">시작하기</h1>
+  <div class="tabs">
+    <button id="tabLogin" class="on">로그인</button>
+    <button id="tabSignup">가입</button>
+  </div>
+  <div class="field"><label>이메일</label><input id="authEmail" class="w-l" type="email" autocomplete="username" placeholder="you@example.com"></div>
+  <div class="field"><label>비밀번호 <span class="muted">(8자 이상)</span></label><input id="authPw" class="w-l" type="password" autocomplete="current-password"></div>
+  <div class="field hidden" id="inviteField"><label>초대 코드</label><input id="authInvite" class="w-l" placeholder="관리자에게 받은 코드"></div>
+  <div class="authmsg" id="authMsg"></div>
+  <button id="authSubmit" class="btn" style="width:100%">로그인</button>
+  <div class="limits" id="authLimits"></div>
+</div></div>
+
+<!-- ══ 대시보드 ══ -->
+<main id="dashView" class="hidden">
+  <h1>내 대시보드</h1>
+  <p class="sub">키를 발급하고, 어떤 형식으로든 호출하고, 지출을 확인합니다. 모든 리소스는 내 계정(테넌트)에만 귀속됩니다.</p>
+
+  <h2 style="display:flex;justify-content:space-between;align-items:center">API 키
+    <span class="muted small" id="keyCount"></span></h2>
+  <div class="card">
+    <div class="row">
+      <div class="field" style="flex:1"><label>키 이름 (선택)</label><input id="newKeyName" placeholder="my-app"></div>
+      <button id="issueBtn" class="btn">새 키 발급</button>
+    </div>
+    <div class="hint" id="issueHint"></div>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>이름</th><th>keyId</th><th class="num">rpm</th><th>예산</th><th>생성</th><th>상태</th><th></th></tr></thead>
+    <tbody id="keysBody"><tr><td colspan="7" class="muted">불러오는 중…</td></tr></tbody>
+  </table></div>
+
+  <h2>사용량</h2>
+  <div id="usageKeys"></div>
+  <div class="tablewrap" style="margin-top:10px"><table>
+    <thead><tr><th>모델 (최근 30일)</th><th class="num">요청</th><th class="num">토큰</th><th class="num">비용 $</th></tr></thead>
+    <tbody id="modelsBody"><tr><td colspan="4" class="muted">—</td></tr></tbody>
+  </table></div>
+
+  <h2>BYO 프로바이더 키 <span class="muted small">— 내 프로바이더 계정으로 과금</span></h2>
+  <div class="card">
+    <div class="row">
+      <div class="field"><label>프로바이더</label><select id="byoProvider"><option>anthropic</option><option>openai</option><option>google</option><option>xai</option></select></div>
+      <div class="field" style="flex:1"><label>API 키</label><input id="byoKey" type="password" placeholder="sk-… / AIza…"></div>
+      <button id="byoSave" class="btn">저장</button>
+      <button id="byoDelete" class="btn danger" style="padding:9px 14px;font-size:13px">삭제</button>
+    </div>
+    <div class="hint">암호화 저장(AES-256-GCM)되며 <b>다시 조회할 수 없습니다</b> — 교체·삭제만 가능합니다. 삭제하면 게이트웨이 공용 키로 복귀합니다.</div>
+  </div>
+
+  <h2>빠른 시작</h2>
+  <div id="snipWrap"></div>
+</main>
+
+<div id="modal" class="modal hidden"><div class="box">
+  <h2 style="margin-top:0">키가 발급되었습니다</h2>
+  <p class="small muted">아래 시크릿은 지금 이 화면에서만 볼 수 있습니다 — 서버에는 해시만 저장됩니다.</p>
+  <div id="modalSecret" class="secret"></div>
+  <div class="row">
+    <button id="modalCopy" class="btn">복사</button>
+    <button id="modalClose" class="btn ghost">닫기</button>
+  </div>
+</div></div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+let CONFIG = { enabled: false, inviteRequired: false, limits: {} };
+let ME = null;
+let lastSecret = ""; // 메모리에만 — 저장하지 않는다
+
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v !== undefined && v !== null) n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null) continue;
+    n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return n;
+}
+let toastTimer;
+function toast(msg, kind) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast" + (kind ? " " + kind : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 3500);
+}
+async function api(path, { method = "GET", body } = {}) {
+  const res = await fetch(path, {
+    method,
+    headers: body !== undefined ? { "content-type": "application/json" } : {},
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { /* 비JSON */ }
+  if (!res.ok) {
+    const err = new Error(data && data.error ? (data.error.message || data.error.category) : "HTTP " + res.status);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+const fmtUsd = (n) => "$" + (n >= 0.01 ? n.toFixed(4) : n.toPrecision(3));
+function show(view) {
+  for (const id of ["offView", "authView", "dashView"]) $("#" + id).classList.toggle("hidden", id !== view);
+  $("#whoami").classList.toggle("hidden", view !== "dashView");
+  $("#logoutBtn").classList.toggle("hidden", view !== "dashView");
+}
+
+/* ── 인증 화면 ─────────────────────────────────────────── */
+let authMode = "login";
+function setAuthMode(mode) {
+  authMode = mode;
+  $("#tabLogin").classList.toggle("on", mode === "login");
+  $("#tabSignup").classList.toggle("on", mode === "signup");
+  $("#authSubmit").textContent = mode === "login" ? "로그인" : "가입하기";
+  $("#inviteField").classList.toggle("hidden", !(mode === "signup" && CONFIG.inviteRequired));
+  $("#authPw").autocomplete = mode === "login" ? "current-password" : "new-password";
+  $("#authMsg").textContent = "";
+  const l = CONFIG.limits || {};
+  $("#authLimits").textContent = mode === "signup" && l.rpm
+    ? `가입하면 바로 키를 발급할 수 있습니다 — 기본 한도: 분당 ${l.rpm}회, ${l.periodDays}일 예산 $${l.hardUsd} (키 ${l.maxKeys}개까지)`
+    : "";
+}
+$("#tabLogin").addEventListener("click", () => setAuthMode("login"));
+$("#tabSignup").addEventListener("click", () => setAuthMode("signup"));
+$("#authSubmit").addEventListener("click", async () => {
+  const email = $("#authEmail").value.trim();
+  const password = $("#authPw").value;
+  $("#authMsg").textContent = "";
+  $("#authSubmit").disabled = true;
+  try {
+    const body = { email, password };
+    if (authMode === "signup" && CONFIG.inviteRequired) body.inviteCode = $("#authInvite").value.trim();
+    await api("/portal/" + (authMode === "login" ? "login" : "signup"), { method: "POST", body });
+    await enterDash();
+  } catch (err) {
+    $("#authMsg").textContent = err.message;
+  } finally {
+    $("#authSubmit").disabled = false;
+  }
+});
+$("#authPw").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#authSubmit").click(); });
+$("#logoutBtn").addEventListener("click", async () => {
+  await api("/portal/logout", { method: "POST", body: {} }).catch(() => null);
+  lastSecret = "";
+  show("authView");
+});
+
+/* ── 대시보드 ─────────────────────────────────────────── */
+async function enterDash() {
+  ME = await api("/portal/me");
+  $("#whoami").textContent = ME.email;
+  const l = ME.limits;
+  $("#issueHint").textContent =
+    `발급되는 키에는 기본 한도가 붙습니다 — 분당 ${l.rpm}회 · ${l.periodDays}일 예산 $${l.hardUsd} (soft $${l.softUsd}) · 활성 키 최대 ${l.maxKeys}개. 상향은 운영자에게 문의하세요.`;
+  show("dashView");
+  await Promise.all([loadKeys(), loadUsage()]);
+  renderSnippets();
+}
+
+async function loadKeys() {
+  const body = $("#keysBody");
+  try {
+    const d = await api("/portal/keys");
+    const active = d.keys.filter((k) => !k.disabled).length;
+    $("#keyCount").textContent = `활성 ${active} / ${ME.limits.maxKeys}`;
+    body.replaceChildren();
+    if (!d.keys.length) {
+      body.append(el("tr", {}, el("td", { colspan: "7", class: "muted" }, "아직 키가 없습니다 — 위에서 발급하세요")));
+      return;
+    }
+    for (const k of d.keys) {
+      body.append(el("tr", {},
+        el("td", {}, k.name || "—"),
+        el("td", { class: "mono small" }, k.keyId),
+        el("td", { class: "num" }, k.rateLimit ? k.rateLimit.requestsPerMinute : "∞"),
+        el("td", { class: "mono small" }, k.budget ? fmtUsd(k.budget.hardUsd ?? 0) + "/" + k.budget.periodDays + "d" : "—"),
+        el("td", { class: "small muted" }, k.createdAt.slice(0, 10)),
+        el("td", {}, k.disabled ? el("span", { class: "badge err" }, "비활성") : el("span", { class: "badge ok" }, "활성")),
+        el("td", {}, k.disabled ? "" : el("button", {
+          class: "btn danger",
+          onclick: async () => {
+            if (!confirm("이 키를 비활성화할까요? 되돌릴 수 없습니다.")) return;
+            try { await api("/portal/keys/" + k.keyId + "/disable", { method: "POST", body: {} }); toast("비활성화됨", "ok"); loadKeys(); loadUsage(); }
+            catch (err) { toast(err.message, "err"); }
+          },
+        }, "비활성화")),
+      ));
+    }
+  } catch (err) {
+    body.replaceChildren(el("tr", {}, el("td", { colspan: "7" }, el("span", { class: "badge err" }, err.message))));
+  }
+}
+
+$("#issueBtn").addEventListener("click", async () => {
+  try {
+    const d = await api("/portal/keys", { method: "POST", body: { name: $("#newKeyName").value.trim() } });
+    lastSecret = d.secret;
+    $("#modalSecret").textContent = d.secret;
+    $("#modal").classList.remove("hidden");
+    $("#newKeyName").value = "";
+    await loadKeys();
+    renderSnippets();
+  } catch (err) { toast(err.message, "err"); }
+});
+$("#modalCopy").addEventListener("click", () => { navigator.clipboard.writeText($("#modalSecret").textContent); toast("복사됨 — 안전한 곳에 보관하세요", "ok"); });
+$("#modalClose").addEventListener("click", () => $("#modal").classList.add("hidden"));
+
+async function loadUsage() {
+  const wrap = $("#usageKeys"), models = $("#modelsBody");
+  try {
+    const d = await api("/portal/usage");
+    wrap.replaceChildren();
+    const active = d.keys.filter((k) => !k.disabled);
+    if (!active.length) wrap.append(el("div", { class: "card muted small" }, "활성 키가 없습니다"));
+    for (const k of active) {
+      const kids = [el("div", { class: "row", style: "justify-content:space-between" },
+        el("span", {}, el("b", {}, k.name || k.keyId), " ", el("span", { class: "muted small mono" }, k.keyId)),
+        k.blocked ? el("span", { class: "badge err" }, "hard 초과 — 차단됨") : el("span", { class: "badge ok" }, "정상"))];
+      if (k.budget && k.budget.hardUsd !== undefined && k.spentUsd !== undefined) {
+        const pct = Math.min(100, (k.spentUsd / k.budget.hardUsd) * 100);
+        const bar = el("div", { class: "bar" }, el("i", { style: "width:" + pct + "%" }));
+        if (k.budget.softUsd !== undefined) bar.append(el("s", { style: "left:" + Math.min(100, (k.budget.softUsd / k.budget.hardUsd) * 100) + "%" }));
+        kids.push(bar, el("div", { class: "small muted" },
+          fmtUsd(k.spentUsd) + " / " + fmtUsd(k.budget.hardUsd) + " · " + k.windowDays + "일 창"));
+      }
+      wrap.append(el("div", { class: "card" }, kids));
+    }
+    models.replaceChildren();
+    if (!d.models.length) models.append(el("tr", {}, el("td", { colspan: "4", class: "muted" }, "호출 기록이 아직 없습니다")));
+    for (const m of d.models) {
+      models.append(el("tr", {},
+        el("td", { class: "mono" }, m.group), el("td", { class: "num" }, m.requests),
+        el("td", { class: "num" }, m.totalTokens), el("td", { class: "num" }, m.costUsd.toFixed(6))));
+    }
+  } catch (err) {
+    wrap.replaceChildren(el("div", { class: "card" }, el("span", { class: "badge err" }, err.message)));
+  }
+}
+
+$("#byoSave").addEventListener("click", async () => {
+  const key = $("#byoKey").value.trim();
+  if (!key) return toast("API 키를 입력하세요", "err");
+  try {
+    await api("/portal/provider-keys", { method: "PUT", body: { provider: $("#byoProvider").value, key } });
+    $("#byoKey").value = "";
+    toast($("#byoProvider").value + " 키 저장됨 — 이후 호출은 내 계정으로 과금", "ok");
+  } catch (err) { toast(err.message, "err"); }
+});
+$("#byoDelete").addEventListener("click", async () => {
+  if (!confirm($("#byoProvider").value + " BYO 키를 삭제할까요? 공용 키로 복귀합니다.")) return;
+  try {
+    await api("/portal/provider-keys/" + $("#byoProvider").value, { method: "DELETE" });
+    toast("삭제됨", "ok");
+  } catch (err) { toast(err.message, "err"); }
+});
+
+function renderSnippets() {
+  const o = location.origin;
+  const k = lastSecret || "gwk_(발급받은 키)";
+  const items = [
+    ["OpenAI SDK 그대로 쓰기 — base URL만 바꾸면 4사 어디로든",
+`curl ${o}/compat/openai/v1/chat/completions \\
+  -H "authorization: Bearer ${k}" \\
+  -H "content-type: application/json" \\
+  -d '{"model":"claude-haiku-4-5","max_tokens":256,
+       "messages":[{"role":"user","content":"안녕!"}]}'`],
+    ["native IR — 스트림·폴백 등 전 기능",
+`curl -N ${o}/v0/responses \\
+  -H "authorization: Bearer ${k}" \\
+  -H "content-type: application/json" \\
+  -d '{"version":"0","model":"gpt-5.6-luna","maxOutputTokens":256,"stream":true,
+       "messages":[{"role":"user","blocks":[{"type":"text","text":"안녕!"}]}]}'`],
+    ["내 키 상태 조회 — 한도에 막혀도 이 호출은 항상 됩니다",
+`curl ${o}/v0/usage -H "authorization: Bearer ${k}"`],
+  ];
+  const wrap = $("#snipWrap");
+  wrap.replaceChildren();
+  for (const [title, code] of items) {
+    wrap.append(
+      el("div", { class: "sniphead" }, el("b", { class: "small" }, title),
+        el("button", { class: "copy", onclick: () => { navigator.clipboard.writeText(code); toast("복사됨", "ok"); } }, "복사")),
+      el("pre", { class: "snippet" }, code),
+    );
+  }
+}
+
+/* ── 진입 ─────────────────────────────────────────────── */
+(async function boot() {
+  try {
+    CONFIG = await api("/portal/config");
+  } catch (e) { /* config 실패 → 아래 enabled=false 경로 */ }
+  if (!CONFIG.enabled) { show("offView"); return; }
+  setAuthMode("login");
+  try {
+    await enterDash(); // 세션 쿠키가 살아 있으면 바로 대시보드
+  } catch (e) {
+    show("authView");
+  }
+})();
+</script>
+</body>
+</html>

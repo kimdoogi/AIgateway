@@ -10,16 +10,20 @@ import {
   PostgresKeyStore,
   PostgresLedger,
   PostgresPool,
+  PostgresAccountStore,
+  PostgresPortalSessionStore,
   PostgresProviderKeyStore,
   PostgresResourceStore,
   schemaProblems,
 } from "../state/postgres.js";
 import { RedisRateLimiter, RedisSessionPersistence, RedisSpendTracker, RedisStreamControl } from "../state/redis.js";
 import {
+  InMemoryAccountStore,
   InMemoryBatchStore,
   InMemoryFileStore,
   InMemoryKeyStore,
   InMemoryLedger,
+  InMemoryPortalSessionStore,
   InMemoryProviderKeyStore,
   InMemoryResourceStore,
 } from "../state/memory.js";
@@ -68,6 +72,16 @@ const keys = opsEnabled ? (db ? new PostgresKeyStore(db) : new InMemoryKeyStore(
 const providerKeys = opsEnabled ? (db ? new PostgresProviderKeyStore(db) : new InMemoryProviderKeyStore()) : undefined;
 const resources = db ? new PostgresResourceStore(db) : new InMemoryResourceStore();
 const bodyLog = db ? new PostgresBodyLog(db) : undefined; // 기본 on은 durable sink 전제 (ADR-0008)
+// 셀프 가입 포털 — 인증 모드에서만 (개방 모드에는 키·테넌트 개념이 없다)
+const accounts = opsEnabled ? (db ? new PostgresAccountStore(db) : new InMemoryAccountStore()) : undefined;
+const portalSessions = opsEnabled ? (db ? new PostgresPortalSessionStore(db) : new InMemoryPortalSessionStore()) : undefined;
+if (accounts) {
+  const invite = Boolean(process.env["PORTAL_INVITE_CODE"]);
+  console.log(`[gateway] 셀프 가입 포털 활성 — /portal ${invite ? "(초대 코드 필요)" : "(공개 가입)"}`);
+  if (!invite) {
+    console.warn("[gateway] 포털이 공개 가입 모드입니다 — 인터넷 노출 시 PORTAL_INVITE_CODE 설정을 권장 (남용 방어)");
+  }
+}
 if (!opsEnabled) console.warn("[gateway] GATEWAY_ADMIN_KEY 미설정 — 개방 모드 (가상 키 인증·관리 API 비활성)");
 
 // 다중 레플리카 정합성은 Redis 유무로 갈린다 (리뷰 2026-08-22 #1/#12)
@@ -123,6 +137,8 @@ const deps: AppDeps = {
   ...(bodyLog ? { bodyLog } : {}),
   ...(persistence ? { persistence } : {}),
   ...(streamControl ? { streamControl } : {}),
+  ...(accounts ? { accounts } : {}),
+  ...(portalSessions ? { portalSessions } : {}),
 };
 // 스키마 준비 — MIGRATE_ON_BOOT=false면 적용하지 않고 미적용 여부만 검사한다(기동 거부).
 // 기동을 막지는 않되(일시 DB 장애로 파드가 죽는 것보다 /ready 503이 낫다) 결과는 크게 남긴다

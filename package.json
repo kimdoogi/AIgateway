@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "tsc -p tsconfig.build.json && cp src/server/console.html dist/server/console.html",
+    "build": "tsc -p tsconfig.build.json && cp src/server/console.html src/server/portal.html dist/server/",
     "start": "node dist/server/index.js",
     "migrate": "tsx tools/migrate.ts",
     "capture": "tsx tools/capture/capture.ts",

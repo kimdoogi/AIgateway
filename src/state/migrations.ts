@@ -143,6 +143,27 @@ CREATE TABLE IF NOT EXISTS gateway_batches (
 );
 `,
   },
+  // 셀프 가입 포털 — 계정·세션 (2026-08-24)
+  {
+    id: "0005_portal",
+    sql: `
+CREATE TABLE IF NOT EXISTS portal_accounts (
+  account_id TEXT PRIMARY KEY,
+  email      TEXT NOT NULL UNIQUE,
+  pw_hash    TEXT NOT NULL,
+  tenant     TEXT NOT NULL UNIQUE,
+  disabled   BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS portal_sessions (
+  token_hash TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS portal_sessions_expiry_idx ON portal_sessions (expires_at);
+`,
+  },
 ];
 
 /** 적용된 마이그레이션의 sql 변조 검출용 — 공백 정규화 후 sha256 */
