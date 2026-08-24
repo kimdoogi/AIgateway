@@ -41,6 +41,7 @@ import { compatMessagesToIR } from "../inbound/anthropic-compat/request.js";
 import { toMessagesError, toMessagesResponse } from "../inbound/anthropic-compat/response.js";
 import { createMessagesDownconverter } from "../inbound/anthropic-compat/stream.js";
 import { SessionStore, sessionPersistenceKey, type StreamSession } from "../gateway/session.js";
+import { consoleHtml } from "./console.js";
 import type { SessionPersistence, StreamControl } from "../state/types.js";
 
 // native 인바운드 (walking-skeleton 6단계) — IR envelope 그대로 (ir-v0 §6/§7/§10.4).
@@ -171,6 +172,10 @@ export function createApp(deps: AppDeps = {}): Hono {
     return errJson(c, irErr);
   });
 
+  // ── 운영 콘솔 (정적 1페이지 — 비밀 없음, 모든 데이터는 키 인증 뒤) ──
+  app.get("/", (c) => c.redirect("/console"));
+  app.get("/console", (c) => c.html(consoleHtml()));
+
   // ── 가상 키 인증 (ADR-0007 §3 — keys 설정 시 활성, 미설정 = 개방 모드/로컬) ──
   // native(/v0/*)와 compat(/compat/*)에 동일 적용 — 한쪽만 걸면 무인증 유료 경로가 남는다
   // (리뷰 2026-08-22: ops-plane "compat 인바운드 인증" 좌석 클로즈)
@@ -184,25 +189,30 @@ export function createApp(deps: AppDeps = {}): Hono {
     } catch (err) {
       return errJson(c, toIRError(err));
     }
-    // 빈도 제한이 예산보다 **앞** — 예산은 지출 발생 후 평가라 순간 폭주를 못 막는다.
-    // 여기서 막으면 프로바이더 호출 자체가 일어나지 않는다
-    const rpm = limitOf(key);
-    if (deps.rateLimiter && rpm !== undefined) {
-      const v = await deps.rateLimiter.hit(key.keyId, rpm, 60, deps.now?.() ?? new Date());
-      c.header("x-ratelimit-limit", String(rpm));
-      c.header("x-ratelimit-remaining", String(v.remaining));
-      if (!v.allowed) {
-        c.header("retry-after", String(v.retryAfterSeconds));
-        return errJson(c, rateLimitedError(key.keyId, rpm, v).irError);
-      }
-    }
-
-    // 예산 평가 — 요청당 1회 PreRequest (§10.4: hard는 다음 요청 차단, soft는 warning)
     const preWarnings: Warning[] = [];
-    if (deps.spendTracker) {
-      const verdict = await evaluateBudget(key, deps.spendTracker, deps.now?.() ?? new Date());
-      if (verdict.blocked) return errJson(c, budgetExceededError(key, verdict.spentUsd).irError);
-      if (verdict.warning) preWarnings.push(verdict.warning);
+    // 자기 상태 조회(/v0/usage)는 쿼터·예산 게이트 **면제** (인증은 그대로) —
+    // 402/429의 원인을 보는 창구가 같은 402/429로 막히면 사용자는 왜 막혔는지 영영 알 수 없고,
+    // 대시보드 폴링이 실호출 쿼터를 갉아먹는다
+    if (c.req.path !== "/v0/usage") {
+      // 빈도 제한이 예산보다 **앞** — 예산은 지출 발생 후 평가라 순간 폭주를 못 막는다.
+      // 여기서 막으면 프로바이더 호출 자체가 일어나지 않는다
+      const rpm = limitOf(key);
+      if (deps.rateLimiter && rpm !== undefined) {
+        const v = await deps.rateLimiter.hit(key.keyId, rpm, 60, deps.now?.() ?? new Date());
+        c.header("x-ratelimit-limit", String(rpm));
+        c.header("x-ratelimit-remaining", String(v.remaining));
+        if (!v.allowed) {
+          c.header("retry-after", String(v.retryAfterSeconds));
+          return errJson(c, rateLimitedError(key.keyId, rpm, v).irError);
+        }
+      }
+
+      // 예산 평가 — 요청당 1회 PreRequest (§10.4: hard는 다음 요청 차단, soft는 warning)
+      if (deps.spendTracker) {
+        const verdict = await evaluateBudget(key, deps.spendTracker, deps.now?.() ?? new Date());
+        if (verdict.blocked) return errJson(c, budgetExceededError(key, verdict.spentUsd).irError);
+        if (verdict.warning) preWarnings.push(verdict.warning);
+      }
     }
     opsCtx.set(c.req.raw, { key, preWarnings, resolver: tenantCredentialResolver(key.tenant, deps.providerKeys) });
     return next();
@@ -351,6 +361,40 @@ export function createApp(deps: AppDeps = {}): Hono {
     } catch (err) {
       return errJson(c, toIRError(err));
     }
+  });
+
+  // ── 셀프서비스 사용량 (콘솔 "내 키 · 사용량") — 키 소유자가 자기 상태를 본다 ──
+  app.get("/v0/usage", async (c) => {
+    const ops = opsCtx.get(c.req.raw);
+    if (!ops) {
+      return errJson(
+        c,
+        irError("invalid_request", 501, "가상 키 인증 비활성(개방 모드) — GATEWAY_ADMIN_KEY 설정 시 사용 가능"),
+      );
+    }
+    const key = ops.key;
+    const windowDays = key.budget?.periodDays ?? 30;
+    const now = deps.now?.() ?? new Date();
+    const since = new Date(now.getTime() - windowDays * 86_400_000).toISOString();
+    let spentUsd: number | undefined;
+    if (deps.spendTracker) {
+      try {
+        spentUsd = await deps.spendTracker.spentSince(key.keyId, since);
+      } catch {
+        /* 집계 조회 실패는 조회 자체를 막지 않는다 — spentUsd 생략으로 표현 */
+      }
+    }
+    return c.json({
+      keyId: key.keyId,
+      tenant: key.tenant,
+      ...(key.name ? { name: key.name } : {}),
+      ...(key.rateLimit ? { rateLimit: key.rateLimit } : {}),
+      ...(key.budget ? { budget: key.budget } : {}),
+      windowDays,
+      ...(spentUsd !== undefined ? { spentUsd } : {}),
+      blocked: key.budget?.hardUsd !== undefined && spentUsd !== undefined && spentUsd >= key.budget.hardUsd,
+      softExceeded: key.budget?.softUsd !== undefined && spentUsd !== undefined && spentUsd >= key.budget.softUsd,
+    });
   });
 
   // ── Files 브리지 (부록 (b) §2) ──

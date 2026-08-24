@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ai-gateway 콘솔</title>
+<link rel="icon" href="data:,">
+<style>
+/* ai-gateway 운영 콘솔 — 의존성 0, 다크 단일 테마 (운영 도구), 전부 same-origin fetch */
+:root{
+  --bg:#0d1117; --panel:#151b23; --panel2:#1c2532; --line:#2a3441;
+  --tx:#d7e0ea; --tx2:#8b98a9; --acc:#2dd4bf; --acc-dim:#0f3d38;
+  --ok:#34d399; --warn:#f5a524; --err:#f87171; --r:10px;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box} html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--tx);font:14px/1.55 system-ui,-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+.shell{display:flex;min-height:100vh}
+aside{width:224px;flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 14px;position:sticky;top:0;height:100vh}
+.brand{font-weight:700;font-size:15px;letter-spacing:.2px;padding:4px 8px 16px}
+.brand .muted{color:var(--tx2);font-weight:400;font-size:12px;margin-left:4px}
+nav{display:flex;flex-direction:column;gap:2px}
+nav button{all:unset;cursor:pointer;padding:8px 10px;border-radius:8px;color:var(--tx2);font-size:13.5px}
+nav button:hover{background:var(--panel2);color:var(--tx)}
+nav button.active{background:var(--acc-dim);color:var(--acc);font-weight:600}
+.navlabel{margin:14px 10px 4px;font-size:11px;color:var(--tx2);text-transform:uppercase;letter-spacing:.08em}
+.side-foot{margin-top:auto;padding:10px 8px;font-size:12px;color:var(--tx2);border-top:1px solid var(--line)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--tx2);margin-right:6px;vertical-align:baseline}
+.dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.err{background:var(--err)}
+main{flex:1;min-width:0;padding:28px 32px 60px;max-width:1100px}
+h1{font-size:19px;margin:0 0 4px} .sub{color:var(--tx2);margin:0 0 22px;font-size:13px}
+h2{font-size:14px;margin:26px 0 10px;color:var(--tx)}
+section{display:none} section.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:14px}
+.cards3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.card h3{margin:0 0 6px;font-size:13.5px} .card p{margin:0;color:var(--tx2);font-size:12.5px}
+.step{color:var(--acc);font:600 11px var(--mono);letter-spacing:.05em}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11.5px;color:var(--tx2)}
+input,select,textarea{background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--tx);padding:8px 10px;font:inherit;min-width:0}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--acc);border-color:var(--acc)}
+input.w-s{width:110px} input.w-m{width:170px} input.w-l{width:280px}
+textarea{width:100%;resize:vertical;font-family:inherit}
+button.btn{background:var(--acc);border:none;color:#04211d;font-weight:600;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13.5px}
+button.btn:hover{filter:brightness(1.08)} button.btn:disabled{opacity:.4;cursor:default}
+button.btn.ghost{background:var(--panel2);color:var(--tx);border:1px solid var(--line)}
+button.btn.danger{background:transparent;color:var(--err);border:1px solid var(--err);padding:4px 10px;font-size:12px}
+button.copy{all:unset;cursor:pointer;color:var(--tx2);font-size:11.5px;padding:2px 8px;border:1px solid var(--line);border-radius:6px}
+button.copy:hover{color:var(--acc);border-color:var(--acc)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{color:var(--tx2);font-weight:500;text-align:left;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.num,th.num{text-align:right;font-family:var(--mono)}
+tr:last-child td{border-bottom:none}
+.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+code,pre{font-family:var(--mono);font-size:12px}
+pre.snippet{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;margin:0;white-space:pre}
+.sniphead{display:flex;justify-content:space-between;align-items:center;margin:16px 0 6px}
+.sniphead b{font-size:12.5px}
+.badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;border:1px solid var(--line);color:var(--tx2)}
+.badge.ok{color:var(--ok);border-color:var(--ok)} .badge.err{color:var(--err);border-color:var(--err)}
+.badge.warn{color:var(--warn);border-color:var(--warn)}
+.mono{font-family:var(--mono)} .muted{color:var(--tx2)} .small{font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}.shell{flex-direction:column}aside{width:100%;height:auto;position:static;flex-direction:row;align-items:center;overflow-x:auto}nav{flex-direction:row}.side-foot{border:none;margin:0 0 0 auto;white-space:nowrap}.navlabel{display:none}main{padding:20px}}
+pre.out{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;min-height:120px;max-height:340px;overflow:auto;white-space:pre-wrap;margin:0}
+pre.out.dim{color:var(--tx2);min-height:0;max-height:120px}
+.evt{font-family:var(--mono);font-size:11.5px;color:var(--tx2)}
+.bar{height:10px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;position:relative;overflow:hidden;margin:8px 0 4px}
+.bar>i{position:absolute;inset:0 auto 0 0;background:var(--acc);border-radius:999px}
+.bar>s{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--warn)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal.hidden,.toast.hidden{display:none}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;width:min(560px,92vw)}
+.secret{background:var(--panel2);border:1px dashed var(--acc);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:13px;word-break:break-all;margin:12px 0}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font-size:13px;z-index:60;max-width:80vw}
+.toast.err{border-color:var(--err);color:var(--err)} .toast.ok{border-color:var(--ok)}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;font-size:12.5px}
+.kv dt{color:var(--tx2)} .kv dd{margin:0;font-family:var(--mono)}
+.hint{font-size:11.5px;color:var(--tx2);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside>
+    <div class="brand">▣ ai-gateway<span class="muted">console</span></div>
+    <nav id="nav">
+      <button data-view="start" class="active">시작하기</button>
+      <button data-view="play">플레이그라운드</button>
+      <button data-view="me">내 키 · 사용량</button>
+      <div class="navlabel">관리자</div>
+      <button data-view="keys">가상 키 관리</button>
+      <button data-view="byo">BYO 프로바이더 키</button>
+      <button data-view="report">사용량 리포트</button>
+    </nav>
+    <div class="side-foot">
+      <span id="healthDot" class="dot"></span><span id="healthText">확인 중…</span>
+      <div id="verText" class="mono"></div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ══ 시작하기 ══ -->
+    <section id="view-start" class="on">
+      <h1>시작하기</h1>
+      <p class="sub">발급 → 호출 → 정산까지 한 게이트웨이. 인바운드 형식이 무엇이든 실행 경로는 동일합니다.</p>
+      <div class="cards3">
+        <div class="card"><div class="step">STEP 1 · 관리자</div><h3>가상 키 발급</h3><p><b>가상 키 관리</b>에서 테넌트별 <code>gwk_</code> 키를 발급합니다. 키마다 분당 요청 한도와 기간 예산(soft/hard)을 겁니다.</p></div>
+        <div class="card"><div class="step">STEP 2 · 사용자</div><h3>어떤 형식으로든 호출</h3><p>native IR · OpenAI 호환 · Anthropic 호환 — 셋 중 편한 형식으로 호출하면 4사(anthropic/openai/google/xai) 어디로든 라우팅됩니다.</p></div>
+        <div class="card"><div class="step">STEP 3 · 운영</div><h3>사용량 · 정산</h3><p>모든 시도가 원장에 테넌트·키·비용으로 귀속됩니다. <b>사용량 리포트</b>에서 집계·CSV, 키 사용자는 <b>내 키 · 사용량</b>에서 자기 지출을 봅니다.</p></div>
+      </div>
+      <div class="row" style="margin-top:20px">
+        <div class="field"><label>예시에 채울 가상 키 (선택)</label><input id="sKey" class="w-l key-input" type="password" placeholder="gwk_…"></div>
+      </div>
+      <div id="snipWrap"></div>
+    </section>
+
+    <!-- ══ 플레이그라운드 ══ -->
+    <section id="view-play">
+      <h1>플레이그라운드</h1>
+      <p class="sub">발급받은 키로 바로 호출해 봅니다. 스트림이면 SSE 이벤트가 실시간으로 흐릅니다.</p>
+      <div class="card">
+        <div class="row">
+          <div class="field"><label>가상 키</label><input id="pKey" class="w-l key-input" type="password" placeholder="gwk_… (개방 모드면 비워두세요)"></div>
+          <div class="field"><label>모델</label><input id="pModel" class="w-m" list="models" value="claude-haiku-4-5"></div>
+          <datalist id="models">
+            <option value="claude-haiku-4-5"></option><option value="claude-sonnet-4-6"></option><option value="claude-opus-5"></option>
+            <option value="gpt-5.6-luna"></option><option value="gpt-5.6"></option>
+            <option value="gemini-3.7-flash"></option><option value="grok-4.6"></option>
+          </datalist>
+          <div class="field"><label>max tokens</label><input id="pMax" class="w-s" type="number" value="128" min="1"></div>
+          <div class="field"><label style="visibility:hidden">s</label><label class="small" style="display:flex;align-items:center;gap:6px;height:36px"><input id="pStream" type="checkbox" checked style="width:auto"> 스트림</label></div>
+        </div>
+        <div class="field"><label>프롬프트</label><textarea id="pPrompt" rows="3">안녕! 한 문장으로 자기소개해줘.</textarea></div>
+        <div class="row" style="margin:12px 0 0">
+          <button id="pRun" class="btn">보내기</button>
+          <button id="pCancel" class="btn ghost" disabled>취소 (D7)</button>
+          <span id="pReqId" class="muted small mono"></span>
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <h2>응답</h2>
+          <pre id="pReason" class="out dim" style="display:none"></pre>
+          <pre id="pText" class="out"></pre>
+          <div id="pMeta" class="hint mono"></div>
+        </div>
+        <div>
+          <h2>이벤트</h2>
+          <pre id="pEvents" class="out"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ 내 키 · 사용량 ══ -->
+    <section id="view-me">
+      <h1>내 키 · 사용량</h1>
+      <p class="sub">키 사용자의 셀프서비스 뷰 — 한도에 막혀도(402/429) 이 조회는 항상 됩니다. 막힌 이유를 보는 창구니까요.</p>
+      <div class="row">
+        <div class="field"><label>가상 키</label><input id="mKey" class="w-l key-input" type="password" placeholder="gwk_…"></div>
+        <button id="mLoad" class="btn">조회</button>
+      </div>
+      <div id="meCard"></div>
+    </section>
+
+    <!-- ══ 가상 키 관리 ══ -->
+    <section id="view-keys">
+      <h1>가상 키 관리</h1>
+      <p class="sub">관리 키(<code>GATEWAY_ADMIN_KEY</code>)로 인증합니다. 관리 키는 서버로만 전송되며 이 브라우저 탭 세션에만 보관됩니다.</p>
+      <div class="row">
+        <div class="field"><label>관리 키</label><input id="aKey" class="w-l" type="password" placeholder="GATEWAY_ADMIN_KEY"></div>
+        <button id="aConnect" class="btn">연결</button>
+        <span id="aState" class="badge">미연결</span>
+      </div>
+      <h2>새 키 발급</h2>
+      <div class="card">
+        <div class="row">
+          <div class="field"><label>테넌트 *</label><input id="kTenant" class="w-m" placeholder="acme"></div>
+          <div class="field"><label>이름</label><input id="kName" class="w-m" placeholder="prod-agent"></div>
+          <div class="field"><label>분당 요청 한도</label><input id="kRpm" class="w-s" type="number" placeholder="무제한"></div>
+          <div class="field"><label>예산 기간(일)</label><input id="kPeriod" class="w-s" type="number" placeholder="30"></div>
+          <div class="field"><label>soft $</label><input id="kSoft" class="w-s" type="number" step="any" placeholder="경고"></div>
+          <div class="field"><label>hard $</label><input id="kHard" class="w-s" type="number" step="any" placeholder="차단"></div>
+          <button id="kIssue" class="btn">발급</button>
+        </div>
+        <div class="hint">시크릿은 발급 응답에 <b>단 한 번</b> 노출됩니다 — 서버에는 해시만 저장.</div>
+      </div>
+      <h2 style="display:flex;justify-content:space-between;align-items:center">발급된 키 <button id="keysRefresh" class="copy">새로고침</button></h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>keyId</th><th>테넌트</th><th>이름</th><th class="num">rpm</th><th>예산</th><th>생성</th><th>상태</th><th></th></tr></thead>
+        <tbody id="keysBody"><tr><td colspan="8" class="muted">관리 키로 연결하세요</td></tr></tbody>
+      </table></div>
+    </section>
+
+    <!-- ══ BYO 프로바이더 키 ══ -->
+    <section id="view-byo">
+      <h1>BYO 프로바이더 키</h1>
+      <p class="sub">테넌트가 자기 프로바이더 키로 과금되게 합니다. AES-256-GCM 암호문으로만 저장되며 <b>조회 API가 없습니다</b> — 등록/교체와 삭제만 가능합니다.</p>
+      <h2>등록 / 교체</h2>
+      <div class="card"><div class="row">
+        <div class="field"><label>테넌트</label><input id="bTenant" class="w-m" placeholder="acme"></div>
+        <div class="field"><label>프로바이더</label><select id="bProvider"><option>anthropic</option><option>openai</option><option>google</option><option>xai</option></select></div>
+        <div class="field"><label>프로바이더 API 키</label><input id="bKey" class="w-l" type="password" placeholder="sk-… / AIza…"></div>
+        <button id="bSave" class="btn">저장</button>
+      </div></div>
+      <h2>삭제</h2>
+      <div class="card"><div class="row">
+        <div class="field"><label>테넌트</label><input id="dTenant" class="w-m"></div>
+        <div class="field"><label>프로바이더</label><select id="dProvider"><option>anthropic</option><option>openai</option><option>google</option><option>xai</option></select></div>
+        <button id="bDelete" class="btn danger" style="padding:8px 16px;font-size:13.5px">삭제</button>
+      </div><div class="hint">삭제 후 해당 테넌트는 게이트웨이 풀 키로 복귀합니다 (원장 key_source로 구분 정산).</div></div>
+    </section>
+
+    <!-- ══ 사용량 리포트 ══ -->
+    <section id="view-report">
+      <h1>사용량 리포트</h1>
+      <p class="sub">확정 원장 기준 멱등 집계 (ADR-0007 §4). 배치 항목·리트라이 시도까지 전부 포함됩니다.</p>
+      <div class="row">
+        <div class="field"><label>그룹</label><select id="rGroup"><option value="model">model</option><option value="provider">provider</option><option value="keyId">keyId</option><option value="tenant">tenant</option></select></div>
+        <div class="field"><label>테넌트 필터</label><input id="rTenant" class="w-m" placeholder="(전체)"></div>
+        <div class="field"><label>from</label><input id="rFrom" type="date"></div>
+        <div class="field"><label>to</label><input id="rTo" type="date"></div>
+        <button id="rRun" class="btn">조회</button>
+        <button id="rCsv" class="btn ghost">CSV</button>
+      </div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>그룹</th><th class="num">요청</th><th class="num">입력 토큰</th><th class="num">출력 토큰</th><th class="num">총 토큰</th><th class="num">비용 $</th></tr></thead>
+        <tbody id="reportBody"><tr><td colspan="6" class="muted">조회를 누르세요 (관리 키 필요)</td></tr></tbody>
+        <tfoot id="reportFoot"></tfoot>
+      </table></div>
+    </section>
+  </main>
+</div>
+
+<div id="modal" class="modal hidden"><div class="box">
+  <h2 style="margin-top:0">키가 발급되었습니다</h2>
+  <p class="small muted">아래 시크릿은 지금 이 화면에서만 볼 수 있습니다. 서버에는 sha256 해시만 저장됩니다.</p>
+  <div id="modalSecret" class="secret"></div>
+  <div class="row" style="margin:0">
+    <button id="modalCopy" class="btn">복사</button>
+    <button id="modalUse" class="btn ghost">플레이그라운드에서 사용</button>
+    <button id="modalClose" class="btn ghost">닫기</button>
+  </div>
+</div></div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+"use strict";
+/* ── 공통 ─────────────────────────────────────────────── */
+const $ = (s) => document.querySelector(s);
+const state = {
+  admin: sessionStorage.getItem("gwAdmin") || "",
+  vkey: sessionStorage.getItem("gwVkey") || "",
+};
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v !== undefined && v !== null) n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid == null) continue;
+    n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return n;
+}
+let toastTimer;
+function toast(msg, kind) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast" + (kind ? " " + kind : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 3500);
+}
+function hdr(key, json) {
+  const h = {};
+  if (json) h["content-type"] = "application/json";
+  if (key) h["authorization"] = "Bearer " + key;
+  return h;
+}
+async function api(path, { method = "GET", auth, body } = {}) {
+  const res = await fetch(path, {
+    method,
+    headers: hdr(auth, body !== undefined),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { /* 비JSON 응답 */ }
+  if (!res.ok) {
+    const e = data && data.error;
+    throw new Error(e ? (e.message || e.category) : "HTTP " + res.status);
+  }
+  return data;
+}
+const fmtUsd = (n) => "$" + (n >= 0.01 ? n.toFixed(4) : n.toPrecision(3));
+
+/* 가상 키 입력 3곳 동기화 (시작하기·플레이그라운드·내 사용량) */
+function syncVkey(v) {
+  state.vkey = v;
+  sessionStorage.setItem("gwVkey", v);
+  for (const i of document.querySelectorAll(".key-input")) if (i.value !== v) i.value = v;
+  renderSnippets();
+}
+for (const i of document.querySelectorAll(".key-input")) {
+  i.value = state.vkey;
+  i.addEventListener("input", () => syncVkey(i.value.trim()));
+}
+
+/* ── 내비게이션 ───────────────────────────────────────── */
+$("#nav").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-view]");
+  if (!b) return;
+  for (const x of document.querySelectorAll("#nav button")) x.classList.toggle("active", x === b);
+  for (const s of document.querySelectorAll("main section")) s.classList.toggle("on", s.id === "view-" + b.dataset.view);
+});
+
+/* ── 상태 칩 (/health·/ready) ─────────────────────────── */
+async function pollHealth() {
+  const dot = $("#healthDot"), txt = $("#healthText");
+  try {
+    const h = await fetch("/health").then((r) => r.json()).catch(() => null);
+    if (h && h.version) $("#verText").textContent = h.version;
+    const r = await fetch("/ready");
+    if (r.ok) { dot.className = "dot ok"; txt.textContent = "정상"; return; }
+    const d = await r.json().catch(() => null);
+    dot.className = "dot warn";
+    txt.textContent = d && d.status === "draining" ? "드레이닝" : "의존성 장애";
+  } catch (e) {
+    dot.className = "dot err"; txt.textContent = "연결 안 됨";
+  }
+}
+pollHealth();
+setInterval(pollHealth, 15000);
+
+/* ── 시작하기: 스니펫 ─────────────────────────────────── */
+function renderSnippets() {
+  const o = location.origin;
+  const k = state.vkey || "gwk_(발급받은 키)";
+  const auth = '  -H "authorization: Bearer ' + k + '" \\\n';
+  const items = [
+    ["native IR — 게이트웨이 고유 형식 (전 기능 노출)",
+`curl -N ${o}/v0/responses \\
+${auth}  -H "content-type: application/json" \\
+  -d '{"version":"0","model":"claude-haiku-4-5","maxOutputTokens":256,
+       "stream":true,
+       "messages":[{"role":"user","blocks":[{"type":"text","text":"안녕!"}]}]}'`],
+    ["OpenAI 호환 — 기존 OpenAI SDK 그대로, 타깃은 아무 프로바이더나",
+`curl ${o}/compat/openai/v1/chat/completions \\
+${auth}  -H "content-type: application/json" \\
+  -d '{"model":"claude-haiku-4-5","max_tokens":256,
+       "messages":[{"role":"user","content":"안녕!"}]}'`],
+    ["Anthropic 호환 — Messages 형식으로 gpt/gemini/grok 호출 가능",
+`curl ${o}/compat/anthropic/v1/messages \\
+${auth}  -H "content-type: application/json" \\
+  -d '{"model":"gpt-5.6-luna","max_tokens":256,
+       "messages":[{"role":"user","content":"안녕!"}]}'`],
+    ["중간 모델 교체 — 히스토리를 그대로 들고 다른 프로바이더로",
+`# 1턴을 claude로 받고, 응답의 message를 히스토리에 붙여
+# 2턴 model만 "gpt-5.6-luna"로 바꿔 보내면 내용이 이어집니다.
+# (서명·암호화 상태는 opaqueState로 왕복, 외래 reasoning은 정책에 따라 처리)`],
+    ["스트림 재개·취소 — 단선돼도 이어받기",
+`# 응답 헤더 x-gateway-request-id 를 기억해 두세요
+curl ${o}/v0/streams/req_XXXX \\
+${auth}  -H "Last-Event-ID: 42"        # seq 42 이후부터 재생 + 라이브
+
+curl -X POST ${o}/v0/streams/req_XXXX/cancel \\
+${auth.trimEnd()}   # 즉시 업스트림 취소 (과금 중단)`],
+    ["토큰 수 미리 세기 (anthropic·google)",
+`curl ${o}/v0/count-tokens \\
+${auth}  -H "content-type: application/json" \\
+  -d '{"version":"0","model":"claude-haiku-4-5",
+       "messages":[{"role":"user","blocks":[{"type":"text","text":"안녕!"}]}]}'`],
+  ];
+  const wrap = $("#snipWrap");
+  wrap.replaceChildren();
+  for (const [title, code] of items) {
+    const pre = el("pre", { class: "snippet" }, code);
+    wrap.append(
+      el("div", { class: "sniphead" }, el("b", {}, title),
+        el("button", { class: "copy", onclick: () => { navigator.clipboard.writeText(code); toast("복사됨", "ok"); } }, "복사")),
+      pre,
+    );
+  }
+}
+renderSnippets();
+
+/* ── 플레이그라운드 ───────────────────────────────────── */
+let curReqId = "";
+function addEvent(line) {
+  const p = $("#pEvents");
+  p.append(document.createTextNode(line + "\n"));
+  p.scrollTop = p.scrollHeight;
+}
+function playBusy(b) { $("#pRun").disabled = b; }
+function resetOut() {
+  $("#pText").textContent = ""; $("#pEvents").textContent = ""; $("#pMeta").textContent = "";
+  $("#pReason").textContent = ""; $("#pReason").style.display = "none"; $("#pReqId").textContent = "";
+}
+function metaLine(usage, billing, warnings, extra) {
+  const parts = [];
+  if (usage) parts.push("usage " + usage.input.total + "→" + usage.output.total + " (총 " + usage.totalTokens + ")");
+  if (billing) parts.push("billing " + fmtUsd(billing.total));
+  if (warnings && warnings.length) parts.push("warnings: " + warnings.map((w) => w.code).join(", "));
+  if (extra) parts.push(extra);
+  $("#pMeta").textContent = parts.join(" · ");
+}
+async function readSse(res) {
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) >= 0) {
+      const frame = buf.slice(0, idx); buf = buf.slice(idx + 2);
+      let evName = "", data = "";
+      for (const line of frame.split("\n")) {
+        if (line.startsWith(":")) continue;               // heartbeat 주석
+        if (line.startsWith("event:")) evName = line.slice(6).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (!data) continue;
+      let ev; try { ev = JSON.parse(data); } catch (e) { continue; }
+      handleEvent(evName || ev.type, ev);
+    }
+  }
+}
+function handleEvent(type, ev) {
+  if (type === "text-delta") { $("#pText").append(document.createTextNode(ev.delta)); return; }
+  if (type === "reasoning-delta") {
+    if (ev.delta) { const r = $("#pReason"); r.style.display = "block"; r.append(document.createTextNode(ev.delta)); }
+    return;
+  }
+  if (type === "heartbeat" || type === "text-start" || type === "text-end"
+    || type === "reasoning-start" || type === "reasoning-end") { addEvent("[" + ev.seq + "] " + type); return; }
+  if (type === "finish") {
+    addEvent("[" + ev.seq + "] finish · " + ev.finishReason.unified);
+    metaLine(ev.usage, ev.billing, null, ev.attempts ? "attempts " + ev.attempts.length : "");
+    return;
+  }
+  if (type === "error-final" || type === "error-partial") {
+    addEvent("[" + ev.seq + "] " + type + " · " + ev.error.category + (ev.willRetry ? " (재시도 중)" : ""));
+    if (!ev.willRetry) toast(ev.error.message, "err");
+    return;
+  }
+  if (type === "warning") { addEvent("[" + ev.seq + "] warning · " + ev.warning.code); return; }
+  if (type === "provider-switched") { addEvent("[" + ev.seq + "] provider-switched → " + ev.to.model); return; }
+  addEvent("[" + (ev.seq ?? "?") + "] " + type);
+}
+$("#pRun").addEventListener("click", async () => {
+  const key = state.vkey;
+  const body = {
+    version: "0",
+    model: $("#pModel").value.trim() || "claude-haiku-4-5",
+    maxOutputTokens: parseInt($("#pMax").value, 10) || 128,
+    messages: [{ role: "user", blocks: [{ type: "text", text: $("#pPrompt").value }] }],
+  };
+  if ($("#pStream").checked) body.stream = true;
+  resetOut(); playBusy(true);
+  try {
+    const res = await fetch("/v0/responses", { method: "POST", headers: hdr(key, true), body: JSON.stringify(body) });
+    curReqId = res.headers.get("x-gateway-request-id") || "";
+    if (curReqId) $("#pReqId").textContent = "request-id: " + curReqId;
+    if (!res.ok) {
+      const d = await res.json().catch(() => null);
+      throw new Error(d && d.error ? d.error.message : "HTTP " + res.status);
+    }
+    if (body.stream) { $("#pCancel").disabled = false; await readSse(res); }
+    else {
+      const d = await res.json();
+      $("#pText").textContent = d.message.blocks.filter((b) => b.type === "text").map((b) => b.text).join("\n");
+      const reason = d.message.blocks.filter((b) => b.type === "reasoning" && b.text).map((b) => b.text).join("\n");
+      if (reason) { $("#pReason").textContent = reason; $("#pReason").style.display = "block"; }
+      metaLine(d.usage, d.billing, d.warnings, d.model.resolved.provider + "/" + d.model.resolved.surface);
+      addEvent("(비스트림) blocks " + d.message.blocks.length + "개");
+    }
+  } catch (err) { toast(err.message, "err"); addEvent("오류: " + err.message); }
+  finally { playBusy(false); $("#pCancel").disabled = true; }
+});
+$("#pCancel").addEventListener("click", async () => {
+  if (!curReqId) return;
+  try {
+    await api("/v0/streams/" + curReqId + "/cancel", { method: "POST", auth: state.vkey });
+    toast("취소 요청됨", "ok");
+  } catch (err) { toast(err.message, "err"); }
+});
+
+/* ── 내 키 · 사용량 ───────────────────────────────────── */
+$("#mLoad").addEventListener("click", async () => {
+  const box = $("#meCard");
+  box.replaceChildren(el("div", { class: "card muted" }, "조회 중…"));
+  try {
+    const d = await api("/v0/usage", { auth: state.vkey });
+    const kids = [
+      el("dl", { class: "kv" },
+        el("dt", {}, "keyId"), el("dd", {}, d.keyId),
+        el("dt", {}, "테넌트"), el("dd", {}, d.tenant),
+        d.name ? [el("dt", {}, "이름"), el("dd", {}, d.name)] : null,
+        el("dt", {}, "요청 한도"), el("dd", {}, d.rateLimit ? d.rateLimit.requestsPerMinute + " rpm" : "무제한"),
+        el("dt", {}, "집계 창"), el("dd", {}, d.windowDays + "일"),
+        el("dt", {}, "지출"), el("dd", {}, d.spentUsd !== undefined ? fmtUsd(d.spentUsd) : "(집계 비활성)"),
+      ),
+    ];
+    if (d.budget && d.budget.hardUsd !== undefined && d.spentUsd !== undefined) {
+      const pct = Math.min(100, (d.spentUsd / d.budget.hardUsd) * 100);
+      const bar = el("div", { class: "bar" }, el("i", { style: "width:" + pct + "%" }));
+      if (d.budget.softUsd !== undefined) bar.append(el("s", { style: "left:" + Math.min(100, (d.budget.softUsd / d.budget.hardUsd) * 100) + "%" }));
+      kids.push(bar, el("div", { class: "small muted" },
+        fmtUsd(d.spentUsd) + " / hard " + fmtUsd(d.budget.hardUsd)
+        + (d.budget.softUsd !== undefined ? " (soft " + fmtUsd(d.budget.softUsd) + ")" : "")));
+    } else {
+      kids.push(el("div", { class: "hint" }, "예산 미설정 — 지출은 집계되지만 차단되지 않습니다"));
+    }
+    const badges = el("div", { style: "margin-top:10px;display:flex;gap:6px" });
+    if (d.blocked) badges.append(el("span", { class: "badge err" }, "hard 초과 — 다음 요청 차단"));
+    else if (d.softExceeded) badges.append(el("span", { class: "badge warn" }, "soft 초과 — 경고 발화 중"));
+    else badges.append(el("span", { class: "badge ok" }, "정상"));
+    kids.push(badges);
+    box.replaceChildren(el("div", { class: "card" }, kids));
+  } catch (err) {
+    box.replaceChildren(el("div", { class: "card" }, el("span", { class: "badge err" }, err.message)));
+  }
+});
+
+/* ── 가상 키 관리 (관리자) ────────────────────────────── */
+$("#aKey").value = state.admin;
+function setAdmin(v) { state.admin = v; sessionStorage.setItem("gwAdmin", v); }
+$("#aKey").addEventListener("input", () => setAdmin($("#aKey").value.trim()));
+async function loadKeys() {
+  const body = $("#keysBody");
+  try {
+    const d = await api("/v0/admin/keys", { auth: state.admin });
+    $("#aState").textContent = "연결됨"; $("#aState").className = "badge ok";
+    body.replaceChildren();
+    if (!d.keys.length) { body.append(el("tr", {}, el("td", { colspan: "8", class: "muted" }, "발급된 키가 없습니다"))); return; }
+    for (const k of d.keys) {
+      body.append(el("tr", {},
+        el("td", { class: "mono" }, k.keyId),
+        el("td", {}, k.tenant),
+        el("td", {}, k.name || "—"),
+        el("td", { class: "num" }, k.rateLimit ? k.rateLimit.requestsPerMinute : "∞"),
+        el("td", { class: "mono small" }, k.budget
+          ? (k.budget.softUsd !== undefined ? "s " + fmtUsd(k.budget.softUsd) + " " : "")
+            + (k.budget.hardUsd !== undefined ? "h " + fmtUsd(k.budget.hardUsd) + " " : "") + "/" + k.budget.periodDays + "d"
+          : "—"),
+        el("td", { class: "small muted" }, k.createdAt.slice(0, 10)),
+        el("td", {}, k.disabled ? el("span", { class: "badge err" }, "비활성") : el("span", { class: "badge ok" }, "활성")),
+        el("td", {}, k.disabled ? "" : el("button", {
+          class: "btn danger",
+          onclick: async () => {
+            if (!confirm(k.keyId + " 키를 비활성화할까요? 되돌릴 수 없습니다.")) return;
+            try { await api("/v0/admin/keys/" + k.keyId + "/disable", { method: "POST", auth: state.admin }); toast("비활성화됨", "ok"); loadKeys(); }
+            catch (err) { toast(err.message, "err"); }
+          },
+        }, "비활성화")),
+      ));
+    }
+  } catch (err) {
+    $("#aState").textContent = err.message; $("#aState").className = "badge err";
+    body.replaceChildren(el("tr", {}, el("td", { colspan: "8", class: "muted" }, "연결 실패 — " + err.message)));
+  }
+}
+$("#aConnect").addEventListener("click", loadKeys);
+$("#keysRefresh").addEventListener("click", loadKeys);
+$("#kIssue").addEventListener("click", async () => {
+  const tenant = $("#kTenant").value.trim();
+  if (!tenant) return toast("테넌트는 필수입니다", "err");
+  const body = { tenant };
+  const name = $("#kName").value.trim(); if (name) body.name = name;
+  const rpm = parseInt($("#kRpm").value, 10); if (rpm > 0) body.rateLimit = { requestsPerMinute: rpm };
+  const period = parseInt($("#kPeriod").value, 10);
+  const soft = parseFloat($("#kSoft").value), hard = parseFloat($("#kHard").value);
+  if (period > 0 && (soft > 0 || hard > 0)) {
+    body.budget = { periodDays: period };
+    if (soft > 0) body.budget.softUsd = soft;
+    if (hard > 0) body.budget.hardUsd = hard;
+  } else if ((soft > 0 || hard > 0) && !(period > 0)) {
+    return toast("예산을 걸려면 기간(일)이 필요합니다", "err");
+  }
+  try {
+    const d = await api("/v0/admin/keys", { method: "POST", auth: state.admin, body });
+    $("#modalSecret").textContent = d.secret;
+    $("#modal").classList.remove("hidden");
+    loadKeys();
+  } catch (err) { toast(err.message, "err"); }
+});
+$("#modalCopy").addEventListener("click", () => { navigator.clipboard.writeText($("#modalSecret").textContent); toast("복사됨 — 안전한 곳에 보관하세요", "ok"); });
+$("#modalUse").addEventListener("click", () => {
+  syncVkey($("#modalSecret").textContent);
+  $("#modal").classList.add("hidden");
+  document.querySelector('#nav button[data-view="play"]').click();
+  toast("플레이그라운드에 키가 채워졌습니다", "ok");
+});
+$("#modalClose").addEventListener("click", () => $("#modal").classList.add("hidden"));
+
+/* ── BYO 프로바이더 키 ────────────────────────────────── */
+$("#bSave").addEventListener("click", async () => {
+  const tenant = $("#bTenant").value.trim(), provider = $("#bProvider").value, key = $("#bKey").value.trim();
+  if (!tenant || !key) return toast("테넌트와 키는 필수입니다", "err");
+  try {
+    await api("/v0/admin/provider-keys", { method: "PUT", auth: state.admin, body: { tenant, provider, key } });
+    $("#bKey").value = "";
+    toast(tenant + " / " + provider + " 키 저장됨 (암호화)", "ok");
+  } catch (err) { toast(err.message, "err"); }
+});
+$("#bDelete").addEventListener("click", async () => {
+  const tenant = $("#dTenant").value.trim(), provider = $("#dProvider").value;
+  if (!tenant) return toast("테넌트는 필수입니다", "err");
+  if (!confirm(tenant + " / " + provider + " BYO 키를 삭제할까요?")) return;
+  try {
+    await api("/v0/admin/provider-keys/" + encodeURIComponent(tenant) + "/" + provider, { method: "DELETE", auth: state.admin });
+    toast("삭제됨 — 풀 키로 복귀", "ok");
+  } catch (err) { toast(err.message, "err"); }
+});
+
+/* ── 사용량 리포트 ────────────────────────────────────── */
+(function initDates() {
+  const d = new Date(), from = new Date(d.getTime() - 7 * 864e5);
+  $("#rTo").value = d.toISOString().slice(0, 10);
+  $("#rFrom").value = from.toISOString().slice(0, 10);
+})();
+function reportQuery() {
+  const p = new URLSearchParams({ groupBy: $("#rGroup").value });
+  if ($("#rFrom").value) p.set("from", $("#rFrom").value + "T00:00:00Z");
+  if ($("#rTo").value) p.set("to", $("#rTo").value + "T23:59:59Z");
+  const t = $("#rTenant").value.trim(); if (t) p.set("tenant", t);
+  return p;
+}
+$("#rRun").addEventListener("click", async () => {
+  const body = $("#reportBody"), foot = $("#reportFoot");
+  try {
+    const d = await api("/v0/admin/usage-report?" + reportQuery(), { auth: state.admin });
+    body.replaceChildren(); foot.replaceChildren();
+    if (!d.rows.length) { body.append(el("tr", {}, el("td", { colspan: "6", class: "muted" }, "해당 구간 데이터 없음"))); return; }
+    let tq = 0, ti = 0, to_ = 0, tt = 0, tc = 0;
+    for (const r of d.rows) {
+      tq += r.requests; ti += r.inputTokens; to_ += r.outputTokens; tt += r.totalTokens; tc += r.costUsd;
+      body.append(el("tr", {},
+        el("td", { class: "mono" }, r.group), el("td", { class: "num" }, r.requests),
+        el("td", { class: "num" }, r.inputTokens), el("td", { class: "num" }, r.outputTokens),
+        el("td", { class: "num" }, r.totalTokens), el("td", { class: "num" }, r.costUsd.toFixed(6))));
+    }
+    foot.append(el("tr", {},
+      el("td", {}, el("b", {}, "합계")), el("td", { class: "num" }, tq), el("td", { class: "num" }, ti),
+      el("td", { class: "num" }, to_), el("td", { class: "num" }, tt), el("td", { class: "num" }, tc.toFixed(6))));
+  } catch (err) {
+    body.replaceChildren(el("tr", {}, el("td", { colspan: "6" }, el("span", { class: "badge err" }, err.message))));
+  }
+});
+$("#rCsv").addEventListener("click", async () => {
+  try {
+    const q = reportQuery(); q.set("format", "csv");
+    const res = await fetch("/v0/admin/usage-report?" + q, { headers: hdr(state.admin) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const blob = await res.blob();
+    const a = el("a", { href: URL.createObjectURL(blob), download: "usage-report.csv" });
+    document.body.append(a); a.click(); a.remove();
+  } catch (err) { toast(err.message, "err"); }
+});
+</script>
+</body>
+</html>
