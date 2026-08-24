@@ -334,7 +334,7 @@ describe("배치 회계·자격증명 귀속", () => {
     const tracker = new InMemorySpendTracker();
     const tracked = withSpendTracking(undefined, tracker);
     await tracked.record(row);
-    expect(tracker.spentSince("gwkid_abc", "1970-01-01T00:00:00Z")).toBeCloseTo(row.costUsd!, 6);
+    expect(await tracker.spentSince("gwkid_abc", "1970-01-01T00:00:00Z")).toBeCloseTo(row.costUsd!, 6);
   });
 
   it("주입된 BYO 리졸버로 업스트림 호출 (풀 키 고정 아님)", async () => {

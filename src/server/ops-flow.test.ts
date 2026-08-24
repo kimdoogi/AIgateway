@@ -342,3 +342,69 @@ describe("전역 onError — 미포착 예외도 IRError 형태 (ir-v0 §12)", (
     expect(body.error.message).toContain("세션 스토어 결함");
   });
 });
+
+// ── 크로스노드 취소 전파 (ADR-0001 D7 — 리뷰 2026-08-22 #12) ──
+
+/** 레플리카 2대를 흉내내는 인메모리 StreamControl */
+function fakeStreamControl() {
+  const handlers: Array<(id: string, tenant: string | undefined) => void> = [];
+  const published: Array<{ sessionId: string; tenant: string | undefined }> = [];
+  return {
+    published,
+    control: {
+      async requestCancel(sessionId: string, tenant: string | undefined) {
+        published.push({ sessionId, tenant });
+        for (const h of handlers) h(sessionId, tenant);
+      },
+      async subscribe(handler: (id: string, tenant: string | undefined) => void) {
+        handlers.push(handler);
+      },
+      async close() {},
+    },
+  };
+}
+
+describe("스트림 취소 크로스노드 전파", () => {
+  it("로컬에 없는 세션은 전파하고 202 — 미지 id와 응답이 같아 존재를 노출하지 않는다", async () => {
+    const { control, published } = fakeStreamControl();
+    const app = createApp({ streamControl: control });
+    const res = await app.request("/v0/streams/req_elsewhere/cancel", { method: "POST" });
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ canceled: null, dispatched: true });
+    expect(published).toEqual([{ sessionId: "req_elsewhere", tenant: undefined }]);
+  });
+
+  it("streamControl 미설정이면 기존대로 410 (하위호환)", async () => {
+    const app = createApp({});
+    expect((await app.request("/v0/streams/req_x/cancel", { method: "POST" })).status).toBe(410);
+  });
+
+  it("로컬 소유 세션은 전파 없이 즉시 취소", async () => {
+    const { control, published } = fakeStreamControl();
+    const sessions = new SessionStore();
+    const session = sessions.create("req_local");
+    const app = createApp({ sessions, streamControl: control });
+    const res = await app.request("/v0/streams/req_local/cancel", { method: "POST" });
+    expect(await res.json()).toEqual({ canceled: true });
+    expect(published).toEqual([]); // 로컬에서 끝났으므로 브로드캐스트 불필요
+    expect(session.upstreamSignal.aborted).toBe(true);
+  });
+
+  it("수신 측이 테넌트를 대조한다 — 메시지의 tenant만 믿으면 격리가 깨진다", async () => {
+    // 소유 레플리카의 구독 핸들러 = index.ts와 동일 로직
+    const sessions = new SessionStore();
+    const owned = sessions.create("req_owned", "tenant-a");
+    const { control } = fakeStreamControl();
+    await control.subscribe((sessionId, tenant) => {
+      const s = sessions.get(sessionId);
+      if (!s || !s.ownedBy(tenant) || s.isDone) return;
+      s.cancel();
+    });
+
+    await control.requestCancel("req_owned", "tenant-b"); // 타 테넌트 주장
+    expect(owned.upstreamSignal.aborted).toBe(false); // 대조 실패 → 무시
+
+    await control.requestCancel("req_owned", "tenant-a"); // 실소유자
+    expect(owned.upstreamSignal.aborted).toBe(true);
+  });
+});

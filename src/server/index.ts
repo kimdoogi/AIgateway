@@ -12,7 +12,7 @@ import {
   PostgresProviderKeyStore,
   PostgresResourceStore,
 } from "../state/postgres.js";
-import { RedisSessionPersistence } from "../state/redis.js";
+import { RedisSessionPersistence, RedisSpendTracker, RedisStreamControl } from "../state/redis.js";
 import {
   InMemoryBatchStore,
   InMemoryFileStore,
@@ -48,7 +48,9 @@ if (!db) console.warn("[gateway] Files/Batches 매핑 인메모리 — 재시작
 
 // ── 운영 평면 (ops-plane) — GATEWAY_ADMIN_KEY 설정 시 가상 키 인증 활성 (사용자 결정 D1) ──
 const opsEnabled = Boolean(process.env["GATEWAY_ADMIN_KEY"]);
-const spendTracker = new InMemorySpendTracker(); // Redis 이관은 인터페이스 뒤 (ADR-0007 §3)
+// 예산 집계·취소 전파는 Redis가 있어야 다중 레플리카에서 성립한다 (ADR-0007 §3 / ADR-0001 D7)
+const spendTracker = redisUrl ? new RedisSpendTracker(redisUrl) : new InMemorySpendTracker();
+const streamControl = redisUrl ? new RedisStreamControl(redisUrl) : undefined;
 const ledger = withSpendTracking(baseLedger, spendTracker);
 const keys = opsEnabled ? (db ? new PostgresKeyStore(db) : new InMemoryKeyStore()) : undefined;
 const providerKeys = opsEnabled ? (db ? new PostgresProviderKeyStore(db) : new InMemoryProviderKeyStore()) : undefined;
@@ -56,12 +58,24 @@ const resources = db ? new PostgresResourceStore(db) : new InMemoryResourceStore
 const bodyLog = db ? new PostgresBodyLog(db) : undefined; // 기본 on은 durable sink 전제 (ADR-0008)
 if (!opsEnabled) console.warn("[gateway] GATEWAY_ADMIN_KEY 미설정 — 개방 모드 (가상 키 인증·관리 API 비활성)");
 
-// 다중 레플리카 경고 — 예산·취소는 아직 프로세스 로컬 (리뷰 2026-08-22 #1/#12)
-if (!process.env["GATEWAY_SINGLE_REPLICA"]) {
+// 다중 레플리카 정합성은 Redis 유무로 갈린다 (리뷰 2026-08-22 #1/#12)
+if (!redisUrl) {
   console.warn(
-    "[gateway] 예산 집계·스트림 취소는 프로세스 로컬입니다 — 다중 레플리카에서는 " +
-      "hard 예산이 레플리카 수만큼 곱해지고 취소가 다른 파드로 가면 무시됩니다 (Redis 이관 전까지 스티키 라우팅 필요)",
+    "[gateway] REDIS_URL 미설정 — 예산 집계·스트림 취소가 프로세스 로컬입니다. " +
+      "다중 레플리카에서는 hard 예산이 레플리카 수만큼 곱해지고 취소가 다른 파드로 가면 무시됩니다",
   );
+}
+
+// 원격 취소 수신 — 권한 판정은 세션을 가진 이쪽에서만 가능하다 (메시지의 tenant는 발신자 주장)
+if (streamControl) {
+  void streamControl
+    .subscribe((sessionId, tenant) => {
+      const session = sessions.get(sessionId);
+      if (!session || !session.ownedBy(tenant) || session.isDone) return;
+      console.log(`[gateway] 원격 취소 수신 — ${sessionId}`);
+      session.cancel();
+    })
+    .catch((err: unknown) => console.error("[stream-control] 구독 실패", err));
 }
 
 // readiness 프로브 — 설정된 의존성만 검사 (미설정 = 인메모리 폴백이라 검사 대상 아님)
@@ -85,6 +99,7 @@ const deps: AppDeps = {
   ...(providerKeys ? { providerKeys } : {}),
   ...(bodyLog ? { bodyLog } : {}),
   ...(persistence ? { persistence } : {}),
+  ...(streamControl ? { streamControl } : {}),
 };
 const port = Number(process.env["PORT"] ?? 8787);
 const server = serve({ fetch: createApp(deps).fetch, port }, (info) => {
@@ -127,7 +142,12 @@ async function shutdown(signal: string): Promise<void> {
     await sleep(1_000);
   }
 
-  await Promise.allSettled([db?.close() ?? Promise.resolve(), persistence?.close() ?? Promise.resolve()]);
+  await Promise.allSettled([
+    db?.close() ?? Promise.resolve(),
+    persistence?.close() ?? Promise.resolve(),
+    streamControl?.close() ?? Promise.resolve(),
+    spendTracker instanceof RedisSpendTracker ? spendTracker.close() : Promise.resolve(),
+  ]);
   console.log("[gateway] shutdown 완료");
   clearTimeout(hardExit);
   process.exit(0);

@@ -34,6 +34,16 @@ export function lookupPrice(model: string): ModelPrice {
   return PRICE_BY_LONGEST_PREFIX.find((e) => model.startsWith(e.prefix))?.price ?? FALLBACK_PRICE;
 }
 
+/**
+ * 가격표에 실단가가 있는 모델인가 (리뷰 2026-08-22 #5).
+ * false면 costUsd·billing 라인아이템이 FALLBACK_PRICE 근사다 — 라우팅 가능 모델 집합이
+ * 가격표보다 넓으므로(예: claude-opus-5는 MODEL_ROUTES에 있으나 가격표엔 없다) 흔히 발생한다.
+ * 돈의 근사를 조용히 하면 D5 위반이라 호출측이 warning을 발행해야 한다.
+ */
+export function isPricedModel(model: string): boolean {
+  return PRICE_BY_LONGEST_PREFIX.some((e) => model.startsWith(e.prefix));
+}
+
 /** usage → 근사 비용 (캡처 하드 캡·예산 소프트 집계용 — 정산은 billing 라인아이템으로) */
 export function estimateCostUSD(model: string, usage: Usage): number {
   const price = lookupPrice(model);

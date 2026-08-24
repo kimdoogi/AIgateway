@@ -4,6 +4,7 @@ import type { IRResponse } from "../ir/response.js";
 import type { ResourceStore } from "../state/types.js";
 import { makeWarning } from "../adapters/shared.js";
 import { GatewayError, irError } from "../gateway/errors.js";
+import { withUpstreamTimeout } from "../gateway/http.js";
 
 // 서버 상태 리소스 레지스트리 (ADR-0006 §3) — 게이트웨이 관리형 수명.
 // 데이터 테이블: 프로바이더별 "참조" PO 키 (재타게팅의 SERVER_STATE_KEYS와 동족이지만
@@ -146,7 +147,10 @@ export async function sweepExpiredResources(
     const path = DELETE_PATHS[r.provider]?.[r.resourceType]?.(r.externalId);
     if (path) {
       try {
-        await (deps.fetchImpl ?? fetch)(`${deps.baseUrlFor(r.provider)}${path}`, {
+        const fetchImpl = withUpstreamTimeout(deps.fetchImpl ?? fetch, {
+          label: `${r.provider} 리소스 삭제`,
+        });
+        await fetchImpl(`${deps.baseUrlFor(r.provider)}${path}`, {
           method: "DELETE",
           headers: deps.credentialsFor(r.provider),
         });

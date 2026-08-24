@@ -13,7 +13,8 @@ import { GatewayError, irError, providerError, toIRError } from "./errors.js";
 import { SessionStore, type StreamSession, type StreamEventDraft } from "./session.js";
 import type { LedgerRow, UsageLedger } from "../state/types.js";
 import { DEFAULT_RETRY, retryDelayMs, type RetryPolicy } from "../policy/retry.js";
-import { estimateCostUSD } from "./pricing.js";
+import { estimateCostUSD, isPricedModel } from "./pricing.js";
+import { withUpstreamTimeout } from "./http.js";
 import { buildBilling } from "../ops/billing.js";
 import {
   endSpanError,
@@ -51,7 +52,6 @@ export interface ExecuteDeps {
 }
 
 const defaultSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-const UPSTREAM_TIMEOUT_MS = 120_000;
 
 export function genRequestId(deps: ExecuteDeps = {}): string {
   return deps.genId?.() ?? `req_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -141,12 +141,22 @@ function prepare(req: IRRequest, deps: ExecuteDeps): PreparedCall {
   };
   try {
     const { request, warnings } = adapter.transformRequest(req, ctx);
+    // 가격표 미등재 모델은 근사 과금 — 조용히 넘기면 청구서가 소리 없이 틀어진다 (D5)
+    const priceWarnings: Warning[] = isPricedModel(route.modelId)
+      ? []
+      : [
+          makeWarning(
+            "other",
+            "billing-price-estimated",
+            `${route.modelId}은 가격표 미등재 — billing·costUsd는 폴백 단가 근사입니다 (정산은 usage raw로 재계산 필요)`,
+          ),
+        ];
     return {
       rt,
       adapter,
       ctx,
       wire: request,
-      transformWarnings: [...(deps.preWarnings ?? []), ...retargetWarnings, ...surfaceWarnings, ...warnings],
+      transformWarnings: [...(deps.preWarnings ?? []), ...retargetWarnings, ...surfaceWarnings, ...priceWarnings, ...warnings],
       created: (deps.now?.() ?? new Date()).toISOString(),
     };
   } catch (err) {
@@ -188,34 +198,19 @@ async function dispatch(
   deps: ExecuteDeps,
   signal: AbortSignal | undefined,
 ): Promise<Response> {
-  const fetchImpl = deps.fetchImpl ?? fetch;
-  // 접속 타임아웃 — 헤더 수신(fetch resolve)까지만. body 스트리밍은 타이머 해제 후 무영향 (리뷰 SW4-r4)
-  const timeoutCtrl = new AbortController();
-  const timer = setTimeout(() => timeoutCtrl.abort(), deps.upstreamTimeoutMs ?? UPSTREAM_TIMEOUT_MS);
-  timer.unref?.();
-  const combined = signal ? AbortSignal.any([signal, timeoutCtrl.signal]) : timeoutCtrl.signal;
-  try {
-    const auth = await resolveCredentials(call.rt, deps);
-    return await fetchImpl(`${call.rt.baseUrl}${call.wire.path}`, {
-      method: call.wire.method,
-      headers: { ...call.wire.headers, ...auth },
-      body: JSON.stringify(call.wire.body),
-      signal: combined,
-    });
-  } catch (err) {
-    if (timeoutCtrl.signal.aborted && !signal?.aborted) {
-      throw new GatewayError({
-        category: "timeout",
-        httpStatus: 504,
-        message: `업스트림 접속 타임아웃 (${deps.upstreamTimeoutMs ?? UPSTREAM_TIMEOUT_MS}ms)`,
-        fallbackEligible: true,
-        billed: false,
-      });
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
+  // 접속 타임아웃 — 헤더 수신(fetch resolve)까지만. body 스트리밍은 타이머 해제 후 무영향 (리뷰 SW4-r4).
+  // 정책은 gateway/http.ts 단일 지점 — 브리지·count_tokens도 같은 데코레이터를 쓴다
+  const fetchImpl = withUpstreamTimeout(deps.fetchImpl ?? fetch, {
+    ...(deps.upstreamTimeoutMs !== undefined ? { timeoutMs: deps.upstreamTimeoutMs } : {}),
+    signal,
+    label: `${call.adapter.provider}/${call.adapter.surface}`,
+  });
+  const auth = await resolveCredentials(call.rt, deps);
+  return fetchImpl(`${call.rt.baseUrl}${call.wire.path}`, {
+    method: call.wire.method,
+    headers: { ...call.wire.headers, ...auth },
+    body: JSON.stringify(call.wire.body),
+  });
 }
 
 async function mapHttpErrorResponse(call: PreparedCall, response: Response): Promise<GatewayError> {

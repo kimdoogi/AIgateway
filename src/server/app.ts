@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import { streamSSE } from "hono/streaming";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import { IRRequestSchema } from "../ir/request.js";
 import type { IRError } from "../ir/error.js";
@@ -39,7 +40,7 @@ import { compatMessagesToIR } from "../inbound/anthropic-compat/request.js";
 import { toMessagesError, toMessagesResponse } from "../inbound/anthropic-compat/response.js";
 import { createMessagesDownconverter } from "../inbound/anthropic-compat/stream.js";
 import { SessionStore, sessionPersistenceKey, type StreamSession } from "../gateway/session.js";
-import type { SessionPersistence } from "../state/types.js";
+import type { SessionPersistence, StreamControl } from "../state/types.js";
 
 // native 인바운드 (walking-skeleton 6단계) — IR envelope 그대로 (ir-v0 §6/§7/§10.4).
 // 스트림 오케스트레이션(펌프·heartbeat·seq)은 게이트웨이 소관 — 여기는 파싱 + SSE 인코딩만.
@@ -52,6 +53,8 @@ export interface AppDeps extends ExecuteDeps {
   heartbeatMs?: number;
   /** 프로세스 재시작 후 재개 폴백 (재생 전용 — Redis, ADR-0006) */
   persistence?: SessionPersistence;
+  /** 취소 크로스노드 전파 (ADR-0001 D7) — 미설정이면 취소는 소유 레플리카에서만 가능 */
+  streamControl?: StreamControl;
   /** Files 브리지 매핑 스토어 (부록 (b) §2) — 미설정이면 /v0/files·refs.gateway 501/400 */
   files?: FileStore;
   /** Batches 브리지 잡 스토어 (부록 (b) §3) */
@@ -119,6 +122,17 @@ export function createApp(deps: AppDeps = {}): Hono {
   const sessions = deps.sessions ?? new SessionStore({ persistence: deps.persistence }); // 기본 스토어도 영속화 배선 (리뷰 F3-r4)
   const opsCtx = new WeakMap<Request, OpsContext>();
 
+  // ── 바디 크기 상한 (리뷰 2026-08-22 #9) ──
+  // 인증보다 먼저 걸어야 한다 — 미인증 요청이 수백 MB를 힙에 올리는 것을 막는 게 목적.
+  // 파일 업로드만 별도 상한(멀티파트는 본래 크다), 그 외 JSON 경로는 공통 상한.
+  const jsonLimit = Number(process.env["MAX_JSON_BODY_BYTES"] ?? 10 * 1024 * 1024);
+  const uploadLimit = Number(process.env["MAX_UPLOAD_BYTES"] ?? 64 * 1024 * 1024);
+  const tooLarge = (limit: number) => (c: Context) =>
+    errJson(c, irError("content_too_large", 413, `요청 본문이 상한(${limit}B)을 초과했습니다`));
+  app.post("/v0/files", bodyLimit({ maxSize: uploadLimit, onError: tooLarge(uploadLimit) }));
+  app.use("/v0/*", bodyLimit({ maxSize: jsonLimit, onError: tooLarge(jsonLimit) }));
+  app.use("/compat/*", bodyLimit({ maxSize: jsonLimit, onError: tooLarge(jsonLimit) }));
+
   // ── 운영 프로브 (인증 밖 — 오케스트레이터가 자격증명 없이 찔러야 한다) ──
   // liveness: 프로세스 생존만. 의존성 상태와 무관하게 200 — 여기서 503을 내면
   // DB 일시 장애에 컨테이너가 재시작 루프에 빠진다 (재시작이 DB를 고치지 않는다).
@@ -170,7 +184,7 @@ export function createApp(deps: AppDeps = {}): Hono {
     // 예산 평가 — 요청당 1회 PreRequest (§10.4: hard는 다음 요청 차단, soft는 warning)
     const preWarnings: Warning[] = [];
     if (deps.spendTracker) {
-      const verdict = evaluateBudget(key, deps.spendTracker, deps.now?.() ?? new Date());
+      const verdict = await evaluateBudget(key, deps.spendTracker, deps.now?.() ?? new Date());
       if (verdict.blocked) return errJson(c, budgetExceededError(key, verdict.spentUsd).irError);
       if (verdict.warning) preWarnings.push(verdict.warning);
     }
@@ -277,9 +291,11 @@ export function createApp(deps: AppDeps = {}): Hono {
           }).catch((err) => console.error("[resource-register]", err));
         }
         if (bodyLogEnabled) {
+          // 비블로킹 — 본문 로그는 감사 자산이지 응답 경로의 일부가 아니다.
+          // await하면 모든 요청이 DB 왕복 2회를 기다린다 (logBody 자체가 실패를 로그 강등)
           const logCtx = { tenant: ops?.key.tenant, now: deps.now };
-          await logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "request", body: json });
-          await logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "response", body: response });
+          void logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "request", body: json });
+          void logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "response", body: response });
         }
         return c.json(response);
       } catch (err) {
@@ -291,7 +307,7 @@ export function createApp(deps: AppDeps = {}): Hono {
     c.header("x-gateway-request-id", session.id);
     if (bodyLogEnabled) {
       // 스트림은 요청 방향만 v1 — 응답 재조립 로그는 후속 좌석 (ops-plane §6)
-      await logBody(deps.bodyLog, { requestId: session.id, tenant: ops?.key.tenant, direction: "request", body: json, now: deps.now });
+      void logBody(deps.bodyLog, { requestId: session.id, tenant: ops?.key.tenant, direction: "request", body: json, now: deps.now });
     }
     return sseFromSession(c, session, -1);
   });
@@ -315,7 +331,7 @@ export function createApp(deps: AppDeps = {}): Hono {
     c.header("x-gateway-request-id", id);
     try {
       const { request: req, execDeps } = await prepareInbound(c, parsed.data);
-      return c.json(await executeCountTokens(req, { ...deps, ...execDeps, genId: () => id }));
+      return c.json(await executeCountTokens(req, { ...deps, ...execDeps, genId: () => id }, c.req.raw.signal));
     } catch (err) {
       return errJson(c, toIRError(err));
     }
@@ -329,6 +345,7 @@ export function createApp(deps: AppDeps = {}): Hono {
     return {
       ...deps,
       files: deps.files,
+      signal: c.req.raw.signal, // 클라이언트가 끊으면 업스트림 업로드도 끊는다
       ...(ops ? { tenant: ops.key.tenant, credentials: ops.resolver.credentials } : {}),
     };
   };
@@ -397,6 +414,7 @@ export function createApp(deps: AppDeps = {}): Hono {
     return {
       ...deps,
       batches: deps.batches,
+      signal: c.req.raw.signal,
       ...(ops
         ? { tenant: ops.key.tenant, keyId: ops.key.keyId, credentials: ops.resolver.credentials }
         : {}),
@@ -678,8 +696,8 @@ export function createApp(deps: AppDeps = {}): Hono {
           const response = await executeNonStream(req, { ...deps, ...opsDeps, genId: () => id }, c.req.raw.signal);
           if (bodyLogEnabled) {
             const logCtx = { tenant: ops?.key.tenant, now: deps.now };
-            await logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "request", body: json });
-            await logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "response", body: response });
+            void logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "request", body: json });
+            void logBody(deps.bodyLog, { requestId: id, ...logCtx, direction: "response", body: response });
           }
           return c.json(format.toWireResponse(response, strict));
         } catch (err) {
@@ -690,7 +708,7 @@ export function createApp(deps: AppDeps = {}): Hono {
       const session = startStreamSession(req, { ...deps, ...opsDeps, sessions });
       c.header("x-gateway-request-id", session.id);
       if (bodyLogEnabled) {
-        await logBody(deps.bodyLog, { requestId: session.id, tenant: ops?.key.tenant, direction: "request", body: json, now: deps.now });
+        void logBody(deps.bodyLog, { requestId: session.id, tenant: ops?.key.tenant, direction: "request", body: json, now: deps.now });
       }
       const downconvert = format.downconverter(strict);
       return streamSSE(c, async (stream) => {
@@ -716,14 +734,28 @@ export function createApp(deps: AppDeps = {}): Hono {
     });
   }
 
-  app.post("/v0/streams/:id/cancel", (c) => {
-    const session = sessions.get(c.req.param("id"));
-    // GET 재개와 동일 상태 = 동일 status (리뷰 E5 — 404/410 드리프트 방지).
-    // 타 테넌트 세션도 동일 취급 — 취소는 파괴적 작업이라 소유권 검사 필수 (ADR-0006 §3)
-    if (!session || !session.ownedBy(tenantOf(c))) return errJson(c, goneStream());
-    const wasLive = !session.isDone;
-    session.cancel(); // D7 — 명시적 abort는 grace 없이 즉시. 터미널은 펌프가 적재
-    return c.json({ canceled: wasLive }); // 이미 종료된 스트림 취소는 false (리뷰 E6)
+  app.post("/v0/streams/:id/cancel", async (c) => {
+    const id = c.req.param("id");
+    const session = sessions.get(id);
+    if (session) {
+      // GET 재개와 동일 상태 = 동일 status (리뷰 E5 — 404/410 드리프트 방지).
+      // 타 테넌트 세션도 동일 취급 — 취소는 파괴적 작업이라 소유권 검사 필수 (ADR-0006 §3)
+      if (!session.ownedBy(tenantOf(c))) return errJson(c, goneStream());
+      const wasLive = !session.isDone;
+      session.cancel(); // D7 — 명시적 abort는 grace 없이 즉시. 터미널은 펌프가 적재
+      return c.json({ canceled: wasLive }); // 이미 종료된 스트림 취소는 false (리뷰 E6)
+    }
+    // 로컬에 없음 = 타 레플리카 소유이거나 미지/만료 — 여기서는 구분할 수 없다.
+    // 전파하고 판정은 세션을 가진 쪽에 위임한다 (권한 대조도 그쪽에서만 가능 — 리뷰 2026-08-22 #12).
+    if (deps.streamControl) {
+      await deps.streamControl.requestCancel(id, tenantOf(c)).catch((err: unknown) => {
+        console.error("[stream-control] 취소 전파 실패", err instanceof Error ? err.message : err);
+      });
+      // 202 — "요청을 전파했다"까지만 보장. 미지 id와 타 레플리카 세션이 같은 응답이라
+      // 존재 여부도 노출하지 않는다
+      return c.json({ canceled: null, dispatched: true }, 202);
+    }
+    return errJson(c, goneStream());
   });
 
   return app;

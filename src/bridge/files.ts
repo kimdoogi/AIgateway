@@ -7,6 +7,7 @@ import type { FileMapping, FileStore } from "../state/types.js";
 import { genRequestId, resolveCredentials, type ExecuteDeps } from "../gateway/execute.js";
 import { GatewayError, irError } from "../gateway/errors.js";
 import { getProvider } from "../gateway/registry.js";
+import { withUpstreamTimeout } from "../gateway/http.js";
 
 // Files 브리지 (부록 (b) §2) — 게이트웨이 파일 id(gwf_) ↔ 프로바이더 파일 참조 매핑.
 // 프로바이더별 업로드 wire 차이는 데이터 테이블 (D4 — 코어 분기문 금지).
@@ -16,6 +17,8 @@ export const DEFAULT_TENANT = "default";
 
 export interface FileBridgeDeps extends ExecuteDeps {
   files: FileStore;
+  /** 클라이언트 취소 전파 — 업스트림 업로드/삭제도 함께 끊는다 */
+  signal?: AbortSignal;
   /** 미설정 시 "default" — 인증 미들웨어가 실테넌트 공급 (ADR-0007 §3) */
   tenant?: string;
 }
@@ -142,6 +145,15 @@ const FILE_PROVIDERS: Record<string, FileProviderOps> = {
   },
 };
 
+/** 업스트림 정책(타임아웃·취소)을 브리지 경계에서 1회 주입 — 프로바이더 구현은 생 fetch를 모른다 */
+function bridgeFetch(deps: FileBridgeDeps, label: string): typeof fetch {
+  return withUpstreamTimeout(deps.fetchImpl ?? fetch, {
+    ...(deps.upstreamTimeoutMs !== undefined ? { timeoutMs: deps.upstreamTimeoutMs } : {}),
+    signal: deps.signal,
+    label,
+  });
+}
+
 function providerOps(provider: string): FileProviderOps {
   const ops = FILE_PROVIDERS[provider];
   if (!ops) {
@@ -184,7 +196,7 @@ function toEnvelope(m: FileMapping): GatewayFileEnvelope {
 export async function uploadFile(input: UploadInput, deps: FileBridgeDeps): Promise<GatewayFileEnvelope> {
   const ops = providerOps(input.provider);
   const rt = getProvider(input.provider);
-  const fetchImpl = deps.fetchImpl ?? fetch;
+  const fetchImpl = bridgeFetch(deps, `${input.provider} 파일 업로드`);
   // 테넌트 BYO 키 우선 — 풀 키로 올리면 본 요청(BYO)에서 file_id를 못 찾는다 (리뷰 2026-08-22)
   const result = await ops.upload(input, rt.baseUrl, await resolveCredentials(rt, deps), fetchImpl);
   if (!result.providerFileId) {
@@ -220,7 +232,7 @@ export async function deleteFile(gatewayFileId: string, deps: FileBridgeDeps): P
   if (!m) throw new GatewayError(irError("not_found", 404, `파일 없음: ${gatewayFileId}`));
   const ops = providerOps(m.provider);
   const rt = getProvider(m.provider);
-  await ops.remove(m.providerFileId, rt.baseUrl, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
+  await ops.remove(m.providerFileId, rt.baseUrl, await resolveCredentials(rt, deps), bridgeFetch(deps, `${m.provider} 파일 삭제`));
   await deps.files.delete(deps.tenant ?? DEFAULT_TENANT, gatewayFileId);
 }
 

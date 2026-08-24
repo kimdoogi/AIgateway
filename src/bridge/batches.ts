@@ -11,6 +11,7 @@ import type { BatchJob, BatchStore, UsageLedger } from "../state/types.js";
 import { genRequestId, resolveCredentials, type ExecuteDeps } from "../gateway/execute.js";
 import { GatewayError, irError } from "../gateway/errors.js";
 import { getProvider, resolveModel, selectSurface, type ProviderRuntime } from "../gateway/registry.js";
+import { withUpstreamTimeout } from "../gateway/http.js";
 import { retargetRequest } from "../gateway/retarget.js";
 import { buildBilling } from "../ops/billing.js";
 import { DEFAULT_TENANT } from "./files.js";
@@ -23,6 +24,8 @@ import { DEFAULT_TENANT } from "./files.js";
 
 export interface BatchBridgeDeps extends ExecuteDeps {
   batches: BatchStore;
+  /** 클라이언트 취소 전파 */
+  signal?: AbortSignal;
   ledger?: UsageLedger;
   /** 미설정 시 "default" */
   tenant?: string;
@@ -404,6 +407,15 @@ const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
   },
 };
 
+/** 업스트림 정책(타임아웃·취소)을 브리지 경계에서 1회 주입 — 프로바이더 ops 16개 호출 지점 무수정 */
+function bridgeFetch(deps: BatchBridgeDeps, label: string): typeof fetch {
+  return withUpstreamTimeout(deps.fetchImpl ?? fetch, {
+    ...(deps.upstreamTimeoutMs !== undefined ? { timeoutMs: deps.upstreamTimeoutMs } : {}),
+    signal: deps.signal,
+    label,
+  });
+}
+
 function batchOps(provider: string): BatchProviderOps {
   const ops = BATCH_PROVIDERS[provider];
   if (!ops) {
@@ -496,7 +508,7 @@ export async function createBatch(items: BatchItemInput[], deps: BatchBridgeDeps
     }
   }
   const rt = getProvider(provider!);
-  const created = await batchOps(provider!).create(prepared, rt, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
+  const created = await batchOps(provider!).create(prepared, rt, await resolveCredentials(rt, deps), bridgeFetch(deps, `${provider!} 배치 생성`));
   if (!created.providerBatchId) {
     throw new GatewayError(irError("provider_error", 502, `${provider} 배치 생성 응답에 id 없음`));
   }
@@ -526,7 +538,7 @@ async function loadJob(gatewayBatchId: string, deps: BatchBridgeDeps): Promise<B
 export async function getBatch(gatewayBatchId: string, deps: BatchBridgeDeps): Promise<BatchEnvelope> {
   let job = await loadJob(gatewayBatchId, deps);
   const rt = getProvider(job.provider);
-  const polled = await batchOps(job.provider).poll(job, rt, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
+  const polled = await batchOps(job.provider).poll(job, rt, await resolveCredentials(rt, deps), bridgeFetch(deps, `${job.provider} 배치 조회`));
   job = {
     ...job,
     status: polled.status,
@@ -545,7 +557,7 @@ export async function listBatches(deps: BatchBridgeDeps): Promise<BatchEnvelope[
 export async function cancelBatch(gatewayBatchId: string, deps: BatchBridgeDeps): Promise<BatchEnvelope> {
   const job = await loadJob(gatewayBatchId, deps);
   const rt = getProvider(job.provider);
-  await batchOps(job.provider).cancel(job, rt, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
+  await batchOps(job.provider).cancel(job, rt, await resolveCredentials(rt, deps), bridgeFetch(deps, `${job.provider} 배치 취소`));
   return getBatch(gatewayBatchId, deps); // 취소는 비동기 — 최신 상태 재조회 (§3.2)
 }
 
@@ -554,7 +566,7 @@ export async function getBatchResults(gatewayBatchId: string, deps: BatchBridgeD
   const job = await loadJob(gatewayBatchId, deps);
   const rt = getProvider(job.provider);
   const ops = batchOps(job.provider);
-  const raw = await ops.results(job, rt, await resolveCredentials(rt, deps), deps.fetchImpl ?? fetch);
+  const raw = await ops.results(job, rt, await resolveCredentials(rt, deps), bridgeFetch(deps, `${job.provider} 배치 결과`));
 
   const out: BatchResultItem[] = [];
   for (const item of raw) {

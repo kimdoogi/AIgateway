@@ -60,6 +60,7 @@ export const WARNING_CODES = [
   "budget-soft-warning",
   "budget-exhausted-next-request-blocked",
   "fallback-target-switched",
+  "billing-price-estimated",
 ] as const;
 export type WarningCode = (typeof WARNING_CODES)[number];
 

@@ -88,7 +88,7 @@ describe("예산·billing·리포트", () => {
       keyId: "gwkid_1", tenant: "acme", keyHash: "h", createdAt: "2026-08-21T00:00:00Z",
       budget: { periodDays: 30, softUsd: 0.05, hardUsd: 0.1 },
     };
-    const soft = evaluateBudget(key, tracker, new Date("2026-08-21T12:00:00Z"));
+    const soft = await evaluateBudget(key, tracker, new Date("2026-08-21T12:00:00Z"));
     expect(soft.blocked).toBe(false);
     expect(soft.warning?.code).toBe("budget-soft-warning");
     await ledger.record({
@@ -96,7 +96,7 @@ describe("예산·billing·리포트", () => {
       stream: false, outcome: "success", billed: true, durationMs: 10,
       createdAt: "2026-08-21T11:00:00Z", keyId: "gwkid_1", costUsd: 0.05,
     });
-    expect(evaluateBudget(key, tracker, new Date("2026-08-21T12:00:00Z")).blocked).toBe(true);
+    expect((await evaluateBudget(key, tracker, new Date("2026-08-21T12:00:00Z"))).blocked).toBe(true);
   });
 
   it("CSV — 이스케이프 포함", () => {
@@ -185,14 +185,14 @@ describe("본문 로그 (ADR-0008)", () => {
 
 // ── 리뷰 2026-08-22 회귀 ──
 describe("InMemorySpendTracker 창 관리", () => {
-  it("창 밖 항목은 조회 시 정리 — 프로세스 수명 내내 증가하지 않는다", () => {
+  it("창 밖 항목은 조회 시 정리 — 프로세스 수명 내내 증가하지 않는다", async () => {
     const tracker = new InMemorySpendTracker();
-    for (let i = 0; i < 100; i++) tracker.add("k1", 0.01, `2026-08-2${i % 2}T00:00:00.000Z`);
-    tracker.add("k1", 1, "2026-08-22T00:00:00.000Z");
+    for (let i = 0; i < 100; i++) await tracker.add("k1", 0.01, `2026-08-2${i % 2}T00:00:00.000Z`);
+    await tracker.add("k1", 1, "2026-08-22T00:00:00.000Z");
 
     // 창 안 지출만 합산
-    expect(tracker.spentSince("k1", "2026-08-22T00:00:00.000Z")).toBeCloseTo(1, 6);
+    expect(await tracker.spentSince("k1", "2026-08-22T00:00:00.000Z")).toBeCloseTo(1, 6);
     // 두 번째 조회도 같은 값 (정리가 창 안 항목을 먹지 않는다)
-    expect(tracker.spentSince("k1", "2026-08-22T00:00:00.000Z")).toBeCloseTo(1, 6);
+    expect(await tracker.spentSince("k1", "2026-08-22T00:00:00.000Z")).toBeCloseTo(1, 6);
   });
 });

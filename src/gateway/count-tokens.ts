@@ -5,6 +5,7 @@ import { AdapterInvalidRequestError } from "../adapters/shared.js";
 import { genRequestId, resolveCredentials, type ExecuteDeps } from "./execute.js";
 import { GatewayError } from "./errors.js";
 import { getProvider, resolveModel, selectSurface } from "./registry.js";
+import { withUpstreamTimeout } from "./http.js";
 import { retargetRequest } from "./retarget.js";
 
 // count_tokens 프록시 (부록 (b) §1) — 동기 파이프라인과 같은 라우팅·재타게팅·표면 규칙을
@@ -21,7 +22,11 @@ export interface CountTokensResponse {
   gateway: { requestId: string };
 }
 
-export async function executeCountTokens(req: IRRequest, deps: ExecuteDeps = {}): Promise<CountTokensResponse> {
+export async function executeCountTokens(
+  req: IRRequest,
+  deps: ExecuteDeps = {},
+  signal?: AbortSignal,
+): Promise<CountTokensResponse> {
   const route = resolveModel(req.model);
   const rt = getProvider(route.provider);
   const { request: retargeted, warnings: retargetWarnings } = retargetRequest(req, route.provider);
@@ -51,7 +56,11 @@ export async function executeCountTokens(req: IRRequest, deps: ExecuteDeps = {})
     throw err;
   }
 
-  const fetchImpl = deps.fetchImpl ?? fetch;
+  const fetchImpl = withUpstreamTimeout(deps.fetchImpl ?? fetch, {
+    ...(deps.upstreamTimeoutMs !== undefined ? { timeoutMs: deps.upstreamTimeoutMs } : {}),
+    signal,
+    label: `${route.provider} count_tokens`,
+  });
   // 테넌트 BYO 우선 — 본 요청과 같은 계정으로 세야 캐시·쿼터 회계가 어긋나지 않는다 (리뷰 2026-08-22)
   const auth = await resolveCredentials(rt, deps);
   const response = await fetchImpl(`${rt.baseUrl}${transformed.request.path}`, {

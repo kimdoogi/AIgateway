@@ -138,6 +138,21 @@ export interface SessionPersistence {
   invalidate(sessionId: string): Promise<void>;
 }
 
+/**
+ * 스트림 취소의 크로스노드 전파 (ADR-0001 D7 "취소 전파 1급 요구사항").
+ * 세션 객체는 소유 레플리카의 메모리에만 있으므로, 다른 파드로 들어온 취소 요청은
+ * 브로드캐스트해야 도달한다 (리뷰 2026-08-22 #12: 없으면 업스트림이 계속 과금된다).
+ * 수신 측은 **반드시 로컬 세션의 소유 테넌트를 대조**한 뒤 취소해야 한다 — 메시지의
+ * tenant는 발신자 주장일 뿐이고, 권한 판정은 세션을 가진 쪽만 할 수 있다.
+ */
+export interface StreamControl {
+  /** 취소 요청 전파 — 소유 레플리카가 없으면 아무 일도 일어나지 않는다 (at-most-once) */
+  requestCancel(sessionId: string, tenant: string | undefined): Promise<void>;
+  /** 구독 시작. handler는 자기가 소유한 세션만 처리한다 */
+  subscribe(handler: (sessionId: string, tenant: string | undefined) => void): Promise<void>;
+  close(): Promise<void>;
+}
+
 /** 게이트웨이 파일 매핑 (부록 (b) §2, ADR-0006 §1 — 테넌트 격리 포함) */
 export interface FileMapping {
   gatewayFileId: string; // gwf_...

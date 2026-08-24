@@ -7,20 +7,26 @@ import { GatewayError } from "../gateway/errors.js";
 // "현재 스트림 완료 + 다음 요청 차단". 실시간 집계는 v0 인메모리 트래커 — Redis 이관은
 // 인터페이스 뒤 (ADR-0006 §1 정신). 확정치는 원장이 진실.
 
+/**
+ * 지출 집계기. **비동기 계약** — 다중 레플리카에서 예산이 성립하려면 집계가 공유 저장소에
+ * 있어야 하고(Redis), 그러면 I/O다. 인메모리 구현은 즉시 resolve하는 동일 계약을 지킨다
+ * (리뷰 2026-08-22 #1: 프로세스 로컬 집계는 hard 캡을 레플리카 수만큼 곱했다).
+ */
 export interface SpendTracker {
-  add(keyId: string, usd: number, atIso: string): void;
+  add(keyId: string, usd: number, atIso: string): Promise<void>;
   /** sinceIso 이후 누적 지출 (USD) */
-  spentSince(keyId: string, sinceIso: string): number;
+  spentSince(keyId: string, sinceIso: string): Promise<number>;
 }
 
+/** 단일 프로세스 전용 — 다중 레플리카에서는 RedisSpendTracker를 써야 예산이 성립한다 */
 export class InMemorySpendTracker implements SpendTracker {
   private readonly entries = new Map<string, Array<{ at: string; usd: number }>>();
-  add(keyId: string, usd: number, atIso: string): void {
+  async add(keyId: string, usd: number, atIso: string): Promise<void> {
     const list = this.entries.get(keyId) ?? [];
     list.push({ at: atIso, usd });
     this.entries.set(keyId, list);
   }
-  spentSince(keyId: string, sinceIso: string): number {
+  async spentSince(keyId: string, sinceIso: string): Promise<number> {
     const list = this.entries.get(keyId);
     if (!list) return 0;
     // 창 밖 선두 항목은 여기서 잘라낸다 — add만 하면 프로세스 수명 내내 단조 증가하고
@@ -38,7 +44,10 @@ export function withSpendTracking(inner: UsageLedger | undefined, tracker: Spend
   return {
     async record(row: LedgerRow): Promise<void> {
       if (row.keyId && typeof row.costUsd === "number" && row.costUsd > 0) {
-        tracker.add(row.keyId, row.costUsd, row.createdAt);
+        // 집계 실패가 요청을 막지 않는다 — 예산은 다음 평가에서 보정된다 (원장이 진실)
+        await tracker.add(row.keyId, row.costUsd, row.createdAt).catch((err: unknown) => {
+          console.error("[spend-tracker]", err instanceof Error ? err.message : err);
+        });
       }
       await inner?.record(row);
     },
@@ -57,10 +66,10 @@ export interface BudgetVerdict {
   spentUsd: number;
 }
 
-export function evaluateBudget(key: VirtualKey, tracker: SpendTracker, now: Date): BudgetVerdict {
+export async function evaluateBudget(key: VirtualKey, tracker: SpendTracker, now: Date): Promise<BudgetVerdict> {
   if (!key.budget) return { blocked: false, spentUsd: 0 };
   const since = new Date(now.getTime() - key.budget.periodDays * 86_400_000).toISOString();
-  const spent = tracker.spentSince(key.keyId, since);
+  const spent = await tracker.spentSince(key.keyId, since);
   if (key.budget.hardUsd !== undefined && spent >= key.budget.hardUsd) {
     return { blocked: true, spentUsd: spent };
   }
