@@ -12,6 +12,7 @@ import {
   PostgresPool,
   PostgresProviderKeyStore,
   PostgresResourceStore,
+  schemaProblems,
 } from "../state/postgres.js";
 import { RedisRateLimiter, RedisSessionPersistence, RedisSpendTracker, RedisStreamControl } from "../state/redis.js";
 import {
@@ -91,7 +92,17 @@ if (streamControl) {
 
 // readiness 프로브 — 설정된 의존성만 검사 (미설정 = 인메모리 폴백이라 검사 대상 아님)
 const readiness: Array<{ name: string; check: () => Promise<void> }> = [];
-if (db) readiness.push({ name: "postgres", check: () => db.ping() });
+if (db) {
+  readiness.push({ name: "postgres", check: () => db.ping() });
+  // 스키마가 뒤처진 파드는 트래픽을 받으면 안 된다 — 마이그레이션 잡보다 먼저 뜬 경우
+  readiness.push({
+    name: "schema",
+    check: async () => {
+      const problems = await schemaProblems(db);
+      if (problems.length > 0) throw new Error(problems.join(", "));
+    },
+  });
+}
 if (persistence) readiness.push({ name: "redis", check: () => persistence.ping() });
 
 let draining = false;
@@ -113,6 +124,17 @@ const deps: AppDeps = {
   ...(persistence ? { persistence } : {}),
   ...(streamControl ? { streamControl } : {}),
 };
+// 스키마 준비 — MIGRATE_ON_BOOT=false면 적용하지 않고 미적용 여부만 검사한다(기동 거부).
+// 기동을 막지는 않되(일시 DB 장애로 파드가 죽는 것보다 /ready 503이 낫다) 결과는 크게 남긴다
+if (db) {
+  void db
+    .ensureSchema()
+    .then(() => console.log("[gateway] 스키마 준비 완료"))
+    .catch((err: unknown) =>
+      console.error("[gateway] 스키마 준비 실패 — /ready가 503을 유지합니다:", err instanceof Error ? err.message : err),
+    );
+}
+
 const port = Number(process.env["PORT"] ?? 8787);
 const server = serve({ fetch: createApp(deps).fetch, port }, (info) => {
   console.log(`ai-gateway v0 — listening on :${info.port}`);

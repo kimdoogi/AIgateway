@@ -3,6 +3,7 @@
 - 상태: **구현 완료 (2026-08-21 — 6단계 전부, 테스트 421개)**. 결정 확정: D1 마스터 키 env ✓ / D2 **DB 암호화 저장**(권고와 달리 — AES-256-GCM + `GATEWAY_KEY_ENCRYPTION_KEY`, KMS 2차) ✓ / D3 기본 on ✓
 - **2026-08-22 전면 리뷰 반영**: compat 인바운드 인증 좌석 **클로즈** — `/compat/*`도 동일 미들웨어 통과 + 인바운드 전처리(파일 ref·BYO·리소스 검증) 공용화. 브리지(Files/Batches)·count_tokens가 풀 키를 고정 사용하던 것도 리졸버 경유로 교정. 스트림 세션에 소유 테넌트 기록 → 재개·취소 격리(영속 버퍼 키도 테넌트 스코프)
 - **2026-08-22 프로덕션 배포 P0/P1/P2 반영**: 예산 집계·요청 빈도 제한·취소 전파가 Redis 뒤로 이관돼 **다중 레플리카에서 성립**(실 Redis 검증). 본문 로그는 비블로킹 + `BODY_LOG_RETENTION_DAYS` 보관 정책(관리 스윕이 집행). OTel은 `OTEL_EXPORTER_OTLP_ENDPOINT` 설정 시 실제 등록(이전에는 SDK 미등록으로 전 span no-op)
+- **스키마 마이그레이션 (2026-08-22)**: 버전 관리 도입 — `schema_migrations` 이력 테이블 + 순서 있는 append-only 목록 + 체크섬(적용분 편집 거부) + advisory lock 직렬화. `pnpm migrate`(적용) / `pnpm migrate --status`(현황, 종료 코드로 판정). 오케스트레이터 권장: `MIGRATE_ON_BOOT=false` + 배포 전 Job/initContainer. 스키마가 뒤처지거나 드리프트한 파드는 `/ready` 503
 - 잔여 좌석: 스트림 응답 본문 로그(요청만 v1), 스트림 finish PM 리소스 등록, TTL 스윕 자동화(현재 관리 API 트리거), 가격표 실단가 확충(현재 미등재 모델은 `billing-price-estimated` warning + 폴백 단가)
 - 근거: [ADR-0006 §3](../decisions/ADR-0006-state-layer.md)(리소스 레지스트리) · [ADR-0007](../decisions/ADR-0007-billing-envelope.md)(라인아이템·예산·정산) · [ADR-0008](../decisions/ADR-0008-observability.md)(본문 로그)
 - 선행 완료: 원장(usage_ledger)·가격표(gateway/pricing.ts)·FileStore/BatchStore의 tenant 좌석

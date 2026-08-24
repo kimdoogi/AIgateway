@@ -1,4 +1,5 @@
 import pg from "pg";
+import { MIGRATIONS, checksum, validateMigrationList } from "./migrations.js";
 import type {
   BatchJob,
   BatchStore,
@@ -20,39 +21,6 @@ import type {
 // Postgres usage 원장 (ADR-0006 — durable, append-only). 스키마는 초기화 시 생성
 // (마이그레이션 도구는 운영 평면 확장 시 — 로드맵 5).
 
-const DDL = `
-CREATE TABLE IF NOT EXISTS usage_ledger (
-  id            BIGSERIAL PRIMARY KEY,
-  request_id    TEXT        NOT NULL,
-  attempt       INT         NOT NULL,
-  provider      TEXT        NOT NULL,
-  model         TEXT        NOT NULL,
-  surface       TEXT        NOT NULL,
-  stream        BOOLEAN     NOT NULL,
-  outcome       TEXT        NOT NULL,
-  http_status   INT,
-  finish_reason TEXT,
-  error_category TEXT,
-  input_tokens  BIGINT,
-  input_no_cache BIGINT,
-  input_cache_read BIGINT,
-  input_cache_write BIGINT,
-  output_tokens BIGINT,
-  output_reasoning BIGINT,
-  total_tokens  BIGINT,
-  usage_raw     JSONB,
-  billed        BOOLEAN     NOT NULL,
-  duration_ms   INT         NOT NULL,
-  created_at    TIMESTAMPTZ NOT NULL
-);
-CREATE INDEX IF NOT EXISTS usage_ledger_request_idx ON usage_ledger (request_id);
-CREATE INDEX IF NOT EXISTS usage_ledger_created_idx ON usage_ledger (created_at);
-ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS tenant TEXT;
-ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS key_id TEXT;
-ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS key_source TEXT;
-ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS cost_usd DOUBLE PRECISION;
-`;
-
 /**
  * 프로세스당 공유 커넥션 풀 (리뷰 2026-08-22).
  * 스토어마다 풀을 만들면 레플리카당 23커넥션이 나와 Postgres max_connections를 금방 태운다.
@@ -61,7 +29,7 @@ ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS cost_usd DOUBLE PRECISION;
  */
 export class PostgresPool {
   readonly pool: pg.Pool;
-  private readonly migrations = new Map<string, Promise<void>>();
+  private schemaReady: Promise<void> | undefined;
 
   constructor(connectionString: string, max = Number(process.env["PGPOOL_MAX"] ?? 10)) {
     this.pool = new pg.Pool({ connectionString, max });
@@ -69,27 +37,41 @@ export class PostgresPool {
     this.pool.on("error", (err) => console.error("[pg-pool]", err.message));
   }
 
-  /** 라벨별 DDL 1회 실행. 실패 시 캐시 리셋 — 일시 장애가 영구 불능이 되지 않게 (리뷰 D1-r4) */
-  migrate(label: string, ddl: string): Promise<void> {
-    let running = this.migrations.get(label);
-    if (!running) {
-      running = this.runLocked(label, ddl).catch((err: unknown) => {
-        this.migrations.delete(label);
-        throw err;
-      });
-      this.migrations.set(label, running);
-    }
-    return running;
+  /**
+   * 스키마를 최신으로 (프로세스당 1회). 실패 시 캐시 리셋 — 일시 장애가 영구 불능이 되지
+   * 않게 (리뷰 D1-r4). MIGRATE_ON_BOOT=false면 적용하지 않고 **미적용 여부만 검사**한다 —
+   * 마이그레이션을 별도 잡으로 돌리는 배포에서 앱이 스키마를 몰래 바꾸지 않게 한다.
+   */
+  ensureSchema(): Promise<void> {
+    this.schemaReady ??= this.resolveSchema().catch((err: unknown) => {
+      this.schemaReady = undefined;
+      throw err;
+    });
+    return this.schemaReady;
   }
 
-  /** advisory lock 하에 DDL 실행 — 락은 세션 스코프라 전용 커넥션에서 잡고 반드시 푼다 */
-  private async runLocked(label: string, ddl: string): Promise<void> {
+  private async resolveSchema(): Promise<void> {
+    if (process.env["MIGRATE_ON_BOOT"] === "false") {
+      const problems = await schemaProblems(this);
+      if (problems.length > 0) {
+        throw new Error(
+          `스키마 문제 ${problems.length}건 (${problems.join(", ")}) — MIGRATE_ON_BOOT=false이므로 ` +
+            `'pnpm migrate'를 먼저 실행하세요`,
+        );
+      }
+      return;
+    }
+    await runMigrations(this);
+  }
+
+  /** advisory lock 하에 실행 — 락은 세션 스코프라 전용 커넥션에서 잡고 반드시 푼다 */
+  async withLock<T>(label: string, fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
     const key = advisoryKey(label);
     const client = await this.pool.connect();
     try {
       await client.query("SELECT pg_advisory_lock($1)", [key]);
       try {
-        await client.query(ddl);
+        return await fn(client);
       } finally {
         await client.query("SELECT pg_advisory_unlock($1)", [key]);
       }
@@ -125,7 +107,7 @@ export class PostgresLedger implements QueryableLedger {
   }
 
   private init(): Promise<void> {
-    return this.db.migrate("usage_ledger", DDL);
+    return this.db.ensureSchema();
   }
 
   async record(row: LedgerRow): Promise<void> {
@@ -186,49 +168,105 @@ export class PostgresLedger implements QueryableLedger {
 
 }
 
-// ── 운영 평면 스토어 (ADR-0006/0007 — 2026-08-21) ──────────────
 
-const OPS_DDL = `
-CREATE TABLE IF NOT EXISTS virtual_keys (
-  key_id           TEXT PRIMARY KEY,
-  tenant           TEXT NOT NULL,
-  name             TEXT,
-  key_hash         TEXT NOT NULL UNIQUE,
-  disabled         BOOLEAN NOT NULL DEFAULT FALSE,
-  budget           JSONB,
-  body_log_opt_out BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at       TIMESTAMPTZ NOT NULL
+// ── 마이그레이션 러너 ─────────────────────────────────────────
+// 계약: advisory lock으로 레플리카 간 직렬화, 항목마다 트랜잭션 1개, 적용 후 체크섬 기록.
+// 이미 적용된 항목의 sql이 바뀌면 **실행을 거부한다** — 조용한 스키마 드리프트는
+// "어떤 스키마가 떠 있는지 모르는" 상태로 직행하는 길이다.
+
+const MIGRATION_LOCK = "ai-gateway:schema";
+
+const MIGRATIONS_TABLE = `
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  id         TEXT PRIMARY KEY,
+  checksum   TEXT NOT NULL,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE TABLE IF NOT EXISTS tenant_provider_keys (
-  tenant        TEXT NOT NULL,
-  provider      TEXT NOT NULL,
-  encrypted_key TEXT NOT NULL,
-  created_at    TIMESTAMPTZ NOT NULL,
-  PRIMARY KEY (tenant, provider)
-);
-CREATE TABLE IF NOT EXISTS server_resources (
-  provider          TEXT NOT NULL,
-  resource_type     TEXT NOT NULL,
-  external_id       TEXT NOT NULL,
-  tenant            TEXT NOT NULL,
-  created_at        TIMESTAMPTZ NOT NULL,
-  expires_at        TIMESTAMPTZ,
-  created_by_key_id TEXT,
-  PRIMARY KEY (provider, resource_type, external_id)
-);
-CREATE TABLE IF NOT EXISTS body_logs (
-  id         BIGSERIAL PRIMARY KEY,
-  request_id TEXT NOT NULL,
-  tenant     TEXT,
-  direction  TEXT NOT NULL,
-  body       JSONB NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL
-);
-CREATE INDEX IF NOT EXISTS body_logs_request_idx ON body_logs (request_id);
--- 보관 정책 스윕용 (리뷰 2026-08-22 #11 — 무제한 증가 방어)
-CREATE INDEX IF NOT EXISTS body_logs_created_idx ON body_logs (created_at);
-ALTER TABLE virtual_keys ADD COLUMN IF NOT EXISTS rate_limit JSONB;
 `;
+
+export interface MigrationStatus {
+  applied: string[];
+  pending: string[];
+  /** 적용 기록과 코드의 sql이 어긋난 항목 — "어떤 스키마가 떠 있는지 모르는" 상태의 신호 */
+  drifted: string[];
+}
+
+/** 적용 이력 조회 (러너·CLI·readiness 공용) */
+export async function migrationStatus(db: PostgresPool): Promise<MigrationStatus> {
+  await db.pool.query(MIGRATIONS_TABLE);
+  const r = await db.pool.query<{ id: string; checksum: string }>(
+    `SELECT id, checksum FROM schema_migrations`,
+  );
+  const done = new Map(r.rows.map((row) => [row.id, row.checksum]));
+  return {
+    applied: MIGRATIONS.filter((m) => done.has(m.id)).map((m) => m.id),
+    pending: MIGRATIONS.filter((m) => !done.has(m.id)).map((m) => m.id),
+    drifted: MIGRATIONS.filter((m) => {
+      const recorded = done.get(m.id);
+      return recorded !== undefined && recorded !== checksum(m.sql);
+    }).map((m) => m.id),
+  };
+}
+
+/** 스키마가 서빙 가능한 상태인가 — 미적용도 드리프트도 없어야 한다 (readiness 판정) */
+export async function schemaProblems(db: PostgresPool): Promise<string[]> {
+  const status = await migrationStatus(db);
+  return [
+    ...status.pending.map((id) => `미적용 ${id}`),
+    ...status.drifted.map((id) => `체크섬 불일치 ${id}`),
+  ];
+}
+
+/** 미적용 마이그레이션을 순서대로 적용. 반환: 이번에 적용된 id 목록 */
+export async function runMigrations(db: PostgresPool): Promise<string[]> {
+  const problems = validateMigrationList();
+  if (problems.length > 0) throw new Error(`마이그레이션 목록 무결성 위반:\n  ${problems.join("\n  ")}`);
+
+  return db.withLock(MIGRATION_LOCK, async (client) => {
+    await client.query(MIGRATIONS_TABLE);
+    const r = await client.query<{ id: string; checksum: string }>(
+      `SELECT id, checksum FROM schema_migrations`,
+    );
+    const applied = new Map(r.rows.map((row) => [row.id, row.checksum]));
+
+    // 적용된 항목의 sql 변조 검출 — 먼저 전수 검사하고, 하나라도 어긋나면 아무것도 적용하지 않는다
+    const drifted = MIGRATIONS.filter((m) => {
+      const recorded = applied.get(m.id);
+      return recorded !== undefined && recorded !== checksum(m.sql);
+    }).map((m) => m.id);
+    if (drifted.length > 0) {
+      throw new Error(
+        `이미 적용된 마이그레이션이 편집됐습니다: ${drifted.join(", ")} — ` +
+          `적용분은 불변입니다. 되돌리거나 새 마이그레이션을 목록 끝에 추가하세요`,
+      );
+    }
+
+    const done: string[] = [];
+    for (const migration of MIGRATIONS) {
+      if (applied.has(migration.id)) continue;
+      await client.query("BEGIN");
+      try {
+        await client.query(migration.sql);
+        await client.query(`INSERT INTO schema_migrations (id, checksum) VALUES ($1, $2)`, [
+          migration.id,
+          checksum(migration.sql),
+        ]);
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => undefined);
+        throw new Error(
+          `마이그레이션 ${migration.id} 실패 — 이전 항목은 적용된 채로 남습니다: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+      done.push(migration.id);
+    }
+    return done;
+  });
+}
+
+// ── 운영 평면 스토어 (ADR-0006/0007 — 2026-08-21) ──────────────
 
 /** 운영 평면 스토어 공통 — 공유 풀 위에서 OPS_DDL 1회 (리뷰 2026-08-22: 풀 분리 제거) */
 class OpsPool {
@@ -237,7 +275,7 @@ class OpsPool {
     this.pool = db.pool;
   }
   init(): Promise<void> {
-    return this.db.migrate("ops_plane", OPS_DDL);
+    return this.db.ensureSchema();
   }
 }
 
@@ -394,21 +432,6 @@ export class PostgresBodyLog implements BodyLogSink {
 
 // ── Files / Batches (부록 (b) §2·§3, ADR-0006 §1) ─────────────────
 
-const FILES_DDL = `
-CREATE TABLE IF NOT EXISTS gateway_files (
-  tenant           TEXT NOT NULL,
-  gateway_file_id  TEXT NOT NULL,
-  provider         TEXT NOT NULL,
-  provider_file_id TEXT NOT NULL,
-  media_type       TEXT NOT NULL,
-  size_bytes       BIGINT NOT NULL,
-  filename         TEXT,
-  created_at       TIMESTAMPTZ NOT NULL,
-  expires_at       TIMESTAMPTZ,
-  PRIMARY KEY (tenant, gateway_file_id)
-);
-`;
-
 export class PostgresFileStore implements FileStore {
   private readonly pool: pg.Pool;
   private readonly db: PostgresPool;
@@ -418,7 +441,7 @@ export class PostgresFileStore implements FileStore {
     this.pool = db.pool;
   }
   private init(): Promise<void> {
-    return this.db.migrate("gateway_files", FILES_DDL);
+    return this.db.ensureSchema();
   }
   private rowToMapping(row: Record<string, any>): FileMapping {
     return {
@@ -458,23 +481,6 @@ export class PostgresFileStore implements FileStore {
   }
 }
 
-const BATCHES_DDL = `
-CREATE TABLE IF NOT EXISTS gateway_batches (
-  tenant            TEXT NOT NULL,
-  gateway_batch_id  TEXT NOT NULL,
-  provider          TEXT NOT NULL,
-  provider_batch_id TEXT NOT NULL,
-  bridge_state      JSONB,
-  status            TEXT NOT NULL,
-  raw_status        TEXT,
-  counts            JSONB NOT NULL,
-  item_models       JSONB NOT NULL,
-  created_at        TIMESTAMPTZ NOT NULL,
-  expires_at        TIMESTAMPTZ,
-  PRIMARY KEY (tenant, gateway_batch_id)
-);
-`;
-
 export class PostgresBatchStore implements BatchStore {
   private readonly pool: pg.Pool;
   private readonly db: PostgresPool;
@@ -484,7 +490,7 @@ export class PostgresBatchStore implements BatchStore {
     this.pool = db.pool;
   }
   private init(): Promise<void> {
-    return this.db.migrate("gateway_batches", BATCHES_DDL);
+    return this.db.ensureSchema();
   }
   private rowToJob(row: Record<string, any>): BatchJob {
     return {
