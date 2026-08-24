@@ -11,3 +11,12 @@ export function consoleHtml(): string {
   cached ??= readFileSync(new URL("./console.html", import.meta.url), "utf8");
   return cached;
 }
+
+// Native IR 가이드 (HTML 렌더링) — 내용 원본은 docs/guides/native-ir.md.
+// 포털 사용자는 저장소를 못 보므로 게이트웨이가 직접 서빙한다.
+let cachedDocs: string | undefined;
+
+export function docsHtml(): string {
+  cachedDocs ??= readFileSync(new URL("./docs.html", import.meta.url), "utf8");
+  return cachedDocs;
+}

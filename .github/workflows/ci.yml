@@ -39,6 +39,8 @@ jobs:
         run: curl -fsS http://127.0.0.1:8787/console | grep -q "ai-gateway 콘솔"
       - name: 포털 페이지 패키징 확인
         run: curl -fsS http://127.0.0.1:8787/portal | grep -q "ai-gateway 포털"
+      - name: 가이드 페이지 패키징 확인
+        run: curl -fsS http://127.0.0.1:8787/docs | grep -q "Native IR 가이드"
       - name: graceful shutdown (SIGTERM에 코드 0)
         run: |
           docker kill -s TERM gw

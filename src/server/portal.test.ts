@@ -166,7 +166,8 @@ describe("가입·로그인", () => {
   });
 
   it("로그인 브루트포스: 이메일별 분당 10회 초과 시 429", async () => {
-    const { app } = portalApp();
+    // 고정 창 카운터라 실제 시계로는 scrypt 11회 중 분 경계를 넘으면 리셋된다 — now 고정으로 결정론화
+    const { app } = portalApp({ now: () => new Date("2026-08-24T00:00:30Z") });
     await signup(app, "brute@x.co");
     let last = 0;
     for (let i = 0; i < 11; i++) {

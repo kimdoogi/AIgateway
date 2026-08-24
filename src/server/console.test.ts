@@ -69,6 +69,15 @@ describe("콘솔 페이지", () => {
     expect(html).toContain("/v0/usage"); // 셀프서비스 배선
   });
 
+  it("GET /docs — Native IR 가이드 서빙 (인증 밖, 포털·콘솔에서 링크)", async () => {
+    const app = createApp({});
+    const res = await app.request("/docs");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Native IR 가이드");
+    expect(html).toContain("/v0/responses"); // 실제 내용이 실려 있다
+  });
+
   it("GET / → /console 리다이렉트", async () => {
     const app = createApp({});
     const res = await app.request("/");

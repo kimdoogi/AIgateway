@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Native IR 가이드 — ai-gateway</title>
+<link rel="icon" href="data:,">
+<style>
+/* Native IR 가이드 (HTML 렌더링) — 콘솔·포털과 같은 시각 언어.
+   내용의 원본은 docs/guides/native-ir.md — 내용 수정은 md 먼저, 이 페이지에 반영한다. */
+:root{
+  --bg:#0d1117; --panel:#151b23; --panel2:#1c2532; --line:#2a3441;
+  --tx:#d7e0ea; --tx2:#8b98a9; --acc:#2dd4bf; --acc-dim:#0f3d38;
+  --warn:#f5a524; --err:#f87171; --r:10px;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box} html{scroll-behavior:smooth} html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font:14.5px/1.7 system-ui,-apple-system,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+.shell{display:flex;min-height:100vh}
+aside{width:250px;flex:none;background:var(--panel);border-right:1px solid var(--line);padding:20px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.brand{font-weight:700;font-size:15px;padding:2px 8px 14px}
+.brand .muted{color:var(--tx2);font-weight:400;font-size:12px;margin-left:4px}
+.brand a{color:inherit;text-decoration:none}
+aside nav{display:flex;flex-direction:column;gap:1px;font-size:12.8px}
+aside nav a{color:var(--tx2);text-decoration:none;padding:5px 10px;border-radius:7px;display:block}
+aside nav a:hover{background:var(--panel2);color:var(--tx)}
+aside nav a.sub{padding-left:22px;font-size:12px}
+.side-links{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);font-size:12px}
+.side-links a{color:var(--acc);text-decoration:none;display:block;padding:3px 10px}
+main{flex:1;min-width:0;max-width:880px;padding:34px 40px 100px}
+h1{font-size:24px;margin:0 0 6px;letter-spacing:-.3px}
+.lead{color:var(--tx2);font-size:14px;margin:0 0 8px}
+.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--tx2);margin:18px 0}
+h2{font-size:18px;margin:44px 0 12px;padding-top:10px;border-top:1px solid var(--line);letter-spacing:-.2px}
+h3{font-size:14.5px;margin:24px 0 8px;color:var(--acc)}
+p{margin:10px 0}
+ul{margin:8px 0;padding-left:22px} li{margin:4px 0}
+strong{color:#fff}
+a{color:var(--acc)}
+code{font-family:var(--mono);font-size:.86em;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+pre{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;margin:12px 0;line-height:1.55}
+pre code{background:none;border:none;padding:0;font-size:12.3px}
+pre .cm{color:#5b8a72} /* jsonc 주석 */
+button.copy{position:absolute;top:8px;right:8px;all:unset;cursor:pointer;color:var(--tx2);font-size:11px;padding:2px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+button.copy:hover{color:var(--acc);border-color:var(--acc)}
+.tablewrap{overflow-x:auto;margin:12px 0;border:1px solid var(--line);border-radius:var(--r);background:var(--panel)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--tx2);font-weight:500;text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--panel2)}
+td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td code{white-space:nowrap}
+.pill{display:inline-block;padding:0 8px;border-radius:999px;font-size:11px;border:1px solid var(--acc);color:var(--acc);vertical-align:2px;margin-left:6px}
+@media(max-width:900px){.shell{flex-direction:column}aside{position:static;width:100%;height:auto}main{padding:22px 18px 80px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside>
+  <div class="brand"><a href="/console">▣ ai-gateway</a><span class="muted">docs</span></div>
+  <nav>
+    <a href="#why">왜 native IR인가</a>
+    <a href="#quickstart">빠른 시작</a>
+    <a href="#auth">인증과 공통 헤더</a>
+    <a href="#request">요청 envelope</a>
+    <a href="#routing" class="sub">모델 라우팅</a>
+    <a href="#messages">메시지와 블록</a>
+    <a href="#blocks" class="sub">블록 8종</a>
+    <a href="#tools" class="sub">툴 호출 루프</a>
+    <a href="#response">응답 envelope</a>
+    <a href="#warnings" class="sub">warnings</a>
+    <a href="#streaming">스트리밍</a>
+    <a href="#resume" class="sub">재개와 취소</a>
+    <a href="#switch">중간 모델 교체</a>
+    <a href="#fallback">폴백 체인</a>
+    <a href="#po">providerOptions</a>
+    <a href="#effort">reasoning effort</a>
+    <a href="#errors">에러 모델</a>
+    <a href="#endpoints">나머지 엔드포인트</a>
+    <a href="#mistakes">자주 하는 실수</a>
+  </nav>
+  <div class="side-links">
+    <a href="/portal">포털 — 키 발급 →</a>
+    <a href="/console">운영 콘솔 →</a>
+  </div>
+</aside>
+<main>
+
+<h1>Native IR 가이드</h1>
+<p class="lead">게이트웨이 고유 형식으로 호출하기 — 포털에서 키를 발급받았다면 이 문서 하나면 됩니다.</p>
+<div class="note">이 문서는 사용 가이드입니다. 구현과 불일치하면 저장소의 <code>docs/specs/ir-v0.md</code>(canonical 스펙)가 우선합니다.</div>
+
+<h2 id="why">왜 native IR인가</h2>
+<p>이 게이트웨이는 OpenAI 호환(<code>/compat/openai/...</code>)·Anthropic 호환(<code>/compat/anthropic/...</code>) 형식도 받지만,
+호환 형식은 각 포맷의 표현력에 갇힙니다 (OpenAI CC에는 reasoning 슬롯이 없고, Messages에는 폴백 체인이 없습니다).
+<strong>native IR은 게이트웨이의 canonical 형식</strong>이라 전 기능이 노출됩니다:</p>
+<ul>
+<li>4사(anthropic·openai·google·xai) 어디로든 같은 요청 — 프로바이더 고유 기능은 <code>providerOptions</code>로</li>
+<li><strong>대화 중간 모델 교체</strong> — claude로 시작한 대화를 gpt가 이어받습니다</li>
+<li><strong>폴백 체인</strong> — 1차 타깃 장애 시 무중단 전환</li>
+<li>스트림 <strong>재개</strong>(단선돼도 이어받기)와 <strong>취소</strong>(과금 중단)</li>
+<li>조용한 변조 없음 — 드롭·클램프·강등은 전부 <code>warnings</code>로 보고됩니다</li>
+</ul>
+
+<h2 id="quickstart">빠른 시작</h2>
+<pre><code># 비스트림
+curl https://&lt;gateway&gt;/v0/responses \
+  -H "authorization: Bearer gwk_..." \
+  -H "content-type: application/json" \
+  -d '{
+    "version": "0",
+    "model": "claude-haiku-4-5",
+    "maxOutputTokens": 256,
+    "messages": [
+      { "role": "user", "blocks": [ { "type": "text", "text": "안녕!" } ] }
+    ]
+  }'</code></pre>
+<pre><code># 스트림 (SSE) — "stream": true만 추가
+curl -N https://&lt;gateway&gt;/v0/responses -H "authorization: Bearer gwk_..." \
+  -H "content-type: application/json" \
+  -d '{ "version":"0", "model":"gpt-5.6-luna", "maxOutputTokens":256, "stream":true,
+        "messages":[{ "role":"user", "blocks":[{ "type":"text", "text":"안녕!" }] }] }'</code></pre>
+
+<h2 id="auth">인증과 공통 헤더</h2>
+<div class="tablewrap"><table>
+<tr><td>인증</td><td><code>authorization: Bearer gwk_...</code> (가상 키). 게이트웨이가 개방 모드로 떠 있으면 생략</td></tr>
+<tr><td>요청 상관관계</td><td>모든 응답에 <code>x-gateway-request-id: req_...</code> — 문의·재개·취소에 이 값을 씁니다</td></tr>
+<tr><td>빈도 한도</td><td>키에 한도가 있으면 <code>x-ratelimit-limit</code> / <code>x-ratelimit-remaining</code>, 초과 시 429 + <code>retry-after</code></td></tr>
+<tr><td>본문 상한</td><td>JSON 10MB (초과 413)</td></tr>
+</table></div>
+
+<h2 id="request">요청 envelope</h2>
+<p>최상위 미지 키는 <strong>400</strong>입니다 (오타가 조용히 무시되지 않습니다). 전체 필드:</p>
+<div class="tablewrap"><table>
+<thead><tr><th>필드</th><th>타입</th><th>설명</th></tr></thead>
+<tbody>
+<tr><td><code>version</code></td><td><code>"0"</code></td><td>필수</td></tr>
+<tr><td><code>model</code></td><td>string</td><td>필수 — 접두로 라우팅 (아래 표)</td></tr>
+<tr><td><code>fallbackModels</code></td><td>string[]</td><td>폴백 체인 — 순서 = 시도 순서</td></tr>
+<tr><td><code>messages</code></td><td>Message[]</td><td>필수, 1개 이상</td></tr>
+<tr><td><code>tools</code> / <code>toolChoice</code> / <code>parallelToolCalls</code></td><td></td><td>툴 (아래 절)</td></tr>
+<tr><td><code>maxOutputTokens</code> <code>temperature</code> <code>topP</code> <code>topK</code> <code>stopSequences</code> <code>seed</code> <code>presencePenalty</code> <code>frequencyPenalty</code></td><td></td><td>샘플링 — 타깃 미지원 값은 드롭+warning</td></tr>
+<tr><td><code>responseFormat</code></td><td><code>{type:"text"}</code> | <code>{type:"json", schema?, name?, strict?}</code></td><td>구조화 출력</td></tr>
+<tr><td><code>reasoning</code></td><td><code>{effort?}</code></td><td><code>none·minimal·low·medium·high·xhigh·max</code> (아래 절)</td></tr>
+<tr><td><code>metadata</code></td><td><code>{userId?, ...}</code></td><td>userId는 프로바이더 사용자 식별 필드로 매핑</td></tr>
+<tr><td><code>stream</code></td><td>boolean</td><td>SSE 스트림</td></tr>
+<tr><td><code>streamOptions</code></td><td><code>{includeRaw?, heartbeatSeconds?}</code></td><td>raw 프로바이더 이벤트 병행 수신 / heartbeat 주기(최대 3600s)</td></tr>
+<tr><td><code>retarget</code></td><td><code>{reasoning?}</code></td><td>타사 reasoning 이식 정책: <code>drop</code>(기본)·<code>demote-to-text</code>·<code>strip-and-annotate</code></td></tr>
+<tr><td><code>strictParameters</code></td><td>boolean</td><td>true면 드롭+warning 대신 <strong>400</strong></td></tr>
+<tr><td><code>allowUnknownProviderOptions</code></td><td>boolean</td><td>PO 미지 키를 통과+warning (기본은 400)</td></tr>
+<tr><td><code>providerOptions</code></td><td><code>{&lt;provider&gt;: {...}}</code></td><td>프로바이더 고유 기능 (아래 절)</td></tr>
+<tr><td><code>passthroughParams</code></td><td><code>{provider, params, headers?, pinned?}</code></td><td>wire body 직접 병합 — 최후 수단</td></tr>
+</tbody>
+</table></div>
+
+<h3 id="routing">모델 라우팅</h3>
+<p>모델 이름 접두로 프로바이더가 정해집니다. 새 스냅샷 id도 접두만 맞으면 별도 등록 없이 라우팅됩니다.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>접두</th><th>프로바이더</th><th>예</th></tr></thead>
+<tbody>
+<tr><td><code>claude-</code></td><td>anthropic</td><td><code>claude-haiku-4-5</code>, <code>claude-opus-5</code></td></tr>
+<tr><td><code>gpt-</code> <code>chatgpt-</code> <code>o&lt;n&gt;</code></td><td>openai</td><td><code>gpt-5.6-luna</code> (Responses 주 표면, audio류는 CC)</td></tr>
+<tr><td><code>gemini-</code></td><td>google</td><td><code>gemini-3.7-flash</code></td></tr>
+<tr><td><code>grok-</code></td><td>xai</td><td><code>grok-4.6</code></td></tr>
+</tbody>
+</table></div>
+<p>모델별 제약(reasoning 모델의 temperature 거부 등)은 게이트웨이가 사전에 걸러 드롭+warning 하거나,
+<code>strictParameters: true</code>면 400으로 알려줍니다.</p>
+
+<h2 id="messages">메시지와 블록</h2>
+<p>메시지는 <code>role</code> + <code>blocks</code>(1개 이상). 텍스트도 블록입니다 — 이 구조라서 멀티모달·툴·추론이 한 배열에 섞입니다.</p>
+<div class="tablewrap"><table>
+<thead><tr><th>role</th><th>허용 블록</th></tr></thead>
+<tbody>
+<tr><td><code>system</code></td><td>text, passthrough</td></tr>
+<tr><td><code>user</code></td><td>text, file, toolResult, custom, passthrough</td></tr>
+<tr><td><code>assistant</code></td><td>text, reasoning, toolCall, toolResult(서버툴), file, source, custom, passthrough</td></tr>
+<tr><td><code>tool</code></td><td>toolResult, passthrough</td></tr>
+</tbody>
+</table></div>
+
+<h3 id="blocks">블록 8종 요약</h3>
+<pre><code>{ "type": "text",      "text": "..." }
+{ "type": "reasoning", "text": "...", "opaqueState": { "provider": "...", "data": "..." } } <span class="cm">// 서명·암호화 상태</span>
+{ "type": "toolCall",  "toolCallId": "...", "toolName": "...", "input": { "type": "json", "value": {} } }
+{ "type": "toolResult","toolCallId": "...", "toolName": "...", "output": { "type": "text", "text": "..." } }
+{ "type": "file",      "mediaType": "image/png", "data": { "type": "base64", "data": "..." } }
+{ "type": "source",    "sourceType": "url", "url": "..." }        <span class="cm">// 서버 웹서치 출처 (응답 방향)</span>
+{ "type": "custom",    "kind": "anthropic.&lt;...&gt;", "payload": {} } <span class="cm">// 프로바이더 고유 블록 (왕복 보장)</span>
+{ "type": "passthrough", "provider": "...", "raw": {} }           <span class="cm">// 게이트웨이가 모르는 블록 (보존)</span></code></pre>
+<p><code>file.data</code>는 <code>base64</code> · <code>url</code> · <code>text</code> · <code>reference</code> 4형.
+<code>reference</code>는 <code>{ "refs": { "gateway": "gwf_..." } }</code>로 게이트웨이 파일 id를 쓰면
+타깃 프로바이더의 실제 파일 id로 자동 치환됩니다 (<code>POST /v0/files</code>로 업로드).
+타깃에 해당 파일이 없으면 조용히 넘어가지 않고 400으로 재업로드를 안내합니다.</p>
+
+<h3 id="tools">툴 호출 루프 (왕복 예시)</h3>
+<pre><code><span class="cm">// ① 요청: 함수 툴 정의</span>
+{ "version": "0", "model": "claude-haiku-4-5", "maxOutputTokens": 512,
+  "tools": [ { "type": "function", "name": "get_weather",
+               "inputSchema": { "type": "object", "properties": { "city": { "type": "string" } } } } ],
+  "messages": [ { "role": "user", "blocks": [ { "type": "text", "text": "서울 날씨?" } ] } ] }
+
+<span class="cm">// ② 응답 message.blocks에 toolCall이 온다 → 직접 실행한 뒤</span>
+<span class="cm">// ③ 히스토리에 [②의 message 그대로] + [tool 롤 결과]를 붙여 재요청</span>
+{ "role": "tool", "blocks": [ { "type": "toolResult", "toolCallId": "&lt;②의 id&gt;",
+    "toolName": "get_weather", "output": { "type": "text", "text": "맑음, 27도" } } ] }</code></pre>
+<p>프로바이더 서버가 실행하는 툴(웹서치 등)은 <code>{ "type": "provider", "id": "anthropic.web_search", "args": {...} }</code>.
+<code>id</code>는 <code>{provider}.{tool}</code> 형식이고 타깃 프로바이더와 일치해야 합니다.</p>
+
+<h2 id="response">응답 envelope</h2>
+<pre><code>{
+  "version": "0",
+  "id": "req_...",                          <span class="cm">// = x-gateway-request-id</span>
+  "created": "2026-08-24T12:00:00.000Z",
+  "model": { "requested": "claude-haiku-4-5",
+             "resolved": { "provider": "anthropic", "model": "claude-haiku-4-5-20251001", "surface": "messages" } },
+  "message": { "role": "assistant", "blocks": [ ... ], "origin": { ... } },
+  "finishReason": { "unified": "stop", "raw": "end_turn" },
+  "usage": { "input":  { "total": 12, "noCache": 12, "cacheRead": 0, "cacheWrite": 0 },
+             "output": { "total": 4, "text": 4, "reasoning": 0 },
+             "totalTokens": 16, "raw": { ... } },               <span class="cm">// raw = 프로바이더 원문 (재계산 근거)</span>
+  "billing": { "lineItems": [ { "kind": "tokens", "sku": "anthropic:...:input", "quantity": 12,
+                                "unitCost": 1.0, "cost": 0.000012 } ],
+               "total": 0.000032, "currency": "USD" },          <span class="cm">// unitCost는 USD/1M tokens</span>
+  "warnings": [],                                                <span class="cm">// 항상 배열</span>
+  "gateway": { "requestId": "req_...", "providerRequestId": "msg_...",
+               "attempts": [ ... ] }                             <span class="cm">// 리트라이·폴백 발생 시 시도 이력</span>
+}</code></pre>
+<p><code>finishReason.unified</code>는 닫힌 집합: <code>stop · length · tool_call · content_filter · refusal · paused · tool_error · error · other</code>.
+프로바이더 원문은 <code>raw</code>에 항상 보존됩니다.</p>
+
+<h3 id="warnings">warnings — 조용한 변조 금지</h3>
+<p>게이트웨이가 요청을 손댄 모든 지점이 여기 보고됩니다. 자주 보게 될 코드:</p>
+<div class="tablewrap"><table>
+<thead><tr><th>code</th><th>의미</th></tr></thead>
+<tbody>
+<tr><td><code>parameter-dropped</code> / <code>parameter-clamped</code></td><td>타깃 미지원 파라미터 드롭 / 값 클램프 (effort 등)</td></tr>
+<tr><td><code>reasoning-dropped</code> / <code>reasoning-demoted</code></td><td>타사 reasoning 블록 처리 (retarget 정책)</td></tr>
+<tr><td><code>surface-switched</code></td><td>표면 전환 (캐시 미스·reasoning 연속성 소실 가능)</td></tr>
+<tr><td><code>fallback-target-switched</code></td><td>폴백 체인이 다음 타깃으로 넘어감</td></tr>
+<tr><td><code>billing-price-estimated</code></td><td>가격표 미등재 모델 — billing이 근사값</td></tr>
+<tr><td><code>budget-soft-warning</code></td><td>키의 soft 예산 도달</td></tr>
+</tbody>
+</table></div>
+<p><code>warnings</code>를 로그에 남겨두면 "왜 결과가 미묘하게 다르지"의 답이 대부분 여기 있습니다.</p>
+
+<h2 id="streaming">스트리밍</h2>
+<p><code>"stream": true</code>면 SSE. 프레임 규칙: <code>event:</code> = 이벤트 타입, <code>id:</code> = <code>seq</code>(0부터 단조 증가), <code>data:</code> = 이벤트 JSON.</p>
+<pre><code>event: stream-start        <span class="cm">← 항상 첫 이벤트 (게이트웨이 warnings 동봉)</span>
+event: response-metadata   <span class="cm">← id·resolved 모델</span>
+event: text-start / text-delta / text-end          <span class="cm">← id 기반 블록 스코프</span>
+event: reasoning-start / reasoning-delta / reasoning-end
+event: tool-input-start / -delta / -end → tool-call <span class="cm">← 완성본 재전송 (delta 무시하고 이것만 받아도 됨)</span>
+event: usage-interim / warning / heartbeat / provider-switched
+event: finish | error-final | error-partial        <span class="cm">← 터미널 (반드시 온다)</span></code></pre>
+<ul>
+<li><strong>finish</strong>: 정상 종결 — usage·billing·(폴백 시) attempts 동봉</li>
+<li><strong>error-final</strong>: 기방출분 무효</li>
+<li><strong>error-partial</strong>: 기방출분은 유효. <code>willRetry: true</code>면 터미널이 <strong>아니고</strong> 폴백 타깃으로 이어집니다
+  (<code>provider-switched</code> 후 새 타깃의 이벤트가 계속 옵니다)</li>
+</ul>
+
+<h3 id="resume">재개와 취소</h3>
+<pre><code># 단선됐다 — 마지막으로 받은 seq 이후부터 재생 + 라이브 테일
+curl -N https://&lt;gateway&gt;/v0/streams/req_XXXX \
+  -H "authorization: Bearer gwk_..." -H "Last-Event-ID: 42"
+
+# 취소 — 즉시 업스트림 중단 (과금 중단)
+curl -X POST https://&lt;gateway&gt;/v0/streams/req_XXXX/cancel -H "authorization: Bearer gwk_..."</code></pre>
+<ul>
+<li>연결이 끊겨도 <strong>30초(grace)</strong> 동안 업스트림을 유지하며 버퍼링합니다 — 그 안에 재접속하면 이어서 라이브</li>
+<li>종료된 스트림 버퍼는 <strong>5분</strong> 보관 (만료 후 410)</li>
+<li>재개·취소는 스트림을 만든 계정(테넌트)만 가능 — 남의 것은 410</li>
+</ul>
+
+<h2 id="switch">대화 중간 모델 교체<span class="pill">핵심 기능</span></h2>
+<p>핵심 사용법: <strong>응답의 <code>message</code>를 그대로 히스토리에 붙이고 <code>model</code>만 바꿉니다.</strong></p>
+<pre><code><span class="cm">// 1턴 — claude</span>
+{ "version":"0", "model":"claude-haiku-4-5", ... }
+<span class="cm">// → 응답 response1</span>
+
+<span class="cm">// 2턴 — gpt가 이어받기: response1.message를 통째로 넣는다</span>
+{ "version": "0", "model": "gpt-5.6-luna", "maxOutputTokens": 256,
+  "messages": [
+    { "role": "user", "blocks": [ { "type": "text", "text": "1턴 질문" } ] },
+    response1.message,                                    <span class="cm">// ← 그대로</span>
+    { "role": "user", "blocks": [ { "type": "text", "text": "이어지는 질문" } ] }
+  ] }</code></pre>
+<p>게이트웨이의 재타게팅 패스가 자동 처리하는 것:</p>
+<ul>
+<li>같은 프로바이더로 돌아가면 서명·암호화 상태(<code>opaqueState</code>)·원문 item을 <strong>바이트 그대로 복원</strong> (무손실)</li>
+<li>다른 프로바이더로 가면 타사 reasoning은 <code>retarget.reasoning</code> 정책대로 (기본 drop + warning)</li>
+<li>고아 툴 쌍(결과 없는 toolCall 등)은 프로바이더 400의 원인이라 수리 + warning</li>
+<li>타깃에 적용 불가한 서버 상태 참조(previousResponseId 등)는 드롭 + warning</li>
+</ul>
+
+<h2 id="fallback">폴백 체인</h2>
+<pre><code>{ "model": "claude-haiku-4-5", "fallbackModels": ["gpt-5.6-luna", "gemini-3.7-flash"], ... }</code></pre>
+<ul>
+<li>진행 조건: 프로바이더 귀책의 일시 장애(rate_limit·overloaded·provider_error·timeout 등 <code>fallbackEligible</code>)일 때만. 400류·취소는 폴백하지 않습니다</li>
+<li>같은 타깃 리트라이(백오프·Retry-After 존중)를 소진한 뒤에 다음 타깃으로</li>
+<li>스트림은 <strong>콘텐츠 방출 전 실패만</strong> 무중단 전환 — 이미 받은 텍스트가 있으면 전환하지 않습니다 (중복 방출 금지)</li>
+<li>시도 이력은 <code>gateway.attempts</code>(비스트림) / <code>finish.attempts</code>(스트림)에: <code>success · failed · skipped</code></li>
+<li>자격증명 없는 타깃, <code>pinned</code> passthrough와 불일치하는 타깃은 <code>skipped</code></li>
+</ul>
+
+<h2 id="po">providerOptions — 프로바이더 고유 기능</h2>
+<p>네임스페이스 키(<code>anthropic</code>·<code>openai</code>·<code>google</code>·<code>xai</code>) 아래에 넣습니다. <strong>타깃 프로바이더 것만 소비</strong>되고
+나머지 네임스페이스는 무시됩니다(에러 아님) — 그래서 히스토리에 여러 프로바이더의 PO가 섞여 있어도 안전합니다.</p>
+<pre><code>"providerOptions": {
+  "anthropic": { "thinking": { "type": "enabled", "budget_tokens": 2048 },
+                 "serviceTier": "standard_only", "betas": ["..."] },
+  "openai":    { "surface": "chat-completions",        <span class="cm">// 표면 강제</span>
+                 "store": true, "previousResponseId": "resp_...",
+                 "reasoning": { "summary": "auto" }, "textVerbosity": "low" },
+  "google":    { "thinkingConfig": { "thinkingBudget": 1024 },  <span class="cm">// 2.5세대 예산 지정</span>
+                 "cachedContent": "cachedContents/...", "safetySettings": [ ... ] },
+  "xai":       { "xGrokConvId": "...", "store": true }
+}</code></pre>
+<ul>
+<li>블록 단위 PO도 있습니다: 예) anthropic 캐시 브레이크포인트 <code>"providerOptions": { "anthropic": { "cacheControl": { "type": "ephemeral" } } }</code></li>
+<li>네임스페이스 안의 <strong>미지 키는 400</strong> — 신기능을 먼저 쓰려면 <code>allowUnknownProviderOptions: true</code>로 통과시키면 warning과 함께 wire에 실립니다</li>
+<li>그래도 안 되는 최후 수단이 <code>passthroughParams</code>(wire body 직접 병합). 게이트웨이 조립 키와 충돌하면 400</li>
+</ul>
+
+<h2 id="effort">reasoning effort</h2>
+<p><code>reasoning.effort</code>는 4사 공통 축입니다: <code>none &lt; minimal &lt; low &lt; medium &lt; high &lt; xhigh &lt; max</code>.</p>
+<ul>
+<li>모델이 지원하지 않는 값은 <strong>최근접</strong>으로 클램프 + warning</li>
+<li>단 <code>none</code>(추론 끄기)은 경계를 넘지 않습니다 — 표현 불가 모델이면 켜지 않고 드롭+warning (끄기 요청이 켜기+과금으로 반전되지 않게)</li>
+<li><code>strictParameters: true</code>면 클램프 대신 400</li>
+</ul>
+
+<h2 id="errors">에러 모델</h2>
+<p>에러는 항상 같은 형태입니다:</p>
+<pre><code>{ "error": { "category": "rate_limit", "httpStatus": 429, "message": "...",
+             "retryAfter": 29,                    <span class="cm">// 초 — 있으면 그만큼 쉬고 재시도</span>
+             "fallbackEligible": true, "billed": false,
+             "provider": { "key": "anthropic", "status": 429, "code": "..." } } }</code></pre>
+<div class="tablewrap"><table>
+<thead><tr><th>category</th><th>뜻 · 대응</th></tr></thead>
+<tbody>
+<tr><td><code>invalid_request</code> 400</td><td>요청 자체 문제 — 재시도 무의미</td></tr>
+<tr><td><code>auth</code> 401 / <code>permission</code> 403</td><td>키 문제</td></tr>
+<tr><td><code>rate_limit</code> 429</td><td>분당 한도 — <code>retryAfter</code> 후 재시도. <code>provider.key: "gateway"</code>면 게이트웨이 자체 한도</td></tr>
+<tr><td><code>quota_exhausted</code> 429</td><td>일일/잔액 소진 — 백오프 무의미, 폴백 적격</td></tr>
+<tr><td><code>budget_exceeded</code> 402</td><td>키의 hard 예산 초과 — 다음 기간까지 차단</td></tr>
+<tr><td><code>overloaded</code> / <code>provider_error</code> / <code>timeout</code></td><td>프로바이더 일시 장애 — 폴백 적격</td></tr>
+<tr><td><code>content_too_large</code> 413</td><td>컨텍스트/본문 초과</td></tr>
+</tbody>
+</table></div>
+<p><strong>한도에 막혀도 자기 상태 조회는 항상 됩니다</strong>: <code>GET /v0/usage</code> (Bearer 키) — 예산·지출·rpm·차단 여부.
+429/402의 원인을 보는 창구라 쿼터를 소모하지 않습니다.</p>
+
+<h2 id="endpoints">나머지 엔드포인트</h2>
+<div class="tablewrap"><table>
+<thead><tr><th>엔드포인트</th><th>용도</th></tr></thead>
+<tbody>
+<tr><td><code>POST /v0/count-tokens</code></td><td>호출 전 입력 토큰 수 (anthropic·google. 그 외 501)</td></tr>
+<tr><td><code>POST /v0/files</code> → <code>gwf_</code></td><td>파일 업로드 → <code>refs.gateway</code>로 참조 (타깃 프로바이더 명시)</td></tr>
+<tr><td><code>POST /v0/batches</code> → <code>gwb_</code></td><td>비동기 배치 (단일 프로바이더, customId 매핑, 50% 할인 SKU)</td></tr>
+<tr><td><code>GET /v0/streams/:id</code> / <code>POST .../cancel</code></td><td>스트림 재개 / 취소</td></tr>
+<tr><td><code>GET /v0/usage</code></td><td>내 키 상태 (한도 면제)</td></tr>
+<tr><td><code>/compat/openai/v1/chat/completions</code><br><code>/compat/anthropic/v1/messages</code></td><td>호환 인바운드 — 실행은 native와 동일 경로. 응답의 <code>gateway.ir</code> 확장에 IR 원본이 실려 옵니다</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="mistakes">부록 — 자주 하는 실수</h2>
+<ul>
+<li><strong><code>version: "0"</code> 누락</strong> → 400. envelope 필수 필드입니다</li>
+<li><strong>assistant 히스토리를 손으로 재조립</strong> — 하지 마세요. 응답 <code>message</code>를 그대로 쓰면 서명 왕복까지 자동입니다</li>
+<li><strong>warnings 무시</strong> — 드롭·클램프가 전부 여기 옵니다. 최소한 로그에는 남기세요</li>
+<li><strong>미지 최상위 키</strong> → 400은 의도된 동작입니다. 프로바이더 고유 키는 최상위가 아니라 <code>providerOptions.&lt;provider&gt;</code> 아래로</li>
+<li><strong>스트림 소비 시 <code>error-partial.willRetry</code> 미확인</strong> — true면 끝이 아닙니다. 폴백이 이어집니다</li>
+</ul>
+
+</main>
+</div>
+<script>
+"use strict";
+// 코드 블록 복사 버튼
+for (const pre of document.querySelectorAll("pre")) {
+  const btn = document.createElement("button");
+  btn.className = "copy";
+  btn.textContent = "복사";
+  btn.addEventListener("click", () => {
+    navigator.clipboard.writeText(pre.querySelector("code").innerText);
+    btn.textContent = "복사됨";
+    setTimeout(() => { btn.textContent = "복사"; }, 1500);
+  });
+  pre.append(btn);
+}
+</script>
+</body>
+</html>

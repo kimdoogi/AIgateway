@@ -17,7 +17,7 @@
 | [research/](research/) | 선행 사례 소스 레벨 분석 + 프로바이더 인벤토리 |
 | [decisions/](decisions/) | 아키텍처 결정 기록 (ADR) |
 | [specs/](specs/) | 스펙 문서 — [IR v0](specs/ir-v0.md) |
-| [guides/](guides/) | 사용자 가이드 — [Native IR 가이드](guides/native-ir.md) (API 소비자용. 스펙과 불일치 시 스펙 우선) |
+| [guides/](guides/) | 사용자 가이드 — [Native IR 가이드](guides/native-ir.md) (API 소비자용. 스펙과 불일치 시 스펙 우선). HTML 렌더링은 게이트웨이가 `GET /docs`로 직접 서빙 — 포털 사용자는 저장소를 못 보기 때문 |
 | [plan/](plan/) | 실행 계획 — [walking skeleton](plan/walking-skeleton.md) |
 | [problems/](problems/) | 작업 중 문제가 됐던 것들의 기록 (problem log) |
 

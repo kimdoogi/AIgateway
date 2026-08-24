@@ -41,7 +41,7 @@ import { compatMessagesToIR } from "../inbound/anthropic-compat/request.js";
 import { toMessagesError, toMessagesResponse } from "../inbound/anthropic-compat/response.js";
 import { createMessagesDownconverter } from "../inbound/anthropic-compat/stream.js";
 import { SessionStore, sessionPersistenceKey, type StreamSession } from "../gateway/session.js";
-import { consoleHtml } from "./console.js";
+import { consoleHtml, docsHtml } from "./console.js";
 import type { AccountStore, PortalSessionStore, SessionPersistence, StreamControl } from "../state/types.js";
 import { registerPortalRoutes } from "./portal.js";
 
@@ -180,6 +180,7 @@ export function createApp(deps: AppDeps = {}): Hono {
   // ── 운영 콘솔 (정적 1페이지 — 비밀 없음, 모든 데이터는 키 인증 뒤) ──
   app.get("/", (c) => c.redirect("/console"));
   app.get("/console", (c) => c.html(consoleHtml()));
+  app.get("/docs", (c) => c.html(docsHtml())); // Native IR 가이드 — 포털 사용자용 (원본: docs/guides/native-ir.md)
 
   // ── 셀프 가입 포털 — 세션 쿠키 인증, 계정=테넌트 격리 (server/portal.ts) ──
   registerPortalRoutes(app, deps);
