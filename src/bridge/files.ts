@@ -57,7 +57,7 @@ async function readJsonOrThrow(provider: string, res: Response, action: string):
 }
 
 /** 프로바이더 구성 데이터 테이블 — xai는 참조 wire 세부 미확보로 v1 제외 (부록 (b) §2) */
-const FILE_PROVIDERS: Record<string, FileProviderOps> = {
+export const FILE_PROVIDERS: Record<string, FileProviderOps> = {
   anthropic: {
     async upload(input, baseUrl, auth, fetchImpl) {
       const form = new FormData();

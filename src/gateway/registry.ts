@@ -65,10 +65,21 @@ export function clearProviders(): void {
   providers.clear();
 }
 
+/** 등록된 프로바이더 키 목록 — 등록 완전성 검사(provider-registration.test)의 기준 축 */
+export function registeredProviders(): string[] {
+  return [...providers.keys()];
+}
+
 /** 모델 라우팅 테이블 v0 — 하드코딩 데이터 (레지스트리 이관 대상, 리뷰 A3/D10-4) */
-interface ModelRoute {
+export interface ModelRoute {
   pattern: RegExp;
   provider: string;
+  /**
+   * 이 라우트를 대표하는 실제 모델 id. 필수 — 등록 완전성 검사가 이것으로
+   * ① 정규식이 정말 자기 모델을 잡는지 ② 앞 라우트에 가려지지 않는지
+   * ③ 가격표에 단가가 있는지를 검증한다 (리뷰 2026-08-22: 등록 9곳 완전성 미강제).
+   */
+  sample: string;
   capabilities?: AdapterCapabilities;
 }
 
@@ -76,62 +87,72 @@ interface ModelRoute {
 const OPENAI_REASONING_REJECTS = ["temperature", "topP", "topK", "presencePenalty", "frequencyPenalty"] as const;
 const OPENAI_GPT56_EFFORTS = ["none", "low", "medium", "high", "xhigh", "max"] as const; // minimal 없음
 
-const MODEL_ROUTES: ModelRoute[] = [
+export const MODEL_ROUTES: ModelRoute[] = [
   // ── Anthropic ──
   // mid-conversation system 지원: Opus 5/4.8/Fable 5 계열 (adapters/types.ts 주석 참조)
   {
     pattern: /^claude-(opus-5|opus-4-8|fable-5|mythos-5)/,
+    sample: "claude-opus-5",
     provider: "anthropic",
     capabilities: { midConversationSystem: true },
   },
-  { pattern: /^claude-/, provider: "anthropic" },
+  { pattern: /^claude-/, sample: "claude-haiku-4-5", provider: "anthropic" },
 
   // ── OpenAI ── (인벤토리 §H — pro/computer-use/deep-research는 Responses 전용, audio는 CC 전용)
   {
     pattern: /^(gpt-5(\.\d+)?-pro|o\d+-pro)/,
+    sample: "gpt-5.6-pro",
     provider: "openai",
     capabilities: { surfaces: ["responses"], unsupportedParams: OPENAI_REASONING_REJECTS },
   },
   {
     pattern: /^(computer-use|.*-deep-research)/,
+    sample: "computer-use-preview",
     provider: "openai",
     capabilities: { surfaces: ["responses"] },
   },
   {
     pattern: /^gpt-(audio|realtime)/,
+    sample: "gpt-audio",
     provider: "openai",
     capabilities: { surfaces: ["chat-completions"] },
   },
   {
     pattern: /^gpt-5\.6/,
+    sample: "gpt-5.6-luna",
     provider: "openai",
     capabilities: { supportedEfforts: OPENAI_GPT56_EFFORTS, unsupportedParams: OPENAI_REASONING_REJECTS },
   },
   {
     pattern: /^(gpt-5|o[1-9])/,
+    sample: "gpt-5.4",
     provider: "openai",
     capabilities: { unsupportedParams: OPENAI_REASONING_REJECTS },
   },
-  { pattern: /^(gpt-|chatgpt-|o\d)/, provider: "openai" },
+  { pattern: /^(gpt-|chatgpt-|o\d)/, sample: "gpt-4.1", provider: "openai" },
 
   // ── Google Gemini ── (인벤토리 §I — thinkingLevel은 3세대, 2.5는 thinkingBudget(PO 경유))
   {
     pattern: /^gemini-3\.1-pro/,
+    sample: "gemini-3.1-pro",
     provider: "google",
     capabilities: { supportedEfforts: ["low", "medium", "high"] }, // minimal 미지원 (§I)
   },
   {
     pattern: /^gemini-3/,
+    sample: "gemini-3.7-flash",
     provider: "google",
     capabilities: { supportedEfforts: ["minimal", "low", "medium", "high"] },
   },
   {
     pattern: /^gemini-2\.5/,
+    sample: "gemini-2.5-flash",
     provider: "google",
     capabilities: { supportedEfforts: [] }, // thinkingLevel 미지원 세대 — effort는 드롭 + warning
   },
   {
     pattern: /^gemini-/,
+    sample: "gemini-2.0-flash",
     provider: "google",
     // 안전측 기본값: 미지 세대(2.0/1.5 등)에 3세대 thinkingLevel을 보내면 400 — 드롭+warning이 안전
     capabilities: { supportedEfforts: [] },
@@ -140,6 +161,7 @@ const MODEL_ROUTES: ModelRoute[] = [
   // ── xAI ── (인벤토리 §G — reasoning 모델은 penalty/stop 400 거부, effort 집합 모델별)
   {
     pattern: /^grok-4\.6/,
+    sample: "grok-4.6",
     provider: "xai",
     capabilities: {
       supportedEfforts: ["low", "medium", "high", "xhigh"],
@@ -148,6 +170,7 @@ const MODEL_ROUTES: ModelRoute[] = [
   },
   {
     pattern: /^grok-4\.5/,
+    sample: "grok-4.5",
     provider: "xai",
     capabilities: {
       supportedEfforts: ["low", "medium", "high"],
@@ -156,10 +179,12 @@ const MODEL_ROUTES: ModelRoute[] = [
   },
   {
     pattern: /^grok-.*non-reasoning/,
+    sample: "grok-4.3-non-reasoning",
     provider: "xai",
   },
   {
     pattern: /^grok-/,
+    sample: "grok-4.3",
     provider: "xai",
     capabilities: { unsupportedParams: ["presencePenalty", "frequencyPenalty", "stopSequences"] },
   },
@@ -171,17 +196,19 @@ export interface ResolvedRoute {
   capabilities?: AdapterCapabilities;
 }
 
+/** 첫 매칭 라우트 (순서 의존) — 테스트가 가려짐(shadowing)을 검사할 수 있게 라우트 자체를 반환 */
+export function matchRoute(model: string): ModelRoute | undefined {
+  return MODEL_ROUTES.find((route) => route.pattern.test(model));
+}
+
 export function resolveModel(model: string): ResolvedRoute {
-  for (const route of MODEL_ROUTES) {
-    if (route.pattern.test(model)) {
-      return {
-        provider: route.provider,
-        modelId: model,
-        ...(route.capabilities ? { capabilities: route.capabilities } : {}),
-      };
-    }
-  }
-  throw notFoundError(`라우팅할 수 없는 모델: ${model}`);
+  const route = matchRoute(model);
+  if (!route) throw notFoundError(`라우팅할 수 없는 모델: ${model}`);
+  return {
+    provider: route.provider,
+    modelId: model,
+    ...(route.capabilities ? { capabilities: route.capabilities } : {}),
+  };
 }
 
 /**

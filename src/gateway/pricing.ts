@@ -15,7 +15,7 @@ export interface ModelPrice {
 const DEFAULT_MULTIPLIERS = { cacheWriteMultiplier: 1.25, cacheReadMultiplier: 0.1 };
 
 /** 접두 매칭 테이블 — 응답이 스냅샷 id(claude-haiku-4-5-20251001 등)를 보고하므로 접두로 조회 */
-const PRICE_TABLE: Array<{ prefix: string; price: ModelPrice }> = [
+export const PRICE_TABLE: Array<{ prefix: string; price: ModelPrice }> = [
   { prefix: "claude-haiku-4-5", price: { input: 1.0, output: 5.0, ...DEFAULT_MULTIPLIERS } },
   { prefix: "claude-sonnet-4-6", price: { input: 3.0, output: 15.0, ...DEFAULT_MULTIPLIERS } },
   { prefix: "gpt-5.6", price: { input: 5.0, output: 30.0, ...DEFAULT_MULTIPLIERS } }, // sol 단가를 상한으로 — luna/terra는 그 이하

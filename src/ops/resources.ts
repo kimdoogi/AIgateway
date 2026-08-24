@@ -11,7 +11,7 @@ import { withUpstreamTimeout } from "../gateway/http.js";
 // 용도가 다르다 — 저긴 드롭 판단, 여긴 소유권 검증). 코어 분기문 없음 (D4).
 
 /** PO에서 외부 리소스 id를 참조하는 키 → 리소스 타입 */
-const REFERENCE_KEYS: Record<string, Record<string, string>> = {
+export const REFERENCE_KEYS: Record<string, Record<string, string>> = {
   openai: { previousResponseId: "response", conversation: "conversation" },
   xai: { previousResponseId: "response" },
   google: { cachedContent: "cachedContent" },
@@ -19,7 +19,7 @@ const REFERENCE_KEYS: Record<string, Record<string, string>> = {
 };
 
 /** 응답에서 게이트웨이 관리 대상으로 등록할 리소스 추출 — 생성은 opt-in일 때만 (ADR-0006 §3) */
-const RESPONSE_RESOURCES: Record<
+export const RESPONSE_RESOURCES: Record<
   string,
   (res: IRResponse, req: IRRequest) => Array<{ resourceType: string; externalId: string }>
 > = {
@@ -119,7 +119,7 @@ export async function registerResponseResources(
 }
 
 /** TTL 스윕 (v1: 관리 API 트리거) — 삭제 API가 있는 리소스는 프로바이더 삭제 대행 */
-const DELETE_PATHS: Record<string, Record<string, (id: string) => string>> = {
+export const DELETE_PATHS: Record<string, Record<string, (id: string) => string>> = {
   openai: { response: (id) => `/v1/responses/${id}`, conversation: (id) => `/v1/conversations/${id}` },
   xai: { response: (id) => `/v1/responses/${id}` },
   // anthropic container·google cachedContent 만료는 프로바이더 자체 TTL — 참조 차단으로 대체 (한계 문서화)

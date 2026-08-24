@@ -160,7 +160,7 @@ function normalizeStatus(raw: string): string {
 
 const anthropicHeaders = { "anthropic-version": "2023-06-01" };
 
-const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
+export const BATCH_PROVIDERS: Record<string, BatchProviderOps> = {
   anthropic: {
     surface: "messages",
     async create(items, rt, auth, fetchImpl) {

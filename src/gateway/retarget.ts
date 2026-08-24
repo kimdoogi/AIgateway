@@ -11,7 +11,7 @@ import { makeWarning } from "../adapters/shared.js";
 // 표면 sticky 판별은 registry.selectSurface 소관.
 
 /** 서버 상태 참조 PO 키 (§13.3 데이터 테이블 — 프로바이더 지식이지만 분기문이 아닌 데이터) */
-const SERVER_STATE_KEYS: Record<string, readonly string[]> = {
+export const SERVER_STATE_KEYS: Record<string, readonly string[]> = {
   anthropic: ["container"],
   openai: ["previousResponseId", "conversation", "store", "background"],
   xai: ["previousResponseId", "store"],
