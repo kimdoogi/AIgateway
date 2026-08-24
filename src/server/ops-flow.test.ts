@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { bootstrapProviders } from "../gateway/bootstrap.js";
 import { InMemoryKeyStore, InMemoryLedger, InMemoryProviderKeyStore } from "../state/memory.js";
 import { InMemorySpendTracker, withSpendTracking } from "../ops/budget.js";
+import { InMemoryRateLimiter } from "../ops/rate-limit.js";
 import { createApp } from "./app.js";
 import { SessionStore } from "../gateway/session.js";
 
@@ -406,5 +407,102 @@ describe("스트림 취소 크로스노드 전파", () => {
 
     await control.requestCancel("req_owned", "tenant-a"); // 실소유자
     expect(owned.upstreamSignal.aborted).toBe(true);
+  });
+});
+
+// ── 요청 빈도 제한 (리뷰 2026-08-22 #14) ──
+
+describe("레이트리밋", () => {
+  async function appWithRpm(rpm: number | undefined) {
+    const keys = new InMemoryKeyStore();
+    const { fetchImpl, calls } = mockFetch();
+    const app = createApp({ keys, rateLimiter: new InMemoryRateLimiter(), fetchImpl });
+    const issued = await app.request("/v0/admin/keys", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer admin-master" },
+      body: JSON.stringify({ tenant: "t-rl", ...(rpm ? { rateLimit: { requestsPerMinute: rpm } } : {}) }),
+    });
+    const { secret } = (await issued.json()) as { secret: string };
+    const send = () =>
+      app.request("/v0/responses", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
+        body: irBody,
+      });
+    return { send, calls };
+  }
+
+  it("한도 초과는 429 + Retry-After, 업스트림 호출 자체가 없다", async () => {
+    const { send, calls } = await appWithRpm(2);
+    expect((await send()).status).toBe(200);
+    expect((await send()).status).toBe(200);
+    const blocked = await send();
+    expect(blocked.status).toBe(429);
+    expect(Number(blocked.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(calls).toHaveLength(2); // 3번째는 프로바이더에 도달하지 않았다 — 그게 요점
+
+    const err = (await blocked.json()) as { error: { category: string; fallbackEligible: boolean } };
+    expect(err.error.category).toBe("rate_limit");
+    // 게이트웨이 한도는 타깃을 바꿔도 그대로 — 폴백 대상이 아니다
+    expect(err.error.fallbackEligible).toBe(false);
+  });
+
+  it("남은 쿼터를 헤더로 노출", async () => {
+    const { send } = await appWithRpm(5);
+    expect((await send()).headers.get("x-ratelimit-remaining")).toBe("4");
+    expect((await send()).headers.get("x-ratelimit-remaining")).toBe("3");
+  });
+
+  it("rateLimit 미설정 키는 무제한", async () => {
+    const { send, calls } = await appWithRpm(undefined);
+    for (let i = 0; i < 5; i++) expect((await send()).status).toBe(200);
+    expect(calls).toHaveLength(5);
+  });
+});
+
+// ── 바디 크기 상한 (리뷰 2026-08-22 #9) ──
+
+describe("요청 본문 상한", () => {
+  const big = JSON.stringify({
+    version: "0",
+    model: "claude-haiku-4-5",
+    messages: [{ role: "user", blocks: [{ type: "text", text: "x".repeat(200_000) }] }],
+  });
+
+  it("상한 초과는 413 IRError — 인증보다 앞이라 미인증 요청도 힙을 못 채운다", async () => {
+    process.env["MAX_JSON_BODY_BYTES"] = "1000";
+    try {
+      const app = createApp({ keys: new InMemoryKeyStore() }); // 인증 활성
+      const res = await app.request("/v0/responses", {
+        method: "POST",
+        headers: { "content-type": "application/json" }, // 무키 — 상한이 먼저 걸려야 한다
+        body: big,
+      });
+      expect(res.status).toBe(413);
+      const body = (await res.json()) as { error: { category: string } };
+      expect(body.error.category).toBe("content_too_large");
+    } finally {
+      delete process.env["MAX_JSON_BODY_BYTES"];
+    }
+  });
+
+  it("compat 경로에도 동일 적용", async () => {
+    process.env["MAX_JSON_BODY_BYTES"] = "1000";
+    try {
+      const app = createApp({});
+      const res = await app.request("/compat/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: big,
+      });
+      expect(res.status).toBe(413);
+    } finally {
+      delete process.env["MAX_JSON_BODY_BYTES"];
+    }
+  });
+
+  it("상한 이하는 통과 (프로브는 상한과 무관)", async () => {
+    const app = createApp({});
+    expect((await app.request("/health")).status).toBe(200);
   });
 });

@@ -21,6 +21,7 @@ import type { Warning } from "../ir/common.js";
 import { timingSafeEqual } from "node:crypto";
 import { encryptSecret, issueVirtualKey, tenantCredentialResolver, verifyVirtualKey } from "../ops/keys.js";
 import { budgetExceededError, evaluateBudget, type SpendTracker } from "../ops/budget.js";
+import { limitOf, rateLimitedError, type RateLimiter } from "../ops/rate-limit.js";
 import { checkInboundResources, registerResponseResources, sweepExpiredResources } from "../ops/resources.js";
 import { logBody } from "../ops/body-log.js";
 import { parseReportQuery, toCsv, usageReport } from "../ops/report.js";
@@ -70,6 +71,8 @@ export interface AppDeps extends ExecuteDeps {
   bodyLog?: BodyLogSink;
   /** 예산 실시간 집계 (ADR-0007 §3) — withSpendTracking으로 원장에 배선 */
   spendTracker?: SpendTracker;
+  /** 요청 빈도 제한 — 키의 rateLimit 설정이 있을 때만 발동 (리뷰 2026-08-22 #14) */
+  rateLimiter?: RateLimiter;
   // ── 운영 프로브 (오케스트레이터 배포 — 2026-08-22) ──
   /** readiness 의존성 검사 — 하나라도 실패하면 /ready 503 */
   readiness?: ReadonlyArray<{ name: string; check: () => Promise<void> }>;
@@ -181,6 +184,19 @@ export function createApp(deps: AppDeps = {}): Hono {
     } catch (err) {
       return errJson(c, toIRError(err));
     }
+    // 빈도 제한이 예산보다 **앞** — 예산은 지출 발생 후 평가라 순간 폭주를 못 막는다.
+    // 여기서 막으면 프로바이더 호출 자체가 일어나지 않는다
+    const rpm = limitOf(key);
+    if (deps.rateLimiter && rpm !== undefined) {
+      const v = await deps.rateLimiter.hit(key.keyId, rpm, 60, deps.now?.() ?? new Date());
+      c.header("x-ratelimit-limit", String(rpm));
+      c.header("x-ratelimit-remaining", String(v.remaining));
+      if (!v.allowed) {
+        c.header("retry-after", String(v.retryAfterSeconds));
+        return errJson(c, rateLimitedError(key.keyId, rpm, v).irError);
+      }
+    }
+
     // 예산 평가 — 요청당 1회 PreRequest (§10.4: hard는 다음 요청 차단, soft는 warning)
     const preWarnings: Warning[] = [];
     if (deps.spendTracker) {
@@ -501,6 +517,7 @@ export function createApp(deps: AppDeps = {}): Hono {
         hardUsd: z.number().positive().optional(),
       })
       .optional(),
+    rateLimit: z.strictObject({ requestsPerMinute: z.number().int().positive() }).optional(),
     bodyLogOptOut: z.boolean().optional(),
   });
 
@@ -585,13 +602,20 @@ export function createApp(deps: AppDeps = {}): Hono {
   app.post("/v0/admin/resources/sweep", async (c) => {
     if (!deps.resources) return errJson(c, irError("invalid_request", 501, "리소스 레지스트리 미설정 (AppDeps.resources)"));
     try {
+      // 본문 로그 보관 정책 — 리소스 스윕과 같은 유지보수 트리거에 태운다 (ADR-0008)
+      const retentionDays = Number(process.env["BODY_LOG_RETENTION_DAYS"] ?? 0);
+      let bodyLogsDeleted: number | undefined;
+      if (retentionDays > 0 && deps.bodyLog?.deleteOlderThan) {
+        const cutoff = new Date((deps.now?.() ?? new Date()).getTime() - retentionDays * 86_400_000).toISOString();
+        bodyLogsDeleted = await deps.bodyLog.deleteOlderThan(cutoff);
+      }
       const result = await sweepExpiredResources(deps.resources, {
         ...(deps.now ? { now: deps.now } : {}),
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
         baseUrlFor: (p) => getProvider(p).baseUrl,
         credentialsFor: (p) => credentialHeaders(getProvider(p)),
       });
-      return c.json(result);
+      return c.json({ ...result, ...(bodyLogsDeleted !== undefined ? { bodyLogsDeleted } : {}) });
     } catch (err) {
       return errJson(c, toIRError(err));
     }

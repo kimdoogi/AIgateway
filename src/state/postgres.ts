@@ -225,6 +225,9 @@ CREATE TABLE IF NOT EXISTS body_logs (
   created_at TIMESTAMPTZ NOT NULL
 );
 CREATE INDEX IF NOT EXISTS body_logs_request_idx ON body_logs (request_id);
+-- 보관 정책 스윕용 (리뷰 2026-08-22 #11 — 무제한 증가 방어)
+CREATE INDEX IF NOT EXISTS body_logs_created_idx ON body_logs (created_at);
+ALTER TABLE virtual_keys ADD COLUMN IF NOT EXISTS rate_limit JSONB;
 `;
 
 /** 운영 평면 스토어 공통 — 공유 풀 위에서 OPS_DDL 1회 (리뷰 2026-08-22: 풀 분리 제거) */
@@ -251,6 +254,7 @@ export class PostgresKeyStore implements KeyStore {
       keyHash: row["key_hash"] as string,
       ...(row["disabled"] ? { disabled: true } : {}),
       ...(row["budget"] ? { budget: row["budget"] as VirtualKey["budget"] } : {}),
+      ...(row["rate_limit"] ? { rateLimit: row["rate_limit"] as VirtualKey["rateLimit"] } : {}),
       ...(row["body_log_opt_out"] ? { bodyLogOptOut: true } : {}),
       createdAt: new Date(row["created_at"] as string).toISOString(),
     };
@@ -258,12 +262,14 @@ export class PostgresKeyStore implements KeyStore {
   async put(key: VirtualKey): Promise<void> {
     await this.db.init();
     await this.db.pool.query(
-      `INSERT INTO virtual_keys (key_id, tenant, name, key_hash, disabled, budget, body_log_opt_out, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-       ON CONFLICT (key_id) DO UPDATE SET disabled = EXCLUDED.disabled, budget = EXCLUDED.budget, name = EXCLUDED.name`,
+      `INSERT INTO virtual_keys (key_id, tenant, name, key_hash, disabled, budget, body_log_opt_out, created_at, rate_limit)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (key_id) DO UPDATE SET disabled = EXCLUDED.disabled, budget = EXCLUDED.budget,
+         name = EXCLUDED.name, rate_limit = EXCLUDED.rate_limit`,
       [
         key.keyId, key.tenant, key.name ?? null, key.keyHash, key.disabled ?? false,
         key.budget ? JSON.stringify(key.budget) : null, key.bodyLogOptOut ?? false, key.createdAt,
+        key.rateLimit ? JSON.stringify(key.rateLimit) : null,
       ],
     );
   }
@@ -376,6 +382,13 @@ export class PostgresBodyLog implements BodyLogSink {
       `INSERT INTO body_logs (request_id, tenant, direction, body, created_at) VALUES ($1,$2,$3,$4,$5)`,
       [entry.requestId, entry.tenant ?? null, entry.direction, JSON.stringify(entry.body), entry.createdAt],
     );
+  }
+
+  /** 보관 기간 초과분 삭제 (body_logs_created_idx 사용) */
+  async deleteOlderThan(iso: string): Promise<number> {
+    await this.db.init();
+    const r = await this.db.pool.query(`DELETE FROM body_logs WHERE created_at < $1`, [iso]);
+    return r.rowCount ?? 0;
   }
 }
 

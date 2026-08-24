@@ -1,6 +1,7 @@
 import { createClient, type RedisClientType } from "redis";
 import type { SessionPersistence, StreamControl } from "./types.js";
 import type { SpendTracker } from "../ops/budget.js";
+import { verdict, windowStart, type RateLimiter, type RateVerdict } from "../ops/rate-limit.js";
 
 // Redis 스트림 재개 버퍼 (ADR-0005/0006 — 종료 후 TTL 5분). write-through 영속화:
 // 인메모리 세션이 fast path, 프로세스 재시작 후 재개는 재생 전용.
@@ -179,5 +180,41 @@ export class RedisStreamControl implements StreamControl {
 
   async close(): Promise<void> {
     await Promise.allSettled([this.sub.quit(), this.pub.quit()]);
+  }
+}
+
+// ── 요청 빈도 제한 (리뷰 2026-08-22 #14) ─────────────────────────
+// 고정 창 카운터. INCR은 원자적이라 레플리카가 몇 대든 한도가 하나로 성립한다.
+
+const RATE_PREFIX = "ratelimit:";
+
+export class RedisRateLimiter implements RateLimiter {
+  private readonly client: RedisClientType;
+  private connected: Promise<void> | undefined;
+
+  constructor(url: string) {
+    this.client = createClient({ url });
+    this.client.on("error", (err) => console.error("[redis-ratelimit]", err.message));
+  }
+
+  private connect(): Promise<void> {
+    this.connected ??= this.client.connect().then(
+      () => undefined,
+      (err) => {
+        this.connected = undefined;
+        throw err;
+      },
+    );
+    return this.connected;
+  }
+
+  async hit(keyId: string, limit: number, windowSeconds: number, now: Date): Promise<RateVerdict> {
+    await this.connect();
+    const start = windowStart(now, windowSeconds);
+    const key = `${RATE_PREFIX}${keyId}:${start}`;
+    const count = await this.client.incr(key);
+    // 창 종료 후 자동 소멸 — 별도 정리 불필요 (첫 INCR에만 세팅되면 충분하나 멱등하게 매번)
+    if (count === 1) await this.client.expire(key, windowSeconds + 1);
+    return verdict(count, limit, start, windowSeconds, now);
   }
 }

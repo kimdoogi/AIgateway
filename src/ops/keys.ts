@@ -20,7 +20,13 @@ export interface IssuedKey {
 
 export async function issueVirtualKey(
   store: KeyStore,
-  input: { tenant: string; name?: string; budget?: VirtualKey["budget"]; bodyLogOptOut?: boolean },
+  input: {
+    tenant: string;
+    name?: string;
+    budget?: VirtualKey["budget"];
+    rateLimit?: VirtualKey["rateLimit"];
+    bodyLogOptOut?: boolean;
+  },
   now: () => Date = () => new Date(),
 ): Promise<IssuedKey> {
   const secret = `gwk_${randomBytes(24).toString("hex")}`;
@@ -30,6 +36,7 @@ export async function issueVirtualKey(
     ...(input.name ? { name: input.name } : {}),
     keyHash: hashKey(secret),
     ...(input.budget ? { budget: input.budget } : {}),
+    ...(input.rateLimit ? { rateLimit: input.rateLimit } : {}),
     ...(input.bodyLogOptOut ? { bodyLogOptOut: true } : {}),
     createdAt: now().toISOString(),
   };

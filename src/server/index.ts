@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { loadDotenv } from "../env.js";
 import { bootstrapProviders } from "../gateway/bootstrap.js";
+import { setupTracing, shutdownTracing } from "../gateway/tracing.js";
 import { SessionStore } from "../gateway/session.js";
 import {
   PostgresBatchStore,
@@ -12,7 +13,7 @@ import {
   PostgresProviderKeyStore,
   PostgresResourceStore,
 } from "../state/postgres.js";
-import { RedisSessionPersistence, RedisSpendTracker, RedisStreamControl } from "../state/redis.js";
+import { RedisRateLimiter, RedisSessionPersistence, RedisSpendTracker, RedisStreamControl } from "../state/redis.js";
 import {
   InMemoryBatchStore,
   InMemoryFileStore,
@@ -22,6 +23,7 @@ import {
   InMemoryResourceStore,
 } from "../state/memory.js";
 import { InMemorySpendTracker, withSpendTracking } from "../ops/budget.js";
+import { InMemoryRateLimiter } from "../ops/rate-limit.js";
 import { createApp, type AppDeps } from "./app.js";
 
 // 서버 엔트리포인트. 실행: pnpm start (빌드 후) / pnpm dev (tsx). 포트: PORT env, 기본 8787
@@ -30,6 +32,14 @@ import { createApp, type AppDeps } from "./app.js";
 // 재시작 복구 가치가 없다 (리뷰 A-r4 note).
 loadDotenv();
 bootstrapProviders();
+
+// OTel — 수집기 엔드포인트가 있을 때만 등록 (없으면 span은 계속 no-op). 서버 기동보다 먼저
+const tracingOn = setupTracing({ ...(process.env["GATEWAY_VERSION"] ? { version: process.env["GATEWAY_VERSION"] } : {}) });
+console.log(
+  tracingOn
+    ? `[gateway] OTel 트레이싱 활성 — ${process.env["OTEL_EXPORTER_OTLP_ENDPOINT"]}`
+    : "[gateway] OTEL_EXPORTER_OTLP_ENDPOINT 미설정 — 트레이싱 비활성 (span no-op)",
+);
 
 const databaseUrl = process.env["DATABASE_URL"];
 const redisUrl = process.env["REDIS_URL"];
@@ -51,6 +61,7 @@ const opsEnabled = Boolean(process.env["GATEWAY_ADMIN_KEY"]);
 // 예산 집계·취소 전파는 Redis가 있어야 다중 레플리카에서 성립한다 (ADR-0007 §3 / ADR-0001 D7)
 const spendTracker = redisUrl ? new RedisSpendTracker(redisUrl) : new InMemorySpendTracker();
 const streamControl = redisUrl ? new RedisStreamControl(redisUrl) : undefined;
+const rateLimiter = redisUrl ? new RedisRateLimiter(redisUrl) : new InMemoryRateLimiter();
 const ledger = withSpendTracking(baseLedger, spendTracker);
 const keys = opsEnabled ? (db ? new PostgresKeyStore(db) : new InMemoryKeyStore()) : undefined;
 const providerKeys = opsEnabled ? (db ? new PostgresProviderKeyStore(db) : new InMemoryProviderKeyStore()) : undefined;
@@ -92,6 +103,7 @@ const deps: AppDeps = {
   batches,
   resources,
   spendTracker,
+  rateLimiter,
   readiness,
   isDraining: () => draining,
   ...(process.env["GATEWAY_VERSION"] ? { version: process.env["GATEWAY_VERSION"] } : {}),
@@ -143,6 +155,7 @@ async function shutdown(signal: string): Promise<void> {
   }
 
   await Promise.allSettled([
+    shutdownTracing(), // 잔여 span 플러시 — 마지막 요청의 트레이스 유실 방지
     db?.close() ?? Promise.resolve(),
     persistence?.close() ?? Promise.resolve(),
     streamControl?.close() ?? Promise.resolve(),

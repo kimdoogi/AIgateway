@@ -62,6 +62,8 @@ export interface VirtualKey {
   disabled?: boolean;
   /** 기간 예산 (USD) — soft: 경고, hard: 다음 요청 차단 (§10.4) */
   budget?: { periodDays: number; softUsd?: number; hardUsd?: number };
+  /** 요청 빈도 한도 — 예산이 못 막는 순간 폭주 방어 (리뷰 2026-08-22 #14). 미설정 = 무제한 */
+  rateLimit?: { requestsPerMinute: number };
   /** 본문 로그 opt-out (ADR-0008 — 기본 on) */
   bodyLogOptOut?: boolean;
   createdAt: string;
@@ -121,6 +123,12 @@ export interface BodyLogEntry {
 
 export interface BodyLogSink {
   record(entry: BodyLogEntry): Promise<void>;
+  /**
+   * 보관 기간 초과분 삭제 — 삭제 행 수 반환 (리뷰 2026-08-22 #11).
+   * 본문 로그는 기본 on이라 정리 수단이 없으면 디스크가 선형 증가하고, 개인정보 삭제
+   * 요청에 대응할 방법도 없다. 구현 없는 sink(인메모리 등)는 생략 가능.
+   */
+  deleteOlderThan?(iso: string): Promise<number>;
 }
 
 /**

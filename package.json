@@ -24,6 +24,10 @@
   "dependencies": {
     "@hono/node-server": "^1",
     "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-trace-node": "^2.10.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
     "hono": "^4",
     "pg": "^8.23.0",
     "redis": "^6.2.1",

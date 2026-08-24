@@ -143,3 +143,12 @@
 - **축 3 effort on/off 경계**: `'none'`(추론 비활성)은 강도 눈금이 아니라 스위치인데 gemini만 알고 있었다 — anthropic은 `'low'` 고정 클램프로 **끄기가 켜기로 반전**, openai/xai는 가드 부재. 반대 방향(`minimal`→`none`) 반전은 **골든셋 스냅샷이 정답으로 굳혀두고 있었다** → `shared.gateEffort` 단일 구현 + [ir-v0 §6.3](specs/ir-v0.md) 양방향 경계 규범
 - 그 밖: 명시 표면 오버라이드 조용한 무시(D5 위반), xai 리맵이 타사 네임스페이스·opaqueState 소비(§2 위반 — 중립 라벨 밀어내기로 해소), 스트림 세션 테넌트 소유권 부재(재개·취소 격리 + 영속 키 스코프), 콘텐츠 방출 후 provider-error의 partial/final 오분류, 고아 toolCall 예외 범위 초과(크로스 왕복 골든셋도 같은 형태를 스냅샷 중이었음), 빈 system content 400, `error.param` 사문화(→ ir-v0 §12 정식 슬롯), 지출 트래커 무한 증가, 가격표 매 호출 정렬
 - **[ops-plane](plan/ops-plane.md) "compat 인바운드 인증" 좌석 클로즈**. 리뷰 교훈 3가지(좌석 문구가 위험도를 감춤 · 새 이벤트 의미론의 소비자 전수 · 골든셋이 결함을 굳힘)는 problem log에 기록
+
+### 2026-08-22 — 프로덕션 배포 심사 (오케스트레이터 타깃) + P0/P1/P2 전건 수정
+
+- 배포 준비 관점의 전면 심사 15건 → **전부 수정**. 코어 로직이 아니라 **배포 산출물과 운영 평면이 단일 프로세스 전제**로 멈춰 있던 것이 문제였다. 테스트 483개 (운영 프로브·레이트리밋·크로스노드 취소·바디 상한 신규). 전문: [problem log](problems/problem-log.md)
+- **P0 배포 가능선** — Dockerfile(멀티스테이지·비루트·exec CMD)·`.dockerignore`·`.nvmrc`·`pnpm start`·compose gateway 서비스 / `/health`·`/ready` 프로브(인증 밖) / graceful shutdown 드레인 / pg 커넥션 23→1풀 + DDL advisory lock / 전역 `onError`
+  - **실제 이미지 기동 검증이 패키징 버그를 잡았다**: `@hono/node-server`가 devDependencies에 있어 `--prod` 이미지가 `ERR_MODULE_NOT_FOUND`로 기동 불가. tsc·vitest 어느 쪽도 못 잡는 종류라 CI에 `image` 잡(빌드→기동→`/health`→SIGTERM→exit 0) 신설
+- **P1 다중 레플리카 정합성** — 예산 집계·요청 빈도 제한·취소 전파를 Redis 뒤로. **실 Redis로 검증**: 별도 인스턴스 2개가 집계를 공유하는지, 크로스노드 취소가 도달하는지 직접 확인. 취소의 권한 판정은 **수신 측**에서 — 메시지의 tenant는 발신자 주장이고 세션을 가진 쪽만 대조할 수 있다
+- **P2 견고성** — 업스트림 타임아웃 정책 통일(`execute.dispatch`에만 있던 것을 데코레이터로 브리지 24개 호출 지점에 적용) / 바디 상한(인증보다 앞) / 본문 로그 비블로킹 + 보관 정책 / OTel SDK 실등록(이전엔 전 span no-op) / 가격표 미등재 모델의 `billing-price-estimated` warning / google·xai 드리프트 감지기 신설(4사 중 절반이 무감각했다)
+- **어댑터 패턴 전수조사** 동반 수행 — 계약 6멤버·어댑터 6개(프로바이더 4사)·D4 분기문 **0건** 확인. 다만 "N+M"의 실제 비용은 어댑터 1개가 아니라 **어댑터 1개 + 등록 9곳**이고 완전성을 강제하는 장치가 없다는 것이 최대 구조 리스크로 남았다 (problem log에 기록)

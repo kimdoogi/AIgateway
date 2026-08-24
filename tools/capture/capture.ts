@@ -17,6 +17,10 @@ import {
 } from "../../src/adapters/anthropic/known-fields.js";
 import { unknownResponseFields as openaiUnknownResponse } from "../../src/adapters/openai/known-fields.js";
 import {
+  unknownResponseFields as geminiUnknownResponse,
+  unknownStreamFields as geminiUnknownStream,
+} from "../../src/adapters/gemini/known-fields.js";
+import {
   convertUsage as convertAnthropicUsage,
   type AnthropicWireUsage,
 } from "../../src/adapters/anthropic/errors.js";
@@ -80,7 +84,9 @@ const PROVIDERS: Record<string, ProviderConfig> = {
       authorization: `Bearer ${invalid ? "xai-invalid-fixture-key-0000000000" : apiKey}`,
     }),
     replay: (text, modelId, path) => replayXAIStream(text, { modelId }, path),
-    unknownResponse: () => [], // 신선도 하드 보장은 Anthropic 한정 (간극 문서 H)
+    // wire가 OpenAI 패턴이라 openai 감지기를 그대로 상속한다 (어댑터가 base 상속인 것과 대칭 — D8).
+    // 이전에는 () => []로 드리프트에 무감각했다 (리뷰 2026-08-22 #15)
+    unknownResponse: openaiUnknownResponse,
     usageFromBody: (body) => {
       const wireUsage = (body as { usage?: OpenAIWireUsage }).usage; // usage 구조 OpenAI 호환 (§F)
       return wireUsage ? convertOpenAIUsage(wireUsage) : undefined;
@@ -94,7 +100,8 @@ const PROVIDERS: Record<string, ProviderConfig> = {
       "x-goog-api-key": invalid ? "AIza-invalid-fixture-key-0000000000" : apiKey,
     }),
     replay: (text, modelId) => replayGeminiStream(text, { modelId }),
-    unknownResponse: () => [], // 신선도 하드 보장은 Anthropic 한정
+    unknownResponse: geminiUnknownResponse,
+    unknownStream: (text) => geminiUnknownStream(parseSSEText(text).map((f) => f.data)),
     usageFromBody: (body) => {
       const wireUsage = (body as { usageMetadata?: GeminiWireUsage }).usageMetadata;
       return wireUsage ? convertGeminiUsage(wireUsage) : undefined;
