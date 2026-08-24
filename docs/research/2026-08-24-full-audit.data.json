@@ -1,0 +1,823 @@
+{
+ "trackA": {
+  "providers": [
+   {
+    "provider": "anthropic",
+    "gaps": [
+     {
+      "title": "output_config.task_budget이 anthropic-compat 인바운드에서 조용히 유실 (D5 위반)",
+      "verdict": "CONFIRMED",
+      "reason": "src/inbound/anthropic-compat/request.ts:13-16에서 output_config가 KNOWN_TOP_KEYS라 passthroughParams 경로가 차단되고, :209-231에서 effort/format만 추출 — task_budget 등 잔여 서브키는 warning 없이 소멸(인바운드에 warnings 수집 자체가 없음). 아웃바운드 src/adapters/anthropic/request.ts:404-428도 effort/format만 재조립. 이스케이프 해치 반증 시도 실패: compat 경로엔 해치가 없고, native 경로의 allowUnknown 해치(providerOptions.anthropic.output_config → extra → mergeExternal)는 reasoning.effort나 responseFormat과 병용 시 request.ts:253-259의 RESERVED_BODY_KEYS 충돌로 AdapterInvalidRequestError가 나 사실상 반쪽. 공식 문서에 output_config 실존 확인(effort/format + beta 서브키). 문서 §8-1('compat 경로 보존 통과' 계약)을 정면 위반하는 유일한 부분-소비 상실 경로.",
+      "severity": "high",
+      "kind": "over-dropping",
+      "recommendation": "inbound/anthropic-compat/request.ts에서 output_config의 effort/format 외 잔여 서브키를 providerOptions.anthropic.outputConfigExtras로 보존하고 adapters/anthropic/request.ts:428 조립 시 재병합. 최소한 parameter-dropped warning부터 즉시."
+     },
+     {
+      "title": "모델 세대별 파라미터 게이트 전무 — temperature/top_p/top_k·xhigh·prefill이 신세대 모델에서 업스트림 400으로 누수",
+      "verdict": "CONFIRMED",
+      "reason": "src/gateway/registry.ts:93-99 — anthropic 라우트 2개 모두 unsupportedParams·supportedEfforts 없음(midConversationSystem만). src/adapters/anthropic/request.ts:391-393 temperature/top_p/top_k 무조건 방출, :15+:408 DEFAULT_EFFORTS에 xhigh 포함(4.6/구모델로 그대로), 말미 assistant 턴(prefill)도 무게이트. gateUnsupportedParams는 openai 어댑터 2곳만 호출(grep 확인: openai/chat/request.ts:268, openai/responses/request.ts:385). 반증 불가: 저장소 자신의 인벤토리 문서 §9가 세대×파라미터 400 표를 명시하며 '레지스트리 모델×파라미터 허용 매트릭스 필요'를 요구하는데 openai/google/xai 라우트는 게이트가 있고 anthropic만 없다 — 자기 문서 기준으로도 미구현.",
+      "severity": "high",
+      "kind": "missing-feature",
+      "recommendation": "registry.ts anthropic 라우트를 세대별 분리(4.7+ unsupportedParams:[temperature,topP,topK], 4.6 supportedEfforts:[low..max], 4.5이하 supportedEfforts:[]), adapters/anthropic/request.ts:390 부근에 gateUnsupportedParams 호출. prefill은 AdapterCapabilities에 assistantPrefill 추가 후 말미 assistant 턴 검사."
+     },
+     {
+      "title": "stop_details(refusal category/explanation) 미보존 — 거부 분기·폴백 트리거 정책 연결 불가",
+      "verdict": "CONFIRMED",
+      "reason": "공식 문서 재확인(WebFetch platform.claude.com/docs/en/api/handling-stop-reasons): stop_details는 refusal 시 정책 카테고리를 담는 문서화된 응답 필드. 비스트림: response.ts:11-18 WireResponseSchema(looseObject)가 파싱은 통과시키나 transformResponse(:147-174)는 stop_reason·container만 소비 — stop_details는 providerMetadata에 미수납. 스트림: stream.ts:314-331 message_delta에서 delta.stop_reason만 읽음(known-fields.ts:48은 stop_details를 인지만). FinishReason(ir/finish.ts:18-21)은 strictObject{unified,raw}라 수납처 없음. 반증 시도: usage.raw는 usage 객체만 보존, message_delta는 블록이 아니라 passthrough 블록 보존 경로도 해당 없음, includeRaw는 디버깅 opt-in — 정규 경로 어디서도 살아남지 않음. 인벤토리 §3 'PO+정책(폴백 트리거)' 분류 대비 미구현.",
+      "severity": "high",
+      "kind": "agent-loop",
+      "recommendation": "transformResponse와 stream message_delta에서 stop_details를 providerMetadata.anthropic.stopDetails로 보존(1단계), 이후 폴백 정책 레이어 연결(ADR-0005 §3)·폴백 경합 매트릭스 행 추가. finishReason 확장 여부는 ir-v0 문서 결정 먼저."
+     },
+     {
+      "title": "usage.output.reasoning이 항상 0 — output_tokens_details.thinking_tokens 미소비",
+      "verdict": "CONFIRMED",
+      "reason": "src/adapters/anthropic/errors.ts:40-41 convertUsage가 reasoning:0, text:total 고정 — 낡은 전제('Anthropic은 reasoning 분리 미제공'). 저장소 자신의 problem-log.md:65-67이 2026-08-21 실녹화에서 usage.output_tokens_details{thinking_tokens:N}을 검출했고 '§8 공식 표 전제가 깨짐 — convertUsage 수정 검토'를 후속 과제로 명기했으나 미해소. 스트림 경로(stream.ts:59-68 mergeUsage)도 4개 필드만 병합해 동일 누락. 반증 여지: usage.raw에 wire 원문은 보존되므로 완전 유실은 아니나, 정규화 필드(output.reasoning/text)가 틀린 값을 보고하는 wrong-mapping은 그대로 성립.",
+      "severity": "medium",
+      "kind": "wrong-mapping",
+      "recommendation": "convertUsage에서 wire.output_tokens_details?.thinking_tokens → output.reasoning, text = total - reasoning. mergeUsage에 output_tokens_details 병합 추가. ir-v0 §8 표 anthropic 행 갱신(문서 먼저) + 골든셋 픽스처."
+     },
+     {
+      "title": "서버측 fallbacks의 ADR-0005 §3 확정 정책(PO opt-in + 위임 마킹) 미구현",
+      "verdict": "CONFIRMED",
+      "reason": "ADR-0005-stream-contract.md:35에 결정 실존: 'fallbacks는 providerOptions.anthropic으로 명시 요청 시에만 통과 + 위임 마킹 + 게이트웨이 트리 중복 폴백 금지'. 그러나 options.ts:8-12 KnownOptionsSchema에 fallbacks 없음(betas/thinking/serviceTier뿐) — native 경로는 allowUnknownProviderOptions 해치로만 통과 가능(ADR이 요구한 '명시 PO'가 아님). 위임 마킹·usage.iterations 소비·게이트웨이 폴백 트리(execute.ts:595-699 실존)와의 경합 처리·bridge/batches.ts의 사전 400(grep: fallbacks 0건) 전부 부재. 반증 시도: compat 인바운드 passthrough로 파라미터 자체는 도달하지만, 위임 마킹은 게이트웨이측 행위라 어떤 해치로도 대체 불가 — ADR 확정 사항의 미구현으로 CONFIRMED.",
+      "severity": "medium",
+      "kind": "missing-feature",
+      "recommendation": "options.ts에 fallbacks 추가(PO opt-in), 응답 fallback 블록·usage.iterations 근거로 providerMetadata에 위임 마킹, 폴백 경합 매트릭스에 행 확정, batches 경로 사전 400, 베타 헤더 정합 검증."
+     },
+     {
+      "title": "문서가 'PO'로 확정한 파라미터군의 1급 부재 — context_management·mcp_servers·container·top-level cache_control·inference_geo·speed·diagnostics",
+      "verdict": "PARTIAL",
+      "reason": "options.ts:8-12에 3키뿐임은 사실이나, 커버는 존재: ① anthropic-compat 인바운드는 미지 top-key 자동 passthrough(inbound/anthropic-compat/request.ts:137-140 → adapters/anthropic/request.ts:449-458)로 opt-in조차 불필요하게 전달 ② native/openai-compat은 allowUnknownProviderOptions:true 해치(shared.ts:68-88, warning 동반)로 wire 병합 가능(해당 키들은 RESERVED_BODY_KEYS와 비충돌 — request.ts:18-34 확인). 등급 기준 (b) 'opt-in 해치로만 가능 = 인체공학 갭(1급 승격 후보)'에 정확히 해당. 단 speed(캐시 키·단가 분기)·container(수명 정책)·inference_geo(과금 라인) 등 '정책' 몫은 해치가 대체 못 함 — 그 부분은 진짜 미구현.",
+      "severity": "medium",
+      "kind": "missing-param",
+      "recommendation": "KnownOptionsSchema에 contextManagement·mcpServers·container·cacheControl·inferenceGeo·speed·diagnostics를 wire 원문 통과 record로 승격(우선순위: context_management > container > mcp_servers > cache_control). 정책 연동(speed 캐시 키, container 수명, inference_geo 과금)은 별도 작업으로."
+     },
+     {
+      "title": "인벤토리 문서 §2·§3·§6의 'PO' 분류 주장 vs 실제 구현 드리프트 — CI가 못 잡는 구조",
+      "verdict": "CONFIRMED",
+      "reason": "docs/research/2026-08-20-anthropic-api-coverage.md §2·§3·§6이 task_budget/context_management/mcp_servers/container/speed/fallbacks/inference_geo/diagnostics/top-level cache_control/stop_details를 'PO(+정책)'로 분류하나 options.ts:8-12는 3키, stop_details는 응답 경로에서 완전 부재(위 갭 확정). coverage-matrix.test.ts:52-57은 분류 문자열의 존재만 검증('IR','PO','PT' 등 키워드 포함 여부) — 분류≠구현 일치 검증 없음을 코드로 확인. problem-log에도 이 드리프트 미기록(usage 필드 건만 기록됨). 'PT로 사실상 커버되니 드리프트 아님' 반증은 불성립 — 문서 범례가 PO와 PT를 명시적으로 구분하며 PT는 compat 경로 한정이라 native 경로 계약이 다르다.",
+      "severity": "medium",
+      "kind": "doc-drift",
+      "recommendation": "problem-log에 드리프트 기록 후 (a) 구현으로 충족 또는 (b) 해당 행을 'PT(승격 로드맵 각주)'로 정정. coverage-matrix.test.ts에 'PO 분류 행의 키가 KnownOptionsSchema에 실존' 교차 검증 추가."
+     },
+     {
+      "title": "max_tokens: 0 (캐시 프리워밍) 표현 불가 — IR이 positive 강제라 게이트웨이가 400",
+      "verdict": "CONFIRMED",
+      "reason": "공식 문서 WebFetch로 실검증: max_tokens 항목에 'Set to 0 to populate the prompt cache without generating a response' 명시 — 문서화된 정식 워크플로 맞음. 게이트웨이는 3중 차단: ① src/ir/request.ts:35 maxOutputTokens positive() → compat 인바운드(:215→:241-244)에서 'IR 변환 실패' 400 ② src/adapters/anthropic/wire.ts:10 max_tokens positive()로 아웃바운드도 거부 ③ max_tokens는 KNOWN_TOP_KEYS(인바운드)·어댑터 필수 조립 키라 passthrough 우회 불가(어댑터가 항상 max_tokens를 채우므로 mergeExternal 충돌). 어떤 해치로도 표현 불가 = (a) 진짜 갭. 참고로 저장소 인벤토리 §2조차 이 동작을 몰랐음(신선도 드리프트 동반).",
+      "severity": "medium",
+      "kind": "over-dropping",
+      "recommendation": "ir-v0 §6 문서 먼저 nonnegative로 완화 → ir/request.ts:35와 anthropic wire.ts:10을 nonnegative로. 타 프로바이더 어댑터에는 0 미지원 게이트(드롭+warning). 인벤토리 §2 max_tokens 행에 프리워밍 동작 추기."
+     },
+     {
+      "title": "output_config.format에 name/description/strict 키 방출 — Anthropic wire 미정의 필드",
+      "verdict": "CONFIRMED",
+      "reason": "src/adapters/anthropic/request.ts:419-427에서 responseFormat json의 name/description/strict를 format에 그대로 방출, :420 TODO(녹화 검증) 미해소 — wire.ts:24의 output_config가 z.record라 검증도 통과. 공식 문서 WebFetch로 실검증: structured-outputs 문서의 format은 {type:'json_schema', schema}만이며 'strict/name/description은 툴 정의의 필드이지 format의 필드가 아님'을 명시적으로 확인 — 후보의 문서 주장이 정확했다. openai-compat 인바운드의 json_schema responseFormat(name/strict 관례 포함)을 anthropic으로 리타게팅하는 순간 미정의 키가 wire에 실린다.",
+      "severity": "low",
+      "kind": "wrong-mapping",
+      "recommendation": "format에는 type/schema만 방출, name/description/strict는 드롭+parameter-dropped warning. 골든셋 라이브 녹화(D9 opt-in)로 업스트림이 미지 키를 400하는지 무시하는지 확정 후 픽스처 반영."
+     },
+     {
+      "title": "anthropic-compat 인바운드에서 미지 tool_choice type 조용한 드롭",
+      "verdict": "CONFIRMED",
+      "reason": "src/inbound/anthropic-compat/request.ts:194-202 — type이 auto/any/none/tool 4종 밖이면 toolChoice가 undefined로 남고 else 절 없음. tool_choice는 KNOWN_TOP_KEYS(:14)라 passthroughParams(:137-140)에도 안 실림. compatMessagesToIR에는 warnings 수집 메커니즘 자체가 없어 어떤 보고도 불가. disable_parallel_tool_use(:197)만 부분 소비될 수 있어 의미 반쪽 전달 가능성도 사실. output_config 건(갭1)과 동형인 'KNOWN_TOP_KEY 부분 소비' 패턴 — compat 경로 D10 100% 보존 계약(인벤토리 §8-1) 위반.",
+      "severity": "low",
+      "kind": "over-dropping",
+      "recommendation": "tool_choice 분기에 else 절: 미지 type이면 원문을 passthroughParams.tool_choice로 보존(단 어댑터 RESERVED_BODY_KEYS 충돌 주의 — toolChoice 미설정이므로 body에 tool_choice가 없어 통과 가능) 또는 400. KNOWN_TOP_KEYS 각 키의 부분 소비 경로 점검 테스트 추가."
+     }
+    ]
+   },
+   {
+    "provider": "openai",
+    "gaps": [
+     {
+      "title": "CC 표면에서 moderation·prompt_cache_options·prompt_cache_retention·stream_options.include_obfuscation 4종이 무경고 조용히 무시됨",
+      "verdict": "CONFIRMED",
+      "reason": "코드 확정. options.ts:34,37,42-43에서 4종 모두 '알려진 키'로 파싱되므로 extra(allowUnknownProviderOptions 해치)로 절대 빠지지 않는데, chat/request.ts는 이들을 어디서도 읽지 않음 — CC PO 방출부(:309-325)에 없고 드롭+warning 목록(:328-345)에도 없으며 stream_options 조립(:359-361)은 include_usage만. 도달 경로도 실재: index.ts:46-47 responsesOnly에 promptCacheOptions/retention/streamOptions가 없어 seed·stop·오디오 입력 등 CC 강제 트리거(index.ts:63-78)나 CC 전용 모델(registry.ts:118 gpt-audio, 기본 선택은 required 아니라 fallback 전환됨)과 결합하면 일반 흐름에서 무경고 소실. moderation은 responsesOnly라 기본 흐름에선 Responses로 가지만 surface 오버라이드(registry selectSurface에서 override가 required보다 우선) 시 동일하게 조용히 소실. 유일한 우회는 passthroughParams(최후 수단)뿐. 문서 지원 여부와 무관하게 D5 위반이 코드로 확정",
+      "severity": "high",
+      "kind": "over-dropping",
+      "recommendation": "chat/request.ts CC PO 방출부에 3종 body 방출 추가 + stream_options에 include_obfuscation 병합(chat/wire.ts는 looseObject라 통과되나 타입 검증용으로 스키마 확장 권장). index.ts:47 responsesOnly에서 moderation 제거는 공식 문서 재확인 후. 최소한 4종을 드롭+warning 목록에 넣어 D5 위반부터 해소. 골든셋 픽스처 + problem-log 기록"
+     },
+     {
+      "title": "prompt_cache_breakpoint(파트 레벨 명시적 캐시) 양 표면 표현 불가 — explicit 모드 결합 시 조용한 캐시 전멸 함정",
+      "verdict": "CONFIRMED",
+      "reason": "grep 결과 prompt_cache_breakpoint는 저장소 전체에서 docs/research/2026-08-20-openai-api.md:115 단 한 곳(문서는 인지), 코드 참조 0건. responses/request.ts 파트 조립(:200 input_text, :51-108 fileToPart)과 chat/request.ts(:38-83)는 블록 PO 중 detail만 읽음(responses 이미지 :75-77). 반면 envelope promptCacheOptions는 1급 passthrough(responses/request.ts:486)라 mode:explicit 지정 시 브레이크포인트 지정 수단이 없어 implicit 캐싱까지 꺼진 채 무경고 전액 과금 — explicit+브레이크포인트 0개 조합 warning 부재. 우회는 메시지를 wire item 원문 passthrough 블록(:280-290)으로 통째 대체하는 것뿐이라 IR 구조 포기 요구. 선례 인프라 존재 확인: cache-breakpoint-ignored 코드 ir/common.ts:59, retarget.ts:163-173(anthropic cacheControl 검사만, openai 대칭 없음)",
+      "severity": "high",
+      "kind": "missing-param",
+      "recommendation": "블록 PO openai.promptCacheBreakpoint를 양 표면 파트 조립에서 읽어 방출. promptCacheOptions.mode===explicit인데 브레이크포인트 0개면 warning. retarget.ts에 openai 브레이크포인트→타 타깃 대칭 검사 추가"
+     },
+     {
+      "title": "클라이언트 실행 빌트인 툴 루프(computer_use·local_shell·shell local·apply_patch)의 *_call_output 제출이 1급 표현 불가",
+      "verdict": "PARTIAL",
+      "reason": "코드 확정: responses/response.ts:25-35 SERVER_TOOL_CALL_TYPES가 computer_call·local_shell_call·shell_call·apply_patch_call을 일괄 providerExecuted:true로 분류. 요청 방향에서 providerExecuted toolResult는 재전송 스킵(responses/request.ts:249-253), 일반 toolResult는 function_call_output으로만 방출(:260-264) — computer_call_output/local_shell_call_output을 만들 정규 경로 없음(스크린샷 output을 toolResult content로 넣어도 JSON.stringify된 function_call_output이 되어 오매핑). 단 custom 블록 kind openai.* 원문 passthrough(:269-278)가 opt-in 플래그 없이 동작하는 해치라서, wire 지식으로 computer_call_output item을 직접 조립해 제출하는 것은 가능 — 왕복 자체가 봉쇄된 것은 아님. 검증 지침의 (b) 등급: 해치로만 가능한 인체공학 갭, 1급 승격 후보",
+      "severity": "high",
+      "kind": "agent-loop",
+      "recommendation": "클라이언트 실행형 4종을 providerExecuted:false로 구분(computer_use_preview 툴 정의·item 필드 기반)하고 toolResult 매핑에 computer_call_output{computer_screenshot, acknowledged_safety_checks}·local_shell_call_output 등 조립 추가. 골든셋 CUA 왕복 케이스 + 폴백 경합 매트릭스 교차 확인"
+     },
+     {
+      "title": "function 툴 신규 필드 output_schema·allowed_callers·defer_loading 방출 불가 — 툴 레벨 providerOptions를 어댑터가 아예 읽지 않음",
+      "verdict": "CONFIRMED",
+      "reason": "코드 확정: ir/tools.ts:6-14 FunctionToolSchema에 providerOptions 슬롯 존재(주석이 defer_loading 명시적으로 언급)하나 responses/request.ts:349-361 function 툴 조립은 name/parameters/description/strict/inputExamples만 읽고 t.providerOptions 완전 무시, 경고도 없음(D5 위반). 우회 부재 확인: envelope 레벨 extra 병합은 body 최상위만 도달하고 개별 툴 내부로 못 들어가며, passthroughParams로 tools 전체 교체는 req.tools 존재 시 mergeExternal(:297-304)의 RESERVED_BODY_KEYS 충돌 throw로 봉쇄 — IR 함수 툴을 쓰는 한 진짜 표현 불가. responses/wire.ts tools는 z.array(record)라 스키마는 장애물 아님. 프로바이더 툴 쪽(:362-372)은 args 원문 통과라 tool_search 자체는 되지만 function 툴의 defer_loading이 막혀 조합 성립 불가라는 주장도 정확",
+      "severity": "high",
+      "kind": "agent-loop",
+      "recommendation": "responses/request.ts 함수 툴 조립에서 툴 레벨 PO openai.{outputSchema,allowedCallers,deferLoading} 읽어 방출, 미지 툴 레벨 openai PO 키는 D5 공통 정책 적용. CC 경로는 툴 PO 도달 시 drop+warning 추가"
+     },
+     {
+      "title": "text.verbosity가 CC 표면에서 drop되지만 공식 문서는 chat에 top-level verbosity 지원",
+      "verdict": "CONFIRMED",
+      "reason": "코드 확정: chat/request.ts:332가 openai.textVerbosity를 drop+warning(무경고는 아니므로 D5 위반은 아니고 over-dropping), index.ts:46 responsesOnly 포함으로 CC 전용 모델(registry.ts:118 gpt-audio/realtime)에서는 required Responses vs surfaces:[chat-completions] 충돌로 registry selectSurface가 400 throw, surface 오버라이드 시엔 드롭 — 어느 쪽도 verbosity 의도가 살지 못함. 문서 주장은 신빙성 높음(실제 OpenAI가 GPT-5 세대부터 verbosity를 chat completions top-level 파라미터로 지원). 근원 추정도 검증됨: 인벤토리 §1 대조표(docs/research/2026-08-20-openai-api.md:40-52)에 verbosity 행이 없고 verbosity는 §A Responses(:64)에만 등장, index.ts 주석이 §1 대조표를 인용",
+      "severity": "medium",
+      "kind": "over-dropping",
+      "recommendation": "chat/request.ts에 body[verbosity] 방출 추가 + :332 드롭 목록과 index.ts responsesOnly에서 textVerbosity 제거, chat/wire.ts에 verbosity 필드 추가, 인벤토리 §1 대조표 갱신 + problem-log(문서 우선 규칙)"
+     },
+     {
+      "title": "메시지/파트 레벨 phase(commentary/final_answer) 미지원 — 왕복 소실",
+      "verdict": "CONFIRMED",
+      "reason": "grep으로 openai 어댑터 디렉토리 전체에 'phase' 참조 0건 확인. 요청 방향: responses/request.ts 메시지 레벨 PO는 system의 openai.role(developer)만 읽고(:330-337) messageToItems는 {type:message,role,content}만 조립(:192) — phase 방출 경로 없음. 응답 방향이 더 치명적: responses/response.ts:115-153 message item은 reasoning(:163)·toolCall(:183)과 달리 item 원문을 PM에 보존하지 않고 텍스트 블록에 itemId만 남김 — item에 phase가 있어도 무해치로 완전 소실되어 멀티턴 재전송 시 라벨이 사라짐. 응답 방향 손실은 우회 수단이 전혀 없으므로 PARTIAL이 아닌 CONFIRMED. 저장소 문서도 개념 인지(docs/research/2026-08-20-openai-api.md:95)",
+      "severity": "medium",
+      "kind": "missing-param",
+      "recommendation": "응답 매퍼에서 message item의 phase를 PM openai.phase로 보존하고, 요청 방향 messageToItems에서 메시지 레벨 PO openai.phase를 message item에 방출해 §13.1 히스토리 편입 왕복 성립"
+     },
+     {
+      "title": "CC 이미지 detail 조용히 무시 + Responses input_file detail 미방출",
+      "verdict": "PARTIAL",
+      "reason": "코드 사실은 확정: chat/request.ts:38-51 fileToPart는 {type:image_url, image_url:{url}}만 조립하고 블록 PO openai.detail을 읽지 않음(무경고 — Responses 이미지 :75-77과 D5 비대칭), responses/request.ts:85-108 input_file 조립도 detail 미방출. 단 해치 존재로 PARTIAL: CC user 경로는 openai passthrough 블록을 파트로 직접 push(chat/request.ts:166-169)하므로 wire 지식만 있으면 {type:image_url, image_url:{url,detail}} 파트 제출 가능, Responses도 메시지 item 원문 passthrough 가능. 영향 자체도 낮음(detail 기본값 auto로 동작은 함, 비용 최적화 의도만 소실)",
+      "severity": "low",
+      "kind": "over-dropping",
+      "recommendation": "chat fileToPart에서 블록 PO openai.detail을 image_url.detail로 방출, responses input_file 조립에 detail 전달 — 기존 :75-77과 동일 패턴 3줄 수준"
+     },
+     {
+      "title": "D5 비대칭 2건: CC metadata 비문자열 무경고 필터, CC tool.inputExamples 무경고 드롭",
+      "verdict": "CONFIRMED",
+      "reason": "코드 확정. metadata: responses/request.ts:497-503은 비문자열 값마다 parameter-dropped warning을 발화하는데 chat/request.ts:351-352는 typeof v === 'string' 필터만 하고 조용히 버림. inputExamples: responses/request.ts:355-359는 드롭 warning 발화, chat/request.ts:243-248 function 툴 조립은 name/parameters/description/strict만 읽고 inputExamples 검사 자체가 없음. 둘 다 같은 어댑터의 다른 표면이 반대 정책 — D5(조용한 변조 금지) 위반이자 표면 간 비대칭",
+      "severity": "low",
+      "kind": "wrong-mapping",
+      "recommendation": "chat/request.ts:351에 Responses와 동일한 warning 루프, :244-248에 inputExamples 존재 시 warning 추가. ir-v0 §5 표준 코드(parameter-dropped) 사용"
+     },
+     {
+      "title": "openai.custom 툴이 CC 표면에서 일괄 reject — CC 전용 기능과의 조합 봉쇄",
+      "verdict": "CONFIRMED",
+      "reason": "코드 확정: chat/request.ts:250-253이 function 외 모든 툴을 AdapterInvalidRequestError로 throw, index.ts:43-45가 openai.* 프로바이더 툴 전부를 Responses required로 강제. 조합 충돌 실증: 선택자는 툴 검사가 최우선이라 openai.custom + 오디오 입력 요청은 Responses로 강제된 뒤 responses/request.ts:80-83에서 오디오 미지원 throw — 성립 불가능한 조합이 됨(CC 전용 모델 gpt-audio + custom 툴도 registry 400). 문서 주장 신빙성 높음(실제 OpenAI custom 툴은 chat completions에서도 지원, tool_choice custom 변형 포함). 단독 custom 툴은 Responses에서 동작하므로 영향은 조합 케이스 한정 — low 유지",
+      "severity": "low",
+      "kind": "over-dropping",
+      "recommendation": "chat/request.ts 툴 조립에서 t.id===openai.custom을 {type:custom,...args}로 방출 허용, index.ts 선택자에서 custom만 Responses 강제 예외로 완화"
+     },
+     {
+      "title": "모델 capability 게이트 누락: o3/o4-mini stop 미지원·reasoning 모델 logit_bias가 업스트림 400으로 새어나감",
+      "verdict": "CONFIRMED",
+      "reason": "코드 확정: registry.ts:87 OPENAI_REASONING_REJECTS=[temperature,topP,topK,presencePenalty,frequencyPenalty]로 stopSequences 부재, o3/o4-mini는 /^(gpt-5|o[1-9])/ 라우트(:127-131)에 매칭되어 이 목록 적용. stopSequences는 index.ts:69-72가 CC required 강제 → chat/request.ts:268-286 gateUnsupportedParams는 목록에 없는 stop을 통과시켜(:286 body[stop] 방출) wire로 나감. logitBias는 :310에서 무조건 방출 — capability 게이트 축이 IR 표준 파라미터 한정이라 PO는 게이트 밖. 문서 주장 신빙성 높음(실제 OpenAI reasoning 모델은 stop·logit_bias 400 거부). 결과: D5 흐름(drop+warning/strict 400) 대신 불투명한 프로바이더 400이 사용자 도달. xAI 라우트(:168,177,189)는 stopSequences를 게이트하는 것과 대조되어 누락임이 더 명확",
+      "severity": "low",
+      "kind": "missing-feature",
+      "recommendation": "o3/o4-mini 라우트 분화로 unsupportedParams에 stopSequences 추가, PO용 unsupportedProviderOptions 축 신설 또는 어댑터에서 capabilities 기반 logitBias drop+warning. 라이브 opt-in 테스트로 400 실검증(D9)"
+     },
+     {
+      "title": "인벤토리 문서 드리프트 3건(ultrafast 공식화·§1 대조표 누락·gpt-5.6 minimal 제외 근거)",
+      "verdict": "PARTIAL",
+      "reason": "3건 중 2건 확인, 1건 반증. (1) §1 대조표 누락 CONFIRMED: docs/research/2026-08-20-openai-api.md:40-52 대조표에 verbosity·moderation·prompt_cache_options 행 부재(해당 항목들은 §A Responses 쪽 :64,81-82,87에만 존재), index.ts:46-47이 이 대조표를 인용하므로 코드 오분류의 근원이라는 인과도 성립. (2) ultrafast PLAUSIBLE: :227 'ultrafast tier는 SDK에만 확인'·:170 '(SDK 신규)' — 공식 등재됐다면 드리프트 맞으나 외부 검증 불가, 코드 영향은 없음(options.ts:40 serviceTier가 z.string()이라 통과). (3) minimal 제외 REFUTED: '근거 미확인' 주장과 달리 :186이 gpt-5.6-sol effort를 'none/low/medium/high/xhigh/max(minimal 없음)'로 명시 — registry.ts:88은 저장소 문서를 정확히 따른 것. 문서 자체가 틀렸을 가능성은 남지만 저장소 내 근거는 존재",
+      "severity": "low",
+      "kind": "doc-drift",
+      "recommendation": "§1 대조표에 CC 파라미터 행 추가(코드 수정과 동시 — 문서가 진실 규칙), ultrafast 한계 고지 해소, minimal은 :186 근거가 이미 있으므로 공식 모델 문서와의 재대조만 수행 후 problem-log 기록"
+     }
+    ]
+   },
+   {
+    "provider": "google",
+    "gaps": [
+     {
+      "title": "멀티모달 functionResponse(FunctionResponse.parts) 드롭 — generateContent가 이미 지원",
+      "verdict": "CONFIRMED",
+      "severity": "high",
+      "kind": "over-dropping",
+      "reason": "코드 확정: request.ts:136-153 content 케이스가 text만 취합, 비텍스트 블록 drop+warning. functionResponse.parts 방출 경로 전무. 근거 문서였던 '인벤토리 D-4 Interactions 전용' 주장은 외부 재확인으로 반증됨 — 현행 Google 문서(GEAP inference 레퍼런스·generate-content Legacy 함수호출 문서)에 FunctionResponsePart/FunctionResponseBlob/FunctionResponseFileData가 존재하고 'Gemini 3 시리즈는 function response parts에 멀티모달 콘텐츠 포함 가능' 명시. ir-v0 §15 제외 항목 아님(§15는 이미지/오디오 '출력' 블록 — 함수응답 이미지는 입력 방향). 해치 검토: google passthrough 블록(request.ts:257-258)으로 raw part 주입은 가능하나 toolResult 타이핑·재타게팅·크로스 프로바이더 이력을 전부 포기하는 우회라 에이전트 루프 해치로 부적격. computerUse가 1급 provider 툴(request.ts:40)인데 스크린샷 회신이 막히는 자기모순도 사실.",
+      "recommendation": "갭 권고 유효. toolResultToWire content 케이스에서 file 블록을 functionResponse.parts(inlineData/fileData)로 방출. 단 문서상 Gemini 3 세대 한정이므로 세대 게이트(registry capabilities) 필수 — 2.5 이하는 현행 드롭 유지. 라이브 재검증 + 골든셋 + 인벤토리 D-4 수정 + problem-log 기록."
+     },
+     {
+      "title": "tools[].mcpServers 미지원 — reject-400, 해치로도 사실상 도달 불가",
+      "verdict": "PARTIAL",
+      "severity": "high",
+      "kind": "agent-loop",
+      "reason": "코드 절반 확정, 해치 주장 절반 반증: PROVIDER_TOOL_KEYS(request.ts:33-41)에 mcp_servers 부재 → :424-428 reject-400 맞음. 그러나 '해치로도 사실상 도달 불가'는 과장 — mergeExternal(request.ts:290-297)은 body[k]가 이미 설정된 경우에만 충돌하므로, IR 툴이 하나도 없으면 extra/passthroughParams의 {tools:[{mcpServers:[...]}]}가 정상 병합되고 wire.ts:18 tools 스키마는 loose(z.array(z.record))라 통과. 즉 MCP 단독 요청은 opt-in 해치로 가능, IR 함수 툴과의 병용만 표현 불가(이 부분은 맞음). 추가 유보: 'generateContent tools union에 mcpServers 존재' 문서 주장 자체를 웹에서 확인 실패(검색 결과는 전부 CLI/SDK측 MCP) — 4일 전 인벤토리(D-4: Interactions 전용, SSE 전송 미지원, Gemini 3 coming soon)와 정면 충돌하는 주장이므로 구현 착수 전 공식 레퍼런스/라이브로 실재 확인 필요.",
+      "recommendation": "1단계: 공식 generate-content 레퍼런스에서 tools[].mcpServers 실재 확인(라이브 400/200 실측 포함). 실재 시 PROVIDER_TOOL_KEYS 방식이 아닌 배열형 특수 처리로 승격(갭 권고안 유효) — 그 전까지는 'MCP 단독은 opt-in 해치 가능, 병용 불가'로 등급 재조정(인체공학 갭)."
+     },
+     {
+      "title": "generationConfig 내부 신좌석 구조적 도달 불가(responseLogprobs·imageConfig·responseFormat 등)",
+      "verdict": "PARTIAL",
+      "severity": "high",
+      "kind": "missing-param",
+      "reason": "부재는 확정: options.ts:9-21에 전부 없음. 단 '구조적 도달 불가'는 정확히는 루브릭 (b) — mergeExternal 충돌은 어댑터가 gen을 실제로 만들 때만 발생(request.ts:510은 빈 gen이면 generationConfig 자체를 안 씀). 표준 sampling·responseFormat·reasoning effort·PO 4종(responseModalities 등)을 전부 IR 표준 대신 extra 통짜 generationConfig blob에 직접 넣으면(allowUnknown opt-in) temperature+logprobs 조합도 wire상 표현 가능 — IR 표준성과 이식성을 포기하는 대가라 인체공학 갭(1급 승격 후보)이 정확한 등급. imageConfig 자기모순은 사실(responseModalities는 1급 PO options.ts:15 + request.ts:507 배선)이나, 이미지 출력 블록 자체가 ir-v0 §15 v0 범위 밖이라 imageConfig 단독은 설계상 제외 성격 혼재. 응답측 avgLogprobs/logprobsResult는 known-fields 인지만 되고 response.ts:232-260 providerMetadata 승격은 grounding/urlContext 한정 — 요청이 열리면 유실 실화된다는 지적 맞음.",
+      "recommendation": "po:responseLogprobs/logprobs/imageConfig/responseFormat 개별 known 키 추가(§K에 이미 후보 등재) 또는 po:generationConfig deep-merge 좌석 신설 — 갭 권고안 유효하되 심각도는 high→medium(해치 존재)으로 재조정 여지. imageConfig는 §15 이미지 출력 범위 결정과 묶어 판단."
+     },
+     {
+      "title": "tool.strict 드롭 — functionCallingConfig.mode=VALIDATED 미매핑",
+      "verdict": "PARTIAL",
+      "severity": "medium",
+      "kind": "over-dropping",
+      "reason": "드롭은 확정(request.ts:409-411, warning 동반이라 D5 자체는 준수). VALIDATED 실존은 저장소 인벤토리 스스로 확인(D-3 '2026 신규 — 스키마 준수 보장'). 그러나 '도달 불가'가 아니라 1급 known PO인 po:toolConfig(options.ts:18)로 opt-in 플래그 없이도 도달 가능 — 대가는 toolChoice/parallelToolCalls 매핑 전체 오버라이드(request.ts:436-447, provider-option-override warning). 또한 strict는 툴 단위, VALIDATED는 요청 단위 모드라 혼재 시 자동 승격은 의미론 왜곡 위험 — 갭 권고안 스스로 규범 명문화가 선행 조건임을 인정. 자동 매핑 부재는 개선 후보가 맞지만 표현 불가 갭은 아님.",
+      "recommendation": "인체공학 개선으로 추진: 전 함수 툴 strict=true + toolChoice auto/tool 지정 시 VALIDATED 자동 방출, 혼재 규범은 ir-v0 §13/폴백 매트릭스에 선기록. po:toolConfig의 전량 오버라이드→병합 전환도 별도 개선으로 유효."
+     },
+     {
+      "title": "인벤토리 doc-drift: 'MCP·멀티모달 함수응답은 Interactions 전용' 실효",
+      "verdict": "PARTIAL",
+      "severity": "medium",
+      "kind": "doc-drift",
+      "reason": "3개 하위 주장 중 1개 실증, 1개 미확증, 1개는 이미 처리 완료. (1) 멀티모달 FR: 드리프트 실증 — 현행 문서가 generateContent(Legacy) 경로의 Gemini 3 멀티모달 함수응답을 명시, 인벤토리 :7/:247 주장 실효, request.ts:137 주석으로 전파된 것도 사실. (2) MCP-on-generateContent: 외부 확인 실패 — 드리프트 단정 불가. (3) functionCall id: 이미 반영 완료 — problem-log 2026-08-21(:167-171)이 'call_ id 발급 드리프트'를 실측 기록했고 ir-v0 §13.2에 각주 반영됨. 결정적으로 §13.2는 '재전송 시 모든 toolCallId 드롭 + name+순서 재배열 유지'를 명시 결정(G5)했으므로 request.ts:238-239의 id 드롭은 오판이 아니라 스펙 준수 — 갭의 '실 id 에코 전환' 권고는 스펙 변경 없이는 CLAUDE.md '문서가 진실' 규약 위반.",
+      "recommendation": "인벤토리 §A-1/D-4/:247 갱신 + problem-log 기록은 유효(멀티모달 FR 한정 실증). MCP는 재조사 후 갱신. id 에코 전환은 기각 — §13.2 재검증 좌석(라이브 재녹화) 절차를 따르고, 전환하려면 스펙 §13.2 개정이 선행."
+     },
+     {
+      "title": "part 레벨 extras(videoMetadata 등)가 미디어 part에 미배선 — 무경고 무시",
+      "verdict": "CONFIRMED",
+      "severity": "medium",
+      "kind": "missing-param",
+      "reason": "전부 확정: withPartExtras는 text(request.ts:215)·functionCall(:241)에만 적용, fileToWire(:65-102)는 readPartExtras 미호출이고 blockToWire file 케이스(:245-246)가 직접 반환 — file 블록의 google.partExtras가 warning조차 없이 조용히 무시됨(D5 위반). toolResult→functionResponse(:243-244)도 동일. 결정타 2건: ir-v0:157이 'videoMetadata는 providerOptions.google'로 file 블록 PO를 정식 좌석으로 지정(스펙 지정 좌석이 죽어있음), options.ts:53 주석 스스로 'videoMetadata 등' 용도 명시. anthropic 어댑터는 블록/툴 PO를 실제 소비(anthropic/request.ts:224-225,348)하는 패턴이 확립돼 있어 gemini만의 누락임이 대비로 확인됨.",
+      "recommendation": "갭 권고안 그대로: fileToWire 반환 직전 withPartExtras 적용(+toolResult part 동일 검토), 비디오 fps/구간 골든셋 픽스처, known-fields PART_KEYS에 mediaProcessing 추가."
+     },
+     {
+      "title": "Interactions API 표면 부재",
+      "verdict": "REFUTED",
+      "severity": "medium",
+      "kind": "missing-feature",
+      "reason": "설계상 제외(루브릭 c) — ADR-0003 결정 4가 'Interactions 어댑터는 2차, MCP·멀티모달 함수응답·background·agents 수요 확인 시 추가'를 명시하고 표면 축을 예약(surfaces/ 구조, index.ts:8-9, options.ts:11 surface enum). 대안 '처음부터 이중 경로'를 검토·기각한 근거(골든셋 2벌, legacy 쪽 구조적 결격 없음)까지 기록돼 있음. 갭 제출자 스스로 '갭이라기보다 우선순위 상향 근거'로 인정. 기록만 남길 사안.",
+      "recommendation": "갭 목록에서 제외. 단 갭 1 확증으로 '멀티모달 FR=Interactions 전용' 전제가 실효된 만큼, ADR-0003 트리거 조건의 재평가 노트(멀티모달 FR은 generateContent로 충족 가능해져 오히려 긴급도 하락) 1줄을 ADR 결과 절에 추가할 가치는 있음."
+     },
+     {
+      "title": "functionDeclarations.response/responseJsonSchema 미방출 — 툴 레벨 PO 좌석 미독취",
+      "verdict": "CONFIRMED",
+      "severity": "low",
+      "kind": "missing-param",
+      "reason": "확정: 함수 툴 루프(request.ts:404-416)가 name/description/parametersJsonSchema/strict/inputExamples만 처리하고 t.providerOptions를 전혀 읽지 않음 — warning도 없는 조용한 무시(D5 각도 추가). 해치 불가 확인: 함수 툴 존재 시 body.tools가 설정되므로 extra/passthrough의 tools는 mergeExternal(:290-297)에서 400. 좌석 실존 확인: ir-v0:284-286 Tool.providerOptions. 필드 실존 확인: 인벤토리 D-2가 response/responseJsonSchema를 FunctionDeclaration 필드로 자체 등재. anthropic 어댑터는 동일 좌석을 실제 소비(anthropic/request.ts:348-349) — 패턴 확립, gemini만 누락.",
+      "recommendation": "갭 권고안 그대로: 함수 툴 루프에서 t.providerOptions.google의 responseJsonSchema 등을 def에 병합, 미지 키는 D5 정책."
+     },
+     {
+      "title": "known-fields 응답 계약 누락(modelStatus·serviceTier·part 신키 5종)",
+      "verdict": "CONFIRMED",
+      "severity": "low",
+      "kind": "doc-drift",
+      "reason": "코드상 부재 전부 확정: known-fields.ts RESPONSE_KEYS(:8-15)에 modelStatus 없음, USAGE_KEYS(:45-56)에 serviceTier 없음, PART_KEYS(:32-43)에 partMetadata/mediaResolution/mediaProcessing/toolCall/toolResponse 없음. 자기모순 지적도 유효 — po:serviceTier(options.ts:19)·po:toolConfig가 1급 좌석인데 그 응답을 신선도 장치가 드리프트로 오보. 단 영향 한정 확인: 이 장치는 재녹화 시 경고용이고 런타임 미지 part는 passthrough 보존(response.ts:100-109)이라 유실 없음. 응답 필드 실존은 외부 미확증이나 등재 비용이 낮고 놓칠 때 비용이 커 CONFIRMED 유지.",
+      "recommendation": "3개 집합에 키 추가(인지 등재). toolCall/toolResponse의 custom 블록 승격은 별도 판단 — 재녹화로 실물 확인 후."
+     },
+     {
+      "title": "finishReason 신값 4종 unified 미매핑",
+      "verdict": "CONFIRMED",
+      "severity": "low",
+      "kind": "wrong-mapping",
+      "reason": "코드 확정: errors.ts:7-24 FINISH_REASON_MAP 16종에 MALFORMED_RESPONSE/ESCALATION/NO_IMAGE/IMAGE_OTHER 부재. 개방형 매핑(:32)이라 other+raw 보존 — 유실 아닌 의미론 강등이라는 갭 자체 평가 정확. 유보: 4종 enum 값의 실존은 외부 미확증이고 인벤토리 §I 스스로 'verbatim 미확보' 경고를 남긴 영역 — 불확실 시 CONFIRMED 원칙 적용. NO_IMAGE/IMAGE_OTHER는 이미지 출력 경로(§15 v0 범위 밖 + responseModalities PO 개방) 소관이라 정책 결정 필요하다는 권고도 타당.",
+      "recommendation": "라이브 재녹화로 4종 실값 확인 후 매핑 추가(확인 전 선반영은 금물 — 개방형이라 급하지 않음). ESCALATION→content_filter 등 매핑 정책은 실 응답 문맥 보고 결정."
+     },
+     {
+      "title": "3.6+ temperature/topP/topK deprecated — 세대 게이트·경고 부재",
+      "verdict": "PARTIAL",
+      "severity": "low",
+      "kind": "doc-drift",
+      "reason": "코드 사실관계는 맞음: request.ts:470-472 무조건 통과, registry.ts google 라우트(:134-159 확인)는 supportedEfforts만 있고 unsupportedParams/경고 없음. 그러나 현행 동작은 어떤 저장소 규칙도 위반하지 않음 — D5는 드롭/클램프/강등 시에만 warning을 요구하는데 여기는 아무것도 변조하지 않고, 갭 스스로 '통과 유지(드롭하면 그게 over-dropping)'를 권고. 2026-07-21 변경로그 주장은 외부 미검증. 실행 잔여물은 인벤토리 B-2 문서 갱신 + 향후 실거부 전환 대비 메모뿐 — 코드 갭이 아니라 문서 위생 항목.",
+      "recommendation": "인벤토리 B-2에 변경로그 확인 후 반영(미확인 시 반영 보류). parameter-deprecated warning 메커니즘은 실거부 전환 징후가 잡힐 때 xAI식 unsupportedParams로 — 지금 신설은 시기상조."
+     }
+    ]
+   },
+   {
+    "provider": "xai",
+    "gaps": [
+     {
+      "title": "Responses 표면 top_k/min_p over-dropping — 프로바이더는 지원, 게이트웨이는 드롭/부재",
+      "verdict": "PARTIAL",
+      "kind": "over-dropping",
+      "severity": "medium",
+      "reason": "드롭 자체는 확정: src/adapters/openai/responses/request.ts:396-407이 topK를 dropUnsupportedParams로 드롭(warning은 있음 — 조용하진 않음), src/adapters/openai/chat/request.ts:288도 동일, min_p/minP는 src 전체 0건. 공식 문서 재확인(WebFetch, docs.x.ai api-reference): top_k·min_p 모두 /v1/responses 현행 파라미터 — 인벤토리 B2-10과 일치. 단 이스케이프 해치가 실동작: po xai.top_k/xai.min_p는 미지 키 → allowUnknownProviderOptions:true면 extra로 body에 병합(responses/request.ts:537 mergeExternal, chat/request.ts:364-369)되고 RESERVED_BODY_KEYS에 top_k/min_p가 없으며 wire 스키마가 looseObject(responses/wire.ts:9, chat/wire.ts:8)라 wire까지 도달한다. 따라서 (b) opt-in 해치로만 가능 = 인체공학 갭. IR 표준 topK가 지원 표면에서 1급으로 못 나가는 건 사실이므로 1급 승격 후보는 타당.",
+      "recommendation": "원안대로 1급 승격(registry capabilities 게이트 or xai postprocess 재주입 + xai po 확장 minP) 진행하되, 우선순위는 high가 아닌 medium — warning 동반 드롭 + opt-in 우회 존재. goldenset에 opt-in 경로 스냅샷부터 추가하면 현행 동작 고정에 유용."
+     },
+     {
+      "title": "openai-compat 인바운드 → grok 타깃에서 CC 호환 po(service_tier·prompt_cache_key 등) 무경고 소실",
+      "verdict": "CONFIRMED",
+      "kind": "over-dropping",
+      "severity": "high",
+      "reason": "메커니즘 전부 실증: src/inbound/openai-compat/request.ts:238-273이 service_tier/prompt_cache_key/logit_bias/logprobs/top_logprobs/web_search_options 등을 providerOptions.openai에 부착 → src/gateway/retarget.ts:14-19는 openai NS 중 서버상태 4키(previousResponseId·conversation·store·background)만 strip+warning → src/adapters/xai/remap.ts:34-42가 잔여 openai NS를 'openai~foreign'으로 중립화 → base의 partitionProviderOptions(src/adapters/shared.ts:62)는 'openai' NS만 읽으므로 소비도 warning도 없음. 자체 스펙 위반까지 확인: docs/specs/appendix-a-compat-inbound.md:84는 \"openai-compat의 CC 전용 파라미터가 비-openai 타깃으로 가면 표준 드롭 경로(D5 warning)가 처리한다\"고 명시하나 실제로는 완전 무음. 단 주의: 자동 승계 권고는 의도적 회귀 테스트 goldenset.request.test.ts:239-248(\"providerOptions.openai는 xAI wire로 새지 않는다\" — 재타게팅 히스토리 시나리오) 및 ir-v0 §2와 정면 충돌한다.",
+      "recommendation": "최소 수정은 warning: 어댑터 진입 시 미소비 foreign NS(잔여 openai~foreign 키)에 대해 D5 warning 발행 — appendix-a:84의 계약 이행. 승계(화이트리스트 relabel)를 하려면 '인바운드 신선 요청 vs 히스토리 재타게팅' 구분이 필요하고 기존 회귀 테스트(:239-248)와의 의미론 조정을 ADR/problem-log로 선행할 것."
+     },
+     {
+      "title": "xGrokConvId po가 base 스키마에 없음 — 기본 reject-400 + opt-in 시 wire body에 미지 키 누출",
+      "verdict": "CONFIRMED",
+      "kind": "wrong-mapping",
+      "severity": "high",
+      "reason": "전 경로 실증: KnownOptionsSchema(src/adapters/openai/options.ts:11-58)에 xGrokConvId 없음. remap requestToBase가 xai NS를 openai NS로 옮기므로(remap.ts:37-41) partitionProviderOptions가 미지 키로 판정 → 기본 AdapterInvalidRequestError 400(shared.ts:68-73). opt-in 시 extra로 body 병합(chat/request.ts:364-369, RESERVED_BODY_KEYS에 없음) + wire 스키마 loose + postprocess의 strip 목록(index.ts:25-26)에도 없어 body에 'xGrokConvId' 그대로 누출, 헤더 주입은 별도로 원본 req에서 수행(index.ts:44-45). 테스트(goldenset.request.test.ts:54-61)는 allowUnknownProviderOptions:true로만 통과하며 body 부재를 검증하지 않음 — 갭 주장 그대로. 정식 기능(오버라이드 #7, 인벤토리 B2-17 x-grok-conv-id 헤더)이 기본 설정에서 400.",
+      "recommendation": "원안 채택: remap requestToBase에서 xai NS의 xGrokConvId를 추출·보관 후 base 전달 전 제거, postprocess에서 헤더만 주입. 테스트에 'opt-in 없이 동작 + body 부재 + 헤더 존재' assertion 추가."
+     },
+     {
+      "title": "x_search_call 응답 item 미등록 — providerExecuted toolCall이 passthrough로 강등 (요청/응답 비대칭)",
+      "verdict": "CONFIRMED",
+      "kind": "wrong-mapping",
+      "severity": "high",
+      "reason": "src/adapters/openai/responses/response.ts:25-35 SERVER_TOOL_CALL_TYPES에 x_search_call 부재(web_search_call/file_search_call/computer_call/code_interpreter_call/local_shell_call/shell_call/apply_patch_call/mcp_call/tool_search_call만) → 미지 item은 :221-229에서 passthrough+unknown-block-passthrough warning으로 강등. 요청 방향은 xai.x_search가 1급(responses 강제 — xai/index.ts:95-97, 테스트 goldenset.request.test.ts:115-121)이라 왕복 비대칭 확정. 유실은 아님(passthrough 보존)이나 IR toolCall 승격 실패로 크로스 재타게팅·툴 집계 시맨틱 깨짐 — 자체 인벤토리 B2-9도 server_side_tool_usage_details.x_search_calls를 기록해 놓고 응답 매핑만 빠진 상태. 부가 발견: src/adapters/openai/known-fields.ts는 어디서도 import되지 않아(전 src grep 0건) openai/xai용 드리프트 장치가 완전 휴면 — ITEM_TYPES 자동 반영 전제도 현재는 무의미.",
+      "recommendation": "SERVER_TOOL_CALL_TYPES에 x_search_call 추가(OpenAI 미발행이라 base 무해) + xai goldenset.response 픽스처. 동시에 known-fields.ts를 테스트에 실연결(anthropic/gemini 패턴)하는 별도 작업 권장 — 이번 갭의 재발 방지 장치가 죽어 있었다."
+     },
+     {
+      "title": "Live Search(search_parameters) 1급 표현 불가 + '410 폐기' 전제가 최신 문서와 충돌",
+      "verdict": "PARTIAL",
+      "kind": "doc-drift",
+      "severity": "medium",
+      "reason": "코드 사실 확정: search_parameters 1급 경로 0건, errors.ts:34·59가 410을 Live Search 폐기로 단정. 문서 충돌도 실재 — WebFetch 재확인 결과 현행 API 레퍼런스는 search_parameters를 CC·Responses 양쪽에 현행 파라미터로 열거(mode/sources/from_date/to_date/max_search_results/return_citations). 단 반증 요소 둘: (1) https://docs.x.ai/docs/guides/live-search 는 현재 Web Search 에이전트 툴 문서로 대체 서빙되며 search_parameters 언급·폐기 공지 모두 없음 — '가이드 현존' 주장은 부정확. (2) 저장소는 이미 이 불일치를 인지·기록함(docs/research/2026-08-20-xai-grok-api.md:91 \"REST 레퍼런스에 스키마가 잔존해 문서 간 불일치 존재\") — 410 근거는 서드파티 실측(LangChain·make.com 이슈)으로 레퍼런스 잔존보다 실거동에 가까울 수 있음. 또한 opt-in 해치로 po xai.search_parameters(스네이크 키)가 body에 병합돼 wire 도달은 가능(loose 스키마) — 요청 방향은 (b) 인체공학 갭, 응답 citations 소실은 별도 갭 6.",
+      "recommendation": "원안의 라이브 probe가 유일한 판정 수단 — 레퍼런스 잔존 vs 410 실거동 중 어느 쪽이 진실인지 실측 후 problem-log 기록. 지원 확인 전에는 errors.ts 410 메시지를 단정형에서 추정형으로 완화하는 것만 선행 가능."
+     },
+     {
+      "title": "CC 응답 최상위 citations[] / output_files[] 확장 필드 유실",
+      "verdict": "CONFIRMED",
+      "kind": "missing-feature",
+      "severity": "medium",
+      "reason": "src/adapters/openai/chat/response.ts transformResponse는 WireResponseSchema(id/model/choices/usage)로 파싱 후 choices[0]·usage만 소비 — 최상위 citations/output_files는 IR 승격도 raw/PM 보존도 없이 소실(응답 passthrough는 블록 단위라 최상위 필드에 미적용). known-fields.ts:16-18 CC_RESPONSE_KEYS에도 부재하고, 결정적으로 known-fields.ts 자체가 어디서도 import되지 않아(테스트 포함 0건) 드리프트 검출조차 불가능. 자체 인벤토리 B2-6이 'IR 승격 가치 있음'으로 기록해 둔 항목 — 알고도 미구현 상태.",
+      "recommendation": "원안 채택: xai responseFromBase 후처리에서 citations[] → IR citations 승격, output_files[] → PM 보존. CC_RESPONSE_KEYS xai 오버레이 추가 + openai/xai known-fields를 실제 테스트에 연결."
+     },
+     {
+      "title": "deferred completions po 부재 — 자체 스펙(appendix-b §4)의 PO 통과 계약 미구현",
+      "verdict": "CONFIRMED",
+      "kind": "missing-param",
+      "severity": "medium",
+      "reason": "src 전체 grep 0건 확정. 설계상 제외 반증 시도 실패: ir-v0 §15(:543)는 비동기 핸들을 'v1 범위이지만 별도 부록에서 정의'로 명시하고, docs/specs/appendix-b-endpoints-async.md §4가 'PO xai.deferred → 프로바이더 응답 형태 그대로 PM 노출(§2 PO 통과), 폴링 표면은 v1 미제공'을 v1 계약으로 확정 — 폴링 부재는 설계지만 po 수용+PM 노출은 미이행 부채가 맞다. 공식 문서도 재확인(WebFetch): CC에 deferred 현행, GET /v1/chat/deferred-completion/{request_id}. 해치로도 커버 불가: opt-in으로 deferred:true를 body에 밀어넣어도 응답이 {request_id} 단독 형태라 CC WireResponseSchema(chat/response.ts:14-19 — id·model·choices 필수)가 파싱 실패한다. 즉 왕복이 어떤 경로로도 성립하지 않음 → (a) 표현 불가.",
+      "recommendation": "원안 채택: xai po 확장에 deferred(CC 전용, responses 도달 시 drop+warning, stream과 동시 지정 4xx) + CC 응답 파서에 {request_id} 단독 분기 → PM xai.requestId. appendix-b 계약 문구와 일치시킬 것."
+     },
+     {
+      "title": "grok-4.3 기본 라우트 supportedEfforts 미지정 — xhigh 등 미지원 effort 무클램프 통과로 프로바이더 400",
+      "verdict": "CONFIRMED",
+      "kind": "wrong-mapping",
+      "severity": "medium",
+      "reason": "src/gateway/registry.ts:185-190 기본 grok 라우트(/^grok-/, sample grok-4.3)는 unsupportedParams만 있고 supportedEfforts 부재 → chat/request.ts:291-295·responses/request.ts:411-414가 DEFAULT_EFFORTS(none~max 7종 전체)로 폴백해 xhigh/none/minimal/max가 전부 wire로 방출. 저장소 자체 조사가 400 위험을 명시: docs/research/2026-08-20-xai-grok-api.md:55 '미지원 모델은 400', :96 'xhigh는 grok-4.6 전용, 비활성화 불가(일부 구모델만 none)'. 4.6(:163-169)·4.5(:172-178) 라우트만 게이트 존재 — 기본 라우트만 누락된 비대칭이 명백. 반증 요소 없음.",
+      "recommendation": "원안 채택: 기본 grok 라우트에 supportedEfforts:[\"none\",\"low\",\"medium\",\"high\"](grok-4.3 레퍼런스 기준 — none 포함 여부는 문서 재확인) 지정. grok-4.20 계열(effort=에이전트 수 의미 변형, 배치 지원 계열이기도 함 — problem-log:217)은 별도 라우트 검토."
+     },
+     {
+      "title": "max_turns 미구현 — 에이전트 루프 턴 상한 제어 불가",
+      "verdict": "PARTIAL",
+      "kind": "agent-loop",
+      "severity": "medium",
+      "reason": "src 전체 grep 0건 확정, 공식 문서 재확인(WebFetch)으로 max_turns 현행 파라미터 검증('Maximum number of agentic tool calling turns... defaults to the server's global cap'). 단 해치가 실동작: po xai.max_turns 미지 키 + allowUnknownProviderOptions → extra 병합(responses/request.ts:537), RESERVED_BODY_KEYS(:20-26)에 max_turns 없음, wire loose → wire 도달. 갭 원문 스스로 '인체공학 갭, 1급 승격 후보'로 등급 매김 — 판정 기준 (b)에 정확히 해당. 주의: 해치 경로는 responses 표면 강제를 안 하므로(selectXAISurface responsesOnly에 없음) 기본 CC로 가면 CC body에 max_turns가 실려 무의미 — 해치 사용성도 반쪽.",
+      "recommendation": "1급 승격 시 xai po 확장 maxTurns + responsesOnly 목록 포함(표면 강제까지 해야 해치의 반쪽 문제 해소). 우선순위는 서버 툴 사용 고객 비중에 따라."
+     },
+     {
+      "title": "'Not Actively Used' 명기 필드(background/context_management/top_logprobs)를 무경고 wire 방출",
+      "verdict": "CONFIRMED",
+      "kind": "wrong-mapping",
+      "severity": "medium",
+      "reason": "공식 문서 재확인(WebFetch)으로 주장 검증: background '(Unsupported)', metadata/truncation 'Not supported. Only maintained for compatibility', context_management 'Parsed but not yet executed', logprobs/top_logprobs는 grok-4.20+에서 silently ignored. 코드: metadata/truncation은 XAI_REJECTED_RESPONSES_KEYS(index.ts:26)로 strip+warning(정합)이나 background(responses/request.ts:465-472)·contextManagement(:488)·topLogprobs(:480)는 xai 타깃에서 방출. 부분 반증 1건: background:true는 완전 무경고가 아님 — :467-471에서 server-state-unmanaged warning이 붙는다. 다만 그 문구는 '비동기 핸들 passthrough'이지 '프로바이더가 미사용'이 아니라 오인 유도는 여전하고, contextManagement·topLogprobs는 진짜 무경고. contextManagement가 responsesOnly 강제 목록(xai/index.ts:99)에 있어 무의미한 표면 강제까지 하는 점도 사실.",
+      "recommendation": "원안 채택(3키 xai 전용 warning 또는 strip 이동 + contextManagement responses 강제 제거 검토). background는 문서상 '(Unsupported)'라 400 가능성도 있으니 라이브 probe 대상에 포함."
+     },
+     {
+      "title": "selectXAISurface responsesOnly 누락 3종 + xAI에 없는 prompt/conversation의 wire 방출",
+      "verdict": "CONFIRMED",
+      "kind": "wrong-mapping",
+      "severity": "low",
+      "reason": "코드 메커니즘 확정: xai/index.ts:99 responsesOnly에 conversation/maxToolCalls/prompt 부재. 기본 CC면 chat/request.ts:328-345가 drop+warning으로 처리(안전)하나, 다른 트리거(서버 툴·encrypted reasoning·store 등)로 responses 표면이 선택되면 conversation(responses/request.ts:461-464, server-state-unmanaged warning은 동반)·prompt(:484, 무경고)·maxToolCalls(:481, 무경고)가 XAI_REJECTED_RESPONSES_KEYS(index.ts:26)에 없어 wire로 방출. retarget도 xai NS는 previousResponseId/store만 서버상태로 취급(retarget.ts:17). xAI 측 400/묵살 여부는 미검증(문서 열거 부재는 부정 증거일 뿐) — 낮은 심각도 유지가 적절.",
+      "recommendation": "원안대로 라이브 검증 후 prompt·conversation을 XAI_REJECTED_RESPONSES_KEYS에 추가, maxToolCalls는 수용 확인 시 responsesOnly 등재. instructions×previous_response_id 상호배타 사전검증은 별도 저비용 개선."
+     },
+     {
+      "title": "POST /v1/responses/compact(컨텍스트 압축) 미지원",
+      "verdict": "CONFIRMED",
+      "kind": "missing-feature",
+      "severity": "low",
+      "reason": "src grep 0건('compaction'은 anthropic 커스텀 블록으로 무관), src/bridge/에는 batches.ts·files.ts만 존재. 설계상 제외 반증 실패: ir-v0 §15(:541)의 제외 목록은 다중 후보·오디오/이미지 출력·Live/Realtime(WebSocket)·임베딩·버전 협상이고 compact는 동기 HTTP POST라 해당 없음. appendix-b 로드맵(§5)에도 count_tokens/Files/Batches/비동기 핸들만 — compact는 어떤 문서에도 기록 없음. '갭 아님(기록만)'이 되려면 기록이 있어야 하는데 그 기록 자체가 부재.",
+      "recommendation": "원안의 후순위 처리 동의 — 최소한 docs/README.md 로드맵 또는 appendix-b에 '설계상 보류' 명시 기록부터. 구현 시 bridge/batches.ts 패턴 재사용."
+     },
+     {
+      "title": "인벤토리 전제 재검증 부채: B2-7 '미지원 파라미터 400' 일부 반증 + 툴 상한 128/200 혼재",
+      "verdict": "CONFIRMED",
+      "kind": "doc-drift",
+      "severity": "low",
+      "reason": "src/adapters/xai/index.ts:23-24 주석이 자인: store는 2026-08-21 실측에서 400 아닌 200 묵살로 B2-7 반증, 나머지 키(CC 5키 + RESPONSES 6키) 400 여부 미재검증. 그런데 warning 문구(index.ts:36)는 전 키에 일괄 '400 거부 방지 — 인벤토리 B2-7'로 방출 — 최소 store에 대해 이미 부정확한 문구가 사용자에게 나가는 중. strip 자체는 안전측이라 동작 문제는 없음. 툴 개수 상한은 게이트웨이가 검증하지 않아(사전 검증 코드 없음) 프로바이더 에러 전파가 현행 — 혼재(128/200)의 실피해 없음.",
+      "recommendation": "원안 채택: opt-in 라이브 probe로 키별 실거동 표 작성 → research 문서·problem-log 갱신, warning 문구를 '거부/묵살 방지'로 교정. 툴 상한 미검증 유지 명문화."
+     }
+    ]
+   }
+  ]
+ },
+ "trackB": {
+  "findings": [
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/anthropic-compat/request.ts",
+    "line": 91,
+    "summary": "tool_result의 is_error:true가 content가 배열(콘텐츠 블록)·객체(json)일 때 조용히 소실된다 — output.type이 \"text\"일 때만 errorText로 승격하고, content variant에는 에러 표식을 보존할 경로도 warning도 없다 (ir-v0 §4.4에 error+content 조합 자체가 없음). 아웃바운드 anthropic request.ts toolResultToWire는 errorText/errorJson에서만 is_error를 재생성하므로 왕복 전체에서 플래그가 사라진다.",
+    "scenario": "anthropic-compat(D10 100% 커버리지 대상 경로) 클라이언트가 tool_result {is_error:true, content:[{type:\"text\",text:\"Traceback...\"}]}를 히스토리로 재전송 → IR output {type:\"content\"} (is_error 소실, warning 없음) → 같은 anthropic 타깃 wire에 is_error 없는 tool_result로 나감 → 모델이 실패한 툴 호출을 성공으로 해석해 잘못된 후속 추론. D5(조용한 변조 금지) 위반이자 동일 프로바이더 무손실 왕복 계약 위반.",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "inbound/anthropic-compat/request.ts:91이 유일한 is_error 처리 지점 — `output.type === \"text\"`일 때만 errorText 승격, 배열 content(85-89행 → {type:\"content\"})와 객체 content(90행 → {type:\"json\"})에서는 플래그가 다시 읽히지 않고 소실. withCachePO(22-26행)는 cache_control만 보존하고 tool_use(69-79행)와 달리 tool_result에는 wireExtras rest-capture가 없어 보존 경로 부재. compatMessagesToIR(126행)에는 warning 채널 자체가 없음(throw만) → D5 위반. ir-v0.md §4.4(130-135행)에 content variant용 에러 표식이 없어 배열 케이스는 스펙상 표현 불가이며, errorJson이 존재함에도 json 케이스조차 승격하지 않음. 아웃바운드 adapters/anthropic/request.ts:135-164는 errorText/errorJson/executionDenied에서만 isError=true를 설정하므로(164행 wire[\"is_error\"]) content/json variant는 is_error 없이 재직렬화 — 동일 프로바이더 왕복에서 플래그 완전 소실. is_error 배열 content를 다루는 테스트/골든 픽스처 없음(grep 전수 확인). is_error:true + 블록 배열은 실제 Anthropic SDK가 흔히 보내는 합법 wire이므로 트리거 실재."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/gateway/execute.ts",
+    "line": 431,
+    "summary": "폴백 다중 시도에서 billing.lineItems가 '과금된 전 시도 합산'(ir-v0 §10.1 다중 시도 회계 명시)이 아니라 최종 성공 시도분만 담긴다 — finalizeDraft(431행)·비스트림(387행) 모두 buildBilling(최종 usage)만 호출하고, 폴백 체인(executeStream/executeNonStream)은 finish.attempts만 병합할 뿐 billing을 재합산하지 않는다.",
+    "scenario": "fallbackModels=[claude-*, gpt-*]. 시도1: anthropic 스트림이 message_start(입력 5만 토큰 과금, billed:true+usage 동봉) 후 콘텐츠 방출 전 in-stream overloaded → error-partial(willRetry:true)로 전환. 시도2: openai 성공 → finish.billing에는 openai 토큰만 실림. 원장은 시도별로 anthropic 과금 행을 적재하므로 클라이언트에 노출되는 billing.total과 원장 합계가 계통적으로 불일치(과소 보고) — 돈 숫자의 스펙 위반.",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "스펙 요구는 명시적이다 — docs/specs/ir-v0.md:395 \"billing.lineItems는 **과금된 전 시도 합산**이며, 원장(ADR-0006)에는 시도별 행으로 기록한다.\" 그러나 코드에서 buildBilling 호출처는 단 2곳뿐이고(grep 확인) 둘 다 최종 시도 usage만 넘긴다: src/gateway/execute.ts:387 `billing: buildBilling(call.adapter.provider, call.ctx.modelId, t.usage)` (비스트림 단일 타깃 응답), execute.ts:431 `return { ...draft, billing: buildBilling(..., draft.usage) }` (finalizeDraft — 해당 타깃의 finish usage만). 폴백 체인은 billing을 건드리지 않는다: executeNonStream(execute.ts:681)은 `{ ...res, gateway: { ...res.gateway, attempts: [...priorAttempts, ...successAttempts] } }`로 attempts만 병합하고 res.billing은 최종 타깃분 그대로 통과, executeStream(execute.ts:755-758)도 finish 이벤트에 `{ ...event, attempts: [...] }`로 attempts만 병합. buildBilling 자체(src/ops/billing.ts:12-41)는 단일 usage → lineItems 변환 순수함수로 누적 개념이 없다. 트리거 시나리오도 실재한다: anthropic 어댑터는 message_start 수신 후 in-stream 에러에 billed:true+usage를 동봉하고(src/adapters/anthropic/stream.ts:42, 354 `billed: sawMessageStart`; 테스트 stream.test.ts:109-123이 이를 명시 검증), message_start는 response-metadata(LIFECYCLE_TYPES)라 contentEmitted=false 유지 → error-final → executeStream의 폴백 분기(canFallback)가 error-partial(willRetry:true)+provider-switched로 전환. 이때 시도1의 원장 행은 recordTerminal(execute.ts:481-501)이 `billed: error ? error.billed : true`+usage로 적재하므로 원장에는 anthropic 과금 행이 남는데, 시도2 성공 finish의 billing에는 openai usage만 실린다. 즉 클라이언트 노출 billing.total < 원장 합계 — 스펙 §10.1 위반이 코드로 입증된다. 스트림·비스트림 양 경로 모두에서 billing 재합산 코드는 저장소 어디에도 없다(gateway/server 전역 grep으로 다른 합산 지점 부재 확인)."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/gemini/options.ts",
+    "line": 55,
+    "summary": "ir-v0 §4.5가 명시한 비디오 입력 계약(\"videoMetadata는 providerOptions.google\")이 미구현 — gemini 어댑터는 블록 PO에서 partExtras 키만 읽어 wire part에 병합하고(readPartExtras→request.ts withPartExtras), 스펙이 문서화한 videoMetadata 키는 어떤 경로에서도 소비·경고·거부되지 않는다 (known-fields.ts의 응답 방향 목록에만 존재).",
+    "scenario": "클라이언트가 스펙대로 file 블록에 providerOptions.google.videoMetadata = {startOffset:\"0s\", endOffset:\"30s\", fps:1}을 부착해 1시간짜리 비디오 클리핑을 요청 → wire에 videoMetadata가 실리지 않아 Gemini가 비디오 전체를 처리 → 클리핑 의도가 조용히 무시되고 전체 분량 토큰이 과금됨. 드롭인데 warning조차 없어 D5도 동시 위반.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "스펙은 명시적, 소비 경로는 부재 — 발견은 사실이며 실제로는 지적보다 한 단계 더 나쁘다. (1) 스펙 계약: docs/specs/ir-v0.md:157 \"비디오 입력(Gemini)도 file (`videoMetadata`는 `providerOptions.google`)\" — videoMetadata를 블록 PO로 전달하라고 문서화. (2) 소비 부재: src/ 전체에서 videoMetadata는 단 두 곳 — options.ts:53(주석)과 known-fields.ts:42(응답 방향 PART_KEYS 목록, 드리프트 감지용)뿐. 요청 방향에서 이를 읽는 코드는 없다. (3) partExtras 경로도 file 블록엔 닫혀 있음: options.ts:55는 `providerOptions.google.partExtras` 키만 읽고, request.ts의 withPartExtras(60-63행)는 text part(215행)와 functionCall part(241행)에서만 호출된다. blockToWire의 \"file\" 케이스는 `return fileToWire(block, cctx, path)`로 직결되고 fileToWire(65-102행)는 part를 그대로 반환 — partExtras 병합 자체가 없다. 즉 스펙대로 `providerOptions.google.videoMetadata`를 넣든, 구현 관례인 `providerOptions.google.partExtras.videoMetadata`를 넣든 file 블록에서는 wire에 실리지 않는다. (4) D5 동시 위반: readPartExtras는 partExtras 외 키를 조용히 무시하고, file 블록의 미소비 블록 PO에 대한 warning 발행 경로가 어디에도 없다(request.ts의 PO warning은 요청 레벨 opts만 대상 — 396-523행). (5) 테스트 공백: fixtures/와 goldenset 스냅샷에 videoMetadata 사용 케이스 0건. 시나리오(클리핑 의도 조용한 무시 → 전체 비디오 토큰 과금)는 wire에 videoMetadata가 없으면 Gemini가 전체 처리하는 문서화된 동작이므로 성립."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/anthropic-compat/request.ts",
+    "line": 144,
+    "summary": "appendix-a §3.4(빈 문자열/빈 배열 content 메시지는 역할 무관 생략 — \"system/developer만 빠져 있었다\"며 확정한 규칙)가 anthropic-compat에서 미적용: top-level system은 무조건 push되고(144행), contentToBlocks(121행)는 빈 문자열을 text:\"\" 블록으로 만들어 생략하지 않는다. openai-compat 쪽만 빈 문자열을 생략해 두 인바운드가 같은 규칙을 다르게 구현.",
+    "scenario": "① {\"system\": [], \"model\":..., \"messages\":[...]} 요청 → blocks 0개인 system 메시지 생성 → MessageSchema.min(1) 위반으로 게이트웨이가 400 \"IR 변환 실패\" (Anthropic 자체는 수용하는 요청이 게이트웨이만 거부하는 §3.4가 금지한 비대칭). ② content:\"\"인 메시지 → text:\"\" 블록으로 통과 → 업스트림 Anthropic이 빈 텍스트 블록을 400으로 거부.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "규칙: appendix-a-compat-inbound.md:86-88 §3.4 \"빈 문자열/빈 배열 content 메시지는 역할 무관 생략\". 위반 코드: src/inbound/anthropic-compat/request.ts:143-145 (w[\"system\"] !== undefined이면 무조건 push, 빈 검사 없음) + :121-123 (contentToBlocks가 빈 문자열을 {type:\"text\",text:\"\"} 블록으로 생성, 빈 배열은 []). 트리거 입증: system: [] → blocks 0개 메시지 → src/ir/message.ts:29 blocks: z.array(BlockSchema).min(1) 위반 → request.ts:241-243 safeParse 실패 → 400 \"IR 변환 실패\" (같은 함수 안에서 즉시 throw, 중간 방어 패스 없음). content:\"\" 메시지는 text:\"\" 블록 1개라 :152의 length===0 스킵도 안 걸리고 IR 통과(blocks.ts:20 text: z.string() min 없음) → §3.4 생략 규칙 미적용 상태로 업스트림 전달. 비대칭 입증: openai-compat/request.ts:75 (content.length > 0 검사) + :138-140 (§3.4 근거 주석과 함께 빈 메시지 생략) — 같은 규칙을 두 인바운드가 다르게 구현. 테스트 공백: src/inbound/compat.test.ts:537-551은 openai-compat 빈 system만 검증, anthropic-compat 빈 content 테스트 부재."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/openai-compat/request.ts",
+    "line": 93,
+    "summary": "히스토리 tool_calls의 arguments 처리에서 appendix-a §3.1(\"JSON 파싱, 실패 시 text variant + warning\")의 warning이 누락됐고, 빈 문자열은 {}로 조용히 날조된다 — ir-v0 §4.3이 명시적으로 금지한 패턴('{}' 삽입, LiteLLM 반면교사). 인바운드 변환기에 warning 채널 자체가 없어 강등이 무증상이다.",
+    "scenario": "클라이언트가 arguments가 잘린 JSON(예: '{\"query\": \"장문 검색어')인 assistant tool_call을 재전송 → text variant로 강등되지만 tool-input-demoted warning이 어디에도 실리지 않음 → 이후 Gemini 폴백 타깃에서는 text 입력이 4xx(functionCall args JSON 필수)로 터지는데 클라이언트는 원인 추적 단서를 받지 못함. arguments:\"\"는 {}로 변조되어 원문(빈 문자열)이 유실된다.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "src/inbound/openai-compat/request.ts:92-96 — catch 블록이 text variant 강등만 하고 warning을 만들지 않음(파일 전체에 makeWarning/Warning 부재). compatChatToIR 시그니처(request.ts:117)는 IRRequest만 반환하고 IRRequestSchema(src/ir/request.ts)에 warnings 필드가 없어 요청 방향 warning 채널 자체가 부재 — 호출자 app.ts:738도 그대로 통과. 스펙은 명시적: docs/specs/appendix-a-compat-inbound.md §3.1 \"toolCall 블록 (arguments JSON 파싱, 실패 시 text variant + warning)\", docs/specs/ir-v0.md:121 \"text variant로 강등 + warning(code: \\\"tool-input-demoted\\\")\". 어댑터들은 올바르게 구현(adapters/openai/responses/response.ts:91-105 parseToolArguments가 warnings[]에 push, adapters/anthropic/stream.ts:287-295)하여 인바운드만 누락임이 대비로 확인됨. 시나리오의 Gemini 폭발도 실재: adapters/gemini/request.ts:227-230이 text variant input에 AdapterInvalidRequestError throw. 단서: \"\"→{} 부분은 과장 — parseToolArguments(responses/response.ts:96)와 anthropic/stream.ts의 inputAcc.length===0 경로도 동일하게 {}를 반환하는 코드베이스 전반의 의도적 관행(OpenAI wire에서 빈 arguments=무인자)이므로 LiteLLM식 날조로 보긴 약함. 핵심 결함(파싱 실패 시 무증상 강등, 스펙 명문 위반)은 코드로 입증됨."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/anthropic/options.ts",
+    "line": 38,
+    "summary": "블록·툴 레벨 providerOptions에 D5 미지 키 정책(ir-v0 §2: 자기 네임스페이스 안의 스키마 밖 키는 기본 4xx, opt-in 통과 시 warning)이 전혀 적용되지 않는다 — partitionProviderOptions는 envelope 레벨에서만 호출되고, 블록 PO는 4사 모두 readBlockCacheControl/readItem/readPartExtras류의 무검증 조회만 한다. §2는 부착 지점에 '모든 블록, 툴 정의'를 명시한다.",
+    "scenario": "클라이언트가 블록에 providerOptions.anthropic.cacheContro1(오타) 또는 cache_controll을 부착 → 4xx도 warning도 없이 조용히 무시 → 캐시 브레이크포인트가 걸리지 않아 매 요청 전체 프롬프트가 무캐시 단가로 과금되는데 아무 신호가 없다(타깃이 anthropic이면 retarget.ts의 cache-breakpoint-ignored 경로도 발화하지 않음).",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "런타임 재현 + 코드 인용으로 입증. (1) D5 미지 키 정책의 유일한 구현인 partitionProviderOptions(src/adapters/shared.ts:55-88)는 envelope 레벨 4곳에서만 호출됨 — anthropic/request.ts:442, gemini/request.ts:397, openai/chat/request.ts:109, openai/responses/request.ts:309. (2) 블록/툴 PO는 전부 무검증 조회: anthropic/options.ts:38-44 readBlockCacheControl은 `ns[\"cacheControl\"] ?? ns[\"cache_control\"]` 정확 키만 읽고 그 외는 조용히 undefined 반환(warning 없음); gemini/options.ts:54-57 readPartExtras, openai/options.ts:95-130 readItem/ns() 동일 패턴. (3) 스펙 위반 확정: docs/specs/ir-v0.md L41 부착 지점에 \"모든 블록, 툴 정의\" 명시, L43 미지 키 정책, L105는 블록 레벨 보존 키가 \"미등재 시 D5 미지 키 정책이 4xx로 막아\"라고 명시 — 정책이 블록 레벨에서 작동함을 스펙이 전제. (4) tsx 실행 재현: 블록 PO `anthropic.cacheContro1`(오타, allowUnknown 미설정, 타깃 anthropic) → throw 없음, warnings [], wire body에 cache_control 부재(캐시 브레이크포인트 무신호 소실); 툴 PO `cache_controll` → 동일하게 무신호; 대조군 envelope 동일 오타 → AdapterInvalidRequestError \"알 수 없는 키: cacheContro1\" 4xx. (5) retarget.ts:164-172의 cache-breakpoint-ignored는 targetProvider !== \"anthropic\"일 때 + 정확 키(cacheControl/cache_control)에만 발화하므로 시나리오의 어떤 경로에서도 신호가 나오지 않음."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/openai-compat/response.ts",
+    "line": 23,
+    "summary": "appendix-a §0-2·§5(\"origin.provider가 인바운드 포맷 소유 프로바이더와 같으면 finishReason.raw·usage.raw 우선 복원 — 무손실\")가 openai-compat에서 미구현: toChatUsage/toChatFinishReason은 origin을 받지도 않고 항상 정규화 평면값으로 합성한다. anthropic-compat(toMessagesUsage/toMessagesStopReason)는 같은 규칙을 구현하고 있어 두 compat 경로가 동일 규범을 다르게 처리하는 내부 모순.",
+    "scenario": "openai 모델(CC 표면, 예: 오디오 모델)을 openai-compat로 호출 → 원문 usage의 completion_tokens_details.audio_tokens·accepted_prediction_tokens 등 정규화 밖 필드가 합성 usage에서 증발 → CC 호환 SDK로 로컬 과금 집계하는 소비자의 오디오 토큰 회계가 0이 된다. finish_reason도 원문(raw) 대신 unified 역매핑값만 노출.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "스펙 규범: appendix-a-compat-inbound.md:10 (§0-2 \"origin.provider가 인바운드 포맷의 소유 프로바이더와 같으면 raw 값(finishReason.raw, usage.raw)을 우선 복원\") 및 :127 (§5 표 각주 \"origin 일치 시 usage.raw를 우선 복원 (무손실)\") — 두 compat 포맷 공통 원칙이며 §8(구현 범위 밖, :178-183)에 openai-compat 면제 기록 없음. 미구현 증거: src/inbound/openai-compat/response.ts:11 `toChatFinishReason(fr: FinishReason)` 및 :23 `toChatUsage(usage: Usage)` — origin 매개변수 자체가 없고 :24-30에서 항상 평면 5필드 합성. 호출자(src/server/app.ts:739, src/inbound/openai-compat/stream.ts:141)도 보완 없음. 비-strict gateway 확장(response.ts:64-69)은 ir/origin/warnings/providerMetadata만 싣고 usage.raw는 미포함 — 어느 모드에서도 raw 도달 불가. 대조 구현: src/inbound/anthropic-compat/response.ts:12-13 (originIsAnthropic이면 fr.raw 그대로), :24-38 (usage.raw 원문/스트림 병합 복원) + 테스트 src/inbound/compat.test.ts:431 (G3) — openai-compat 측 동등 테스트 부재. 트리거 데이터 실재: src/adapters/openai/errors.ts:48 `raw: w as JSONValue` — OpenAIWireUsage의 `[k: string]: unknown` 캐치올(errors.ts:16-26)로 completion_tokens_details.audio_tokens·accepted_prediction_tokens 등이 IR usage.raw에 실려 오지만 compat 출구에서 소실. 단 참작 사항: openai origin이 Responses 표면 경유면 raw가 Responses 형태(input_tokens 계열)라 CC usage에 원형 복원 시 형태 처리 필요 — 구현 유예의 개연적 사유이나 스펙·problem-log 어디에도 그 결정이 기록되지 않아 내부 모순(스펙 위반 + 두 compat 경로 비대칭)은 성립."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/anthropic-compat/stream.ts",
+    "line": 144,
+    "summary": "anthropic-compat 스트림 응답에는 gateway.origin이 어디에도 실리지 않는다(finish의 message_delta.gateway에 finish_reason_raw·warnings만) — 비스트림 응답은 gateway:{origin}을 부가하는데(appendix-a §2.2, ADR-0002 표면 sticky·§13.4-2 복원 1순위의 근거) 스트림 턴은 그 계약이 성립 불가. 같은 응답이 스트림 여부에 따라 왕복 보장이 달라지는 내부 모순.",
+    "scenario": "클라이언트가 anthropic-compat 스트리밍으로 gpt 모델 호출(크로스 — compat 인바운드의 존재 이유) → 어시스턴트 턴의 reasoning은 signature 없는 thinking 블록으로 내려오고 origin은 어떤 프레임에도 없음 → 히스토리 재전송 시 Message.origin 부재 → §13.4-3 안전측 판정으로 reasoning 드롭·표면 sticky 실패 → OpenAI encrypted reasoning 연속성이 스트림 경로에서만 붕괴(비스트림이면 gateway.origin으로 성립).",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "스트림 경로에 origin 부재 확정: src/inbound/anthropic-compat/stream.ts:153-156 (finish gateway는 finish_reason_raw·warnings만), message_start(50-59행)에도 gateway 없음, server/app.ts 스트림 라우트에 origin 주입 0건. 비스트림은 부가: response.ts:132-134 (gateway[\"origin\"] = origin). 복원은 이 값에 전적으로 의존: request.ts:154-159 (assistant 메시지 gateway.origin에서만 Message.origin 복원 — 스트리밍 클라이언트는 받은 적 없어 구조적 불가). 결과 체인 실재: registry.ts:219-226 previousSurface가 msg.origin/block.origin으로 표면 sticky 판별 → 실패; stream.ts:81이 anthropic 산 서명만 방출해 크로스 reasoning은 무서명 → openai/responses/request.ts:146-177 외래 정책(기본 \"drop\", 308행)으로 드롭. 스트림 고유 한계 아님: openai-compat는 [DONE] 직전 전용 gateway chunk로 해결(openai-compat/stream.ts:146-153, appendix-a §2.1). ir-v0 §13.4-1은 스트림 구분 없이 gateway:{origin} 부가를 규범으로 명시하나 appendix-a §6.2 스트림 표·§2.2 스트림 조항에 origin 좌석 없음 — 스펙·코드 동반 결함. 테스트 방어 없음(compat.test.ts 스트림 테스트 origin 미검증, cross-roundtrip.test.ts:107/184/203 스트림 픽스처 skip). 단 시나리오 말미 \"비스트림이면 성립\"은 encrypted reasoning에 한해 과장 — opaqueState는 비스트림도 드롭되고(response.ts:88) openai 복원 키는 block.opaqueState(responses/request.ts:137-138)라 양 경로 모두 붕괴. 스트림이 추가로 잃는 것은 origin 기반 표면 sticky와 §13.4-3 판정 근거이며, 핵심 비대칭·계약 위반은 성립."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/anthropic/options.ts",
+    "line": 8,
+    "summary": "KnownOptionsSchema에 container가 없어 §14가 규정한 요청 방향 PO 경로(providerOptions.anthropic.container)가 기본 설정에서 4xx로 거부됨 — G1 왕복 불변식(§2: PM 방출 키는 요청측 PO 스키마가 수용) 위반이며, gateway/retarget.ts:15의 SERVER_STATE_KEYS는 anthropic.container를 정식 PO 키로 취급(동일 타깃이면 보존)해 게이트웨이 코어와 어댑터가 서로 모순",
+    "scenario": "턴1 코드실행 응답이 providerMetadata.anthropic.container를 반환 → 클라이언트가 §14대로 턴2에 providerOptions.anthropic.container로 되보냄(타깃 anthropic, retarget 패스는 이 키를 그대로 통과시킴) → parseAnthropicRequestOptions가 \"알 수 없는 키: container\" 400. allowUnknownProviderOptions 옵트인 시에도 응답 원문 객체({id, expires_at})가 body.container로 그대로 병합되어 문자열 id를 기대하는 wire와 형태 불일치 — 샌드박스 재사용 계약이 양쪽 경로 모두 성립하지 않음",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "options.ts:8-12(KnownOptionsSchema에 container 부재) + request.ts:442 → shared.ts:67-73(allowUnknown=false 시 throw, shared.ts:24 httpStatus 400)로 기본 설정 400 확정. 스펙은 PO 경로를 규정: ir-v0.md:527(§14 \"요청 방향 container는 compat passthroughParams 또는 PO\"), :503(§13.3 서버 상태 참조 PO로 anthropic.container 명시), :45(§2 G1 \"PM 방출 모든 키는 요청측 PO 스키마가 수용\"), :105(\"미등재 키는 D5가 4xx로 막아 G1이 깨진다\"고 실패 모드 자체를 명문화). PM 방출 실재: response.ts:171-172·stream.ts:339-341(container 객체 {id,expires_at}, response.ts:17). 코어 모순: retarget.ts:14-15 SERVER_STATE_KEYS anthropic:[\"container\"], :31-33 동일 타깃이면 무변경 통과 — 코어는 정식 PO 키로 보존, 어댑터는 400. 옵트인 시에도 request.ts:446 mergeExternal이 PM 원문 객체를 body.container로 그대로 병합(RESERVED_BODY_KEYS 미포함), 요청 wire 정형은 문자열 id(compat.test.ts:327·346 문자열 왕복 단언, resources.ts:28-30 객체에서 id 추출) — 형태 불일치. 반증 실패: inbound compat 경로(passthroughParams)는 §14의 \"또는 PO\" 절반을 커버 못 하고, resources.ts:18 주석(\"PO가 아니라 passthrough/compat\")은 스펙·retarget.ts와 정면 모순(CLAUDE.md: 문서 우선)."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/anthropic/request.ts",
+    "line": 202,
+    "summary": "히스토리 text 블록의 citations를 warning 없이 조용히 드롭 — 응답 방향(response.ts:73-81)은 citations를 IR로 보존하는데 요청 방향은 {type:'text', text}만 방출해 D5(조용한 드롭 금지)와 G1 왕복이 동시에 깨짐 (Anthropic wire는 요청 히스토리의 text 블록 citations를 수용함)",
+    "scenario": "citations enabled 문서로 턴1 응답(각 text 블록에 citations 부착) → responseToHistoryMessage로 히스토리 편입 → 턴2 transformRequest에서 citations가 전부 소실, warnings는 빈 배열. anthropic→anthropic 동일 타깃 왕복인데 바이트 복원 실패하고, 후속 턴에서 모델이 이전에 자신이 인용한 근거를 잃음. gemini 어댑터가 같은 상황(file title/context 등 좌석 없는 필드)에서 parameter-dropped warning을 내는 것과도 비대칭",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "드롭 지점: src/adapters/anthropic/request.ts:202 blockToWire text case가 `withCache({type:\"text\", text: block.text}, ...)`만 방출 — IR TextBlock의 citations(src/ir/blocks.ts:21, ir-v0 §4.8)를 소실하며 warnings push 없음(withCache는 request.ts:43-46, cache_control만 부가). 트리거 경로 실재: response.ts:73-81이 wire citations→IR 보존, history.ts:19-23 blockToHistory가 ...rest 스프레드로 citations 유지 → 턴2 transformRequest에서 무경고 소실. 방어 부재 입증: (a) 같은 함수의 인접 케이스는 전부 warning 동반 드롭(request.ts:183/193/236/243), source 블록만 스펙 명시 예외(request.ts:232, ir-v0 §4.6 — §4.8 citations엔 해당 예외 없음); (b) providerMetadata 복원 경로 없음(response.ts text case는 metadata 미부착); (c) 어댑터 자신의 known-fields.ts:20이 text wire 블록에 \"citations\"를 정식 키로 등재, inbound 재합성(src/inbound/anthropic-compat/response.ts:79)은 citations를 wire로 방출 — 요청 방향만 비대칭; (d) tests/에 citations 커버리지 전무(골든셋은 document citationsEnabled만, goldenset.request.test.ts:172-184). 부가로 inbound anthropic-compat/request.ts:47도 클라이언트 히스토리 text 블록 citations를 조용히 드롭해 어느 계층도 방어하지 않음. D5(무경고 드롭 금지) 및 G1(anthropic→anthropic 바이트 왕복) 동시 위반 확정."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/gemini/stream.ts",
+    "line": 90,
+    "summary": "서명 실린 thought part가 연속 도착하면 하나의 reasoning 블록에 opaqueState delta 2건으로 실려 소비자 last-wins로 앞 서명이 유실 — 같은 파일의 text part 경로(105행)는 정확히 이 유실을 막으려고 서명마다 블록을 닫는데(스트림 테스트 106행이 이를 고정) thought 경로만 미적용, 비스트림(partToBlock: part당 1블록·서명별 보존)과도 IR이 달라짐",
+    "scenario": "청크1 parts=[{text:'t1',thought:true,thoughtSignature:'S1'}], 청크2 parts=[{text:'t2',thought:true,thoughtSignature:'S2'}] → 스트림은 reasoning 블록 1개에 S1·S2 delta 연속 방출 → openai-compat 누적기(inbound/openai-compat/stream.ts:77 b.opaqueState=event.opaqueState)가 S2만 보존 → 히스토리 재전송 시 thought part 1개(S2)만 복원되어 S1 소실. 동일 응답의 비스트림 변환은 서명 2개가 각각 보존된 블록 2개 — 같은 wire 바이트가 경로에 따라 다른 IR",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "stream.ts:83-92 — 서명 실린 thought part는 reasoning-delta.opaqueState만 방출하고 블록을 닫지 않아(83행 가드가 열린 reasoning 블록 재사용) 연속 서명이 한 블록에 delta 2건으로 실림. 대조: 같은 파일 text 경로는 stream.ts:104-107에서 \"즉시 닫아 서명별 1블록 보장 (병합 last-wins 유실 방지)\" 주석과 함께 서명마다 블록을 닫고, stream.test.ts:106-114가 두 text-end(S1, S2) 분리를 고정 — thought 경로만 미적용이며 파일 헤더(19-20행)의 \"비스트림 part당 1블록과 대칭\" 주장을 스스로 위반. 유실은 구조적: ir/blocks.ts:12에서 블록의 opaqueState는 단일 슬롯이라 어떤 누적기도 서명 2개를 못 담고, inbound/openai-compat/stream.ts:78 `b.opaqueState = event.opaqueState`가 last-wins로 S1을 덮어씀. 비스트림은 response.ts:42-47(partToBlock)이 thought part당 reasoning 블록 1개 + 각자 서명을 만들고 218-227행에 병합 없음 — 동일 wire가 경로별로 다른 IR. ir-v0.md:497·499는 Gemini 3 서명 재전송을 왕복 필수로 규정하므로 서명 유실은 실손상."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/anthropic/response.ts",
+    "line": 168,
+    "summary": "wire의 stop_sequence(발동한 정지 시퀀스 값)를 IR 어디에도 싣지 않고 무보고 드롭 — known-fields.ts는 인지 필드로 등재(8행·48행)했지만 transformResponse·stream(message_delta.delta) 모두 stop_reason만 읽어, anthropic-compat 다운컨버트가 stop_sequence를 null로 하드코딩(inbound/anthropic-compat/response.ts:148, stream.ts:147)할 수밖에 없음",
+    "scenario": "클라이언트가 stop_sequences:['END']로 요청, 모델이 stop_reason:'stop_sequence', stop_sequence:'END'로 종료 → 게이트웨이 경유 anthropic-compat 프록시 응답은 stop_reason은 보존하지만 stop_sequence:null → 어떤 시퀀스가 발동했는지 분기하는 기존 Messages API 클라이언트가 오동작. 순수 프록시 경로의 필드 충실도 손상이며 warning도 PM 보존도 없음(D5)",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "src/adapters/anthropic/response.ts:11-18 WireResponseSchema에 stop_sequence 필드 부재, transformResponse(165-174)는 finishReason=mapStopReason(wire.stop_reason)·usage·container PM만 구성 — 발동 시퀀스 값은 IR 어디에도 실리지 않고 warning도 없음. src/ir/finish.ts의 FinishReasonSchema는 strictObject({unified, raw:string})라 raw에는 \"stop_sequence\" 문자열만 담김. 스트림도 동일: src/adapters/anthropic/stream.ts:315-316이 delta[\"stop_reason\"]만 읽고 delta[\"stop_sequence\"]는 미독. 그 결과 다운컨버트가 하드코딩 강제됨: src/inbound/anthropic-compat/response.ts:148 `stop_sequence: null`, stream.ts:147 `delta: { stop_reason, stop_sequence: null }` — response.ts:13이 stop_reason raw(\"stop_sequence\")는 보존하므로 시나리오 그대로 stop_reason은 살고 값만 null. known-fields.ts:8,48은 stop_sequence를 인지 필드로 등재해 드리프트 감지도 침묵. 방어 부재 확인: 픽스처 전부 stop_sequence:null(발동 케이스 골든 없음), problem-log·ADR에 의도적 드롭 기록 없음, 오히려 ir-v0.md:375는 자매 필드 stop_details를 PM으로 지시. 트리거는 appendix-a:73의 stop_sequences 표준 매핑으로 게이트웨이 경유 재현 가능 — D5(조용한 변조 금지) 위반 성립."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/anthropic/response.ts",
+    "line": 121,
+    "summary": "*_tool_result 수납 시 tool_use_id·content만 보존해 mcp_tool_result의 is_error가 유실 — G1 왕복 복원(request.ts:112-114)도 {type, tool_use_id, content}만 재조립해 실패한 서버 툴 결과가 성공으로 둔갑 (known-fields.ts:30은 is_error를 인지 필드로 등재)",
+    "scenario": "MCP 서버 툴 호출이 실패해 응답에 {type:'mcp_tool_result', tool_use_id, is_error:true, content:[...]}가 옴 → IR toolResult.output.json에는 content만 저장 → 히스토리 재전송 시 is_error 없는 mcp_tool_result로 복원 → 모델이 실패한 호출을 성공으로 간주하고 후속 추론이 오염. 드롭 warning도 없어 D5 위반",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "드롭 지점 실재: src/adapters/anthropic/response.ts:120-128의 *_tool_result 분기가 `output: { type: \"json\", value: raw[\"content\"] }`로 content만 수납하고 raw[\"is_error\"]를 무시하며, 이 분기에서 warning을 push하지 않음(131행 warning은 미지 타입 전용) — D5 위반 성립. 왕복 복원도 양쪽 모두 유실: (1) adapters/anthropic/request.ts:112-114가 `{ type: wireType, tool_use_id, content }`만 재조립하고 조기 return하여 164행의 `if (isError) wire[\"is_error\"] = true`(비-providerExecuted 클라이언트 tool_result 전용)에 도달 불가, (2) 인바운드 응답 합성 inbound/anthropic-compat/response.ts:108-115도 동일하게 is_error 없이 방출하므로 클라이언트조차 실패 표지를 받지 못함. 방어 부재 확인: IR에는 errorJson/errorText가 존재하고(docs/specs/ir-v0.md:133-134) 클라이언트 tool_result 경로는 이를 사용하지만(request.ts:150-164, inbound/anthropic-compat/request.ts:91) 서버 툴 결과 분기는 미사용. known-fields.ts:30이 is_error를 '인지' 필드로 등재해 드리프트 감지도 침묵. 테스트는 web_search_tool_result(is_error 없음)만 커버(response.test.ts:67, request.test.ts:119-133). 유일한 보존 경로는 클라이언트 원문 히스토리의 inbound passthrough(inbound/anthropic-compat/request.ts:114-116)뿐이며, 게이트웨이가 직접 변환한 라이브 응답에는 적용되지 않음."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/anthropic/stream.ts",
+    "line": 350,
+    "summary": "in-stream error·절단(onStreamEnd) 터미널에서 열린 블록을 닫지 않음 — gemini 어댑터는 동일 상황에서 closeOpen으로 text-end/reasoning-end를 방출(gemini/stream.ts:232·334)해, 같은 계약(터미널 보장)을 두 어댑터가 다르게 처리",
+    "scenario": "anthropic 스트림이 text-delta 도중 overloaded error 이벤트 수신 → provider-error 직전 text-end 없음 → *-end 이벤트로 블록을 확정하는 소비자(부분 콘텐츠 플러시·서명 부착 로직)가 anthropic에서만 부분 텍스트를 유실하고 gemini에서는 보존 — 프로바이더 교체 시 관측 동작이 달라짐",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "anthropic/stream.ts:347-359(error 케이스)·368-379(onStreamEnd)는 blocks 맵을 닫지 않고 provider-error만 방출 — closeOpen 상당 코드 부재. 반면 gemini/stream.ts:61(closeOpen 정의, 65/70에서 text-end/reasoning-end 방출)을 232(in-stream error)·321/334(onStreamEnd)에서 호출. 하류 방어 없음: gateway/execute.ts:423-429(finalizeDraft)는 provider-error를 error-partial/final로 그대로 매핑, inbound/anthropic-compat/stream.ts:66·87은 *-end에서만 content_block_stop 방출하고 error-final(163-164)은 에러 프레임만 — gemini origin은 에러 전 content_block_stop이 나가고 anthropic origin은 안 나가, 프로바이더별 wire 관측 동작이 실제로 다름. 단 ir-v0 §10은 터미널 전 블록 닫기를 명시 요구하지 않고, openai/chat/stream.ts:118·226도 anthropic과 동일하게 닫지 않음(gemini가 outlier) — 스펙 위반이 아닌 어댑터 간 정합성 결함이며, 발견이 주장한 anthropic-gemini 발산 메커니즘과 트리거는 코드로 전부 입증됨."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/anthropic/request.ts",
+    "line": 100,
+    "summary": "이미지 file 블록(isImage)의 title·context·citationsEnabled·filename을 warning 없이 조용히 드롭 — 문서 경로는 세 필드를 wire에 싣고, gemini 어댑터는 같은 개념(좌석 없는 문서 메타)을 필드별 parameter-dropped warning으로 보고(gemini/request.ts:94-100)하는 것과 비대칭 (D5)",
+    "scenario": "mediaType 'image/png'에 title을 채운 file 블록으로 요청 → wire image 블록에는 title이 없고 warnings도 빈 배열 → 클라이언트는 메타가 전달됐다고 오인. 같은 IR을 gemini 타깃으로 보내면 드롭 warning이 오는데 anthropic 타깃은 침묵 — 동일 개념의 프로바이더별 상이 처리",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "src/adapters/anthropic/request.ts:100 — `if (isImage) return withCache({ type: \"image\", source }, block.providerOptions);`가 title·context·citationsEnabled·filename을 실지 않고 즉시 반환하며, fileToWire(74행)는 warnings/ConvertCtx를 아예 인자로 받지 않아 구조적으로 warning을 만들 수 없음. IR은 이 필드들을 mediaType과 무관하게 허용(src/ir/blocks.ts:64-72 FileBlockSchema — image/png + title이 zod 통과)하고, 상류에 이를 걸러내는 정규화 패스 없음(전 소스 grep으로 확인). 동일 개념을 gemini는 필드별 parameter-dropped warning으로 보고(src/adapters/gemini/request.ts:93-100, 주석 \"조용한 유실 금지 (D5)\"). D5·표준 코드 parameter-dropped는 스펙 명시(docs/specs/ir-v0.md:232, CLAUDE.md \"드롭/클램프/강등은 반드시 warning\"). 부수 확인: anthropic 문서 경로(101-104행)도 filename은 조용히 드롭 — 같은 결함 클래스. 트리거: image/png file 블록에 title 설정 → wire image 블록에 메타 없음 + warnings 빈 배열."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/anthropic/known-fields.ts",
+    "line": 47,
+    "summary": "MESSAGE_DELTA_KEYS·MESSAGE_DELTA_DELTA_KEYS에 container가 없어, stream.ts:317이 '실관측 2경로'라며 소비하는 message_delta의 container(top-level·delta 양쪽)를 신선도 장치가 미지 필드로 오탐 — 어댑터가 아는 필드를 드리프트로 보고하는 자기모순",
+    "scenario": "코드 실행 턴의 실 SSE를 재녹화하면 message_delta에 container가 실려 옴(stream.ts 주석의 실관측 근거) → unknownStreamFields가 'message_delta.container'를 드리프트 경고로 승격 → 이미 처리 중인 필드에 대한 거짓 경보로 드리프트 게이트 신뢰도 저하",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "known-fields.ts:47-48의 MESSAGE_DELTA_KEYS([\"type\",\"delta\",\"usage\",\"context_management\"])와 MESSAGE_DELTA_DELTA_KEYS([\"stop_reason\",\"stop_sequence\",\"stop_details\"]) 양쪽에 \"container\" 부재. known-fields.ts:120-121이 이 목록으로 message_delta의 top-level·delta를 스캔하므로 container 등장 시 \"message_delta.container\"/\"message_delta.delta.container\"를 미지 필드로 보고. 그러나 stream.ts:317-318은 `json[\"container\"] ?? delta[\"container\"]`로 정확히 그 2경로를 소비하며, 주석 \"실관측 2경로 (리뷰 G1)\"과 docs/problems/problem-log.md:131(\"top-level·message_delta.delta 실관측 2경로\")이 실 API가 이 필드를 보냄을 실측으로 입증 — 트리거 실재. tools/capture/capture.ts:184가 unknownStream 결과를 재녹화 경고로 승격하므로 어댑터가 소비 중인 필드가 드리프트 거짓 경보로 나감. known-fields.ts:5의 자체 규약(\"어댑터가 인지하는 필드 집합 — 소비 여부와 별개\")에도 위배. 억제 장치·테스트 커버 없음(known-fields.test.ts에 해당 케이스 부재). 현재 픽스처에는 container 프레임이 없어 미발화 상태라는 점만이 low 심각도를 뒷받침."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/openai/chat/response.ts",
+    "line": 39,
+    "summary": "CC url_citation 언랩이 type 필드를 잃어 URL 인용이 빈 file 인용으로 조용히 변조됨",
+    "scenario": "OpenAI CC(web_search_options) 비스트림 응답의 annotations는 중첩형 {type:\"url_citation\", url_citation:{url,title,start_index,end_index}}인데, 코드가 내부 객체(url_citation)만 mapAnnotation에 넘긴다. 내부 객체엔 type이 없어 mapAnnotation의 url_citation 분기를 통과하지 못하고 file 분기로 떨어져 Citation.source가 {type:\"file\"}(fileId·title 없음)이 된다 — url·title이 warning 없이 소실(D5 위반). responses 표면의 평면형 annotation 테스트만 있고 CC 중첩형 테스트는 없어 미검출 상태.",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "src/adapters/openai/chat/response.ts:39 passes the inner url_citation object (no type field) to mapAnnotation; src/adapters/openai/responses/response.ts:50,60,68 branches on raw[\"type\"] and falls through to the file branch when type is absent. Empirical repro with tsx against the real transformResponse: CC nested annotation {type:\"url_citation\",url_citation:{url:\"https://example.com/a\",title:\"Example A\",start_index:0,end_index:10}} produced citation {\"source\":{\"type\":\"file\"},\"location\":{\"type\":\"outputRange\",\"start\":0,\"end\":10}} with warnings:[] — url/title silently lost, no D5 warning. Test gap confirmed: only flat responses-surface annotation test exists (src/adapters/openai/responses/response.test.ts:61); no chat/response.test.ts and no CC nested-annotation fixture anywhere in the repo."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/openai/responses/request.ts",
+    "line": 137,
+    "summary": "reasoning item 원문 복원이 opaqueState 존재에 게이트되어 store:true 멀티턴에서 보존된 item이 외래로 강등·드롭됨",
+    "scenario": "providerOptions.openai.store=true면 include에 reasoning.encrypted_content가 추가되지 않아(476행 store===false 조건) 응답 reasoning item에 encrypted_content가 없고 opaqueState도 안 생긴다(PM openai.item은 보존됨). 다음 턴 재전송 시 137행 `item && block.opaqueState?.provider===\"openai\"` 게이트가 실패해 자기(openai) reasoning이 '외래 reasoning' retarget 경로로 빠져 드롭/강등된다 — ir-v0 §4.2 '보존된 원문 구조 우선 복원' 위반. reasoning 모델 + 툴콜 히스토리 재전송이면 function_call item만 남아 OpenAI가 400(reasoning item 누락)으로 거부. 같은 파일 221행 toolCall은 origin.provider로 게이트해 두 경로가 같은 개념을 다르게 처리하는 내부 모순.",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "트리거·결함·스펙위반 전부 코드로 입증. (1) src/adapters/openai/responses/request.ts:476 `if (body[\"store\"] === false) include.add(\"reasoning.encrypted_content\")` — store:true면 include 미추가 → 응답에 encrypted_content 없음. (2) src/adapters/openai/responses/response.ts:162-163 — opaqueState는 `...(encrypted ? {opaqueState:...} : {})`로 encrypted_content 있을 때만 부착, `providerMetadata.openai.item`은 항상 보존, origin은 response.ts:261,268에서 모든 블록에 {provider:\"openai\"} 스탬프. 즉 store:true 반환 reasoning 블록 = item 보존 + origin=openai + opaqueState 없음. (3) request.ts:136-137 `if (item && block.opaqueState?.provider === \"openai\") return item;` — opaqueState 부재로 게이트 실패, 138행도 실패, 147행 retarget switch로 낙하. 기본값은 request.ts:308 `req.retarget?.reasoning ?? \"drop\"` → 자기 reasoning이 \"외래 reasoning 블록 드롭\" 경고와 함께 드롭. (4) 내부 모순 실재: request.ts:220-221 toolCall은 `preserved && block.origin?.provider === \"openai\"`로 origin 게이트. (5) 스펙 위반: docs/specs/ir-v0.md §4.2 \"동일 타깃(OpenAI) 재전송 시 보존된 원문 구조를 우선 복원\", §13.3 표 \"reasoning + opaqueState | origin==타깃: 복원\" — 복원 기준은 origin이지 opaqueState 존재가 아님. 방어 부재: goldenset.request.test.ts:132,271은 opaqueState 있는 경로만, 161은 외래(anthropic)만 테스트 — item-보존·opaqueState-부재 케이스 테스트 없음. 부수 확인: index.ts:56 표면 강제도 opaqueState 게이트라 store:true 히스토리는 Responses 강제도 실패. OpenAI 400(function_call만 남은 히스토리 거부)만 외부 API 거동이라 코드로 직접 입증 불가하나, 게이트웨이 자체의 보존-item 드롭/강등은 그와 무관하게 확정."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/xai/index.ts",
+    "line": 44,
+    "summary": "xGrokConvId(오버라이드 #7)가 base PO 스키마에 없어 기본 4xx, opt-in 시엔 wire body로 누출됨",
+    "scenario": "providerOptions.xai.xGrokConvId는 remap으로 openai 네임스페이스로 이동하는데 KnownOptionsSchema에 미등재라 (1) allowUnknownProviderOptions 없으면 partitionProviderOptions가 400을 던져(메시지도 'providerOptions.openai...'로 오표기) 문서화된 기능이 아예 사용 불가, (2) opt-in이면 extra로 분류되어 chat/request.ts 364행·responses/request.ts 537행 extra 병합으로 body에 \"xGrokConvId\":\"conv_1\"이 실려 나간다 — xAI는 미지 파라미터를 400으로 거부(B2-7, 어댑터 자체 주석). 헤더 x-grok-conv-id는 설정되지만 요청 자체가 실패/오염. goldenset 테스트(54-61행)는 allowUnknown:true로 돌리고 body 부재를 검증하지 않아 이 결함을 가리고 있음.",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "실행 검증으로 양 분기 모두 입증. (1) 기본 경로 400: remap.ts:111(requestToBase)이 providerOptions.xai를 openai 네임스페이스로 이동 → openai/chat/request.ts:109·responses/request.ts:309이 parseOpenAIRequestOptions 호출 → openai/options.ts:11-58 KnownOptionsSchema에 xGrokConvId 미등재 → shared.ts:69-73이 AdapterInvalidRequestError(httpStatus 400) throw. 실행 결과: \"providerOptions.openai에 알 수 없는 키: xGrokConvId\" — throw 경로는 relabelWarning(remap.ts:133)을 거치지 않아 'openai'로 오표기됨(xai/index.ts:64-65 postprocess는 catch 없음). 이 옵션은 문서화된 기능(docs/guides/native-ir.md:261, src/server/docs.html:317)인데 기본값으로 사용 불가. (2) opt-in 시 body 누출: shared.ts:75-76이 extra로 통과 → chat/request.ts:364-369 루프·responses/request.ts:537 mergeExternal이 body에 병합, wire 스키마는 looseObject(chat/wire.ts:8, responses/wire.ts:9)라 통과. 실행 결과 chat·responses 양쪽 body[\"xGrokConvId\"]=\"conv_1\" 확인. XAI_REJECTED_CC_KEYS/RESPONSES_KEYS(xai/index.ts:25-26)에 xGrokConvId 없어 strip도 안 됨. 헤더 x-grok-conv-id는 설정되나(index.ts:44-45) body는 오염 — xAI의 미지 파라미터 400 거부는 어댑터 자체 근거(remap.ts:202 \"xAI는 미지원 파라미터를 무시가 아니라 400으로 거부 — B2-7\"; 단 index.ts:23-24 주석상 일부 키의 400 여부는 미재검증). (3) 테스트 은폐: goldenset.request.test.ts:54-61은 allowUnknownProviderOptions:true로 실행하며 headers[\"x-grok-conv-id\"]와 body[\"prompt_cache_key\"]만 단언, body[\"xGrokConvId\"] 부재는 미검증. 발견의 세부 중 유일한 정정: opt-in 경로의 warning path는 relabelWarning에 의해 \"providerOptions.xai.xGrokConvId\"로 올바르게 표기됨(오표기는 throw 경로에만 해당) — 결함 본체에는 영향 없음."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/openai/index.ts",
+    "line": 69,
+    "summary": "표면 선택자가 강등 가능한 파라미터(seed/penalties/stop, CC 전용 PO)를 required로 강제해 responses 전용 모델에서 하드 400 발생",
+    "scenario": "{model:\"gpt-5.6-pro\", seed:42} 요청: 선택자가 {surface:\"chat-completions\", required:true} 반환 → registry.selectSurface 273행에서 capabilities.surfaces=[\"responses\"]와 충돌해 400 throw. 그러나 responses/request.ts 396-407행이 바로 이 케이스(선택자가 CC로 못 보낸 seed/penalties/stop)를 드롭+warning으로 처리하도록 구현되어 있고, D5 기본 정책도 strictParameters 아닌 한 드롭+warning이다. 같은 presencePenalty가 gpt-5.6-luna에선 드롭+warning, gpt-5.6-pro에선 400 — capabilities.unsupportedParams(드롭 지시)와 선택자 required(하드 실패)가 같은 파라미터에 모순된 의미론을 부여.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "트리거와 잘못된 출력이 코드로 완결 입증됨. (1) 트리거: src/adapters/openai/index.ts:69-72 — `request.seed !== undefined || presencePenalty || frequencyPenalty || stopSequences` 시 `{surface: CHAT, required: true}` 반환. (2) 모델 상태: src/gateway/registry.ts:103-107 — `gpt-5.6-pro`는 `/^(gpt-5(\\.\\d+)?-pro|o\\d+-pro)/` 라우트에 매치, `capabilities: { surfaces: [\"responses\"], ... }`. (3) 잘못된 출력: registry.ts:262에서 required 분기로 surface=\"chat-completions\" 확정 → registry.ts:271 `allowed=[\"responses\"]`에 미포함 → registry.ts:273-280 `choice?.required && !override`로 GatewayError 400 throw (\"모델 gpt-5.6-pro은 chat-completions 표면을 지원하지 않습니다\"). (4) 모순 입증: src/adapters/openai/responses/request.ts:395-407이 정확히 seed/presencePenalty/frequencyPenalty/stopSequences/topK를 dropUnsupportedParams로 처리하며 주석에 \"선택자가 CC로 못 보낸 경우 드롭+보고\"라고 명시 — 그러나 명시 오버라이드(providerOptions.openai.surface=\"responses\") 없이는 registry가 먼저 400을 던져 이 경로가 도달 불가. (5) 방어 부재: registry.ts:251-255가 선택자에 capabilities를 전달하지만 selectOpenAISurface(index.ts:39-82)는 이를 전혀 참조하지 않음. (6) 비대칭 실증: gpt-5.6-luna(surfaces 제한 없음, registry.ts:120-124)에서는 같은 presencePenalty가 CC로 전환 후 unsupportedParams 게이트(OPENAI_REASONING_REJECTS, registry.ts:87)로 드롭+warning 처리되는 반면 gpt-5.6-pro에서는 하드 400 — D5 기본 정책(CLAUDE.md: 드롭은 warning, strictParameters 아닌 한) 및 docs/plan/openai-adapter-gaps.md:35(\"CC 전용 파라미터는 drop + warning으로 처리\")와 상충. registry.test.ts:102-104의 4xx 테스트는 빌트인 툴(진짜 불가능 기능)만 커버하며 강등 가능 파라미터 케이스는 테스트 부재."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/openai/chat/stream.ts",
+    "line": 140,
+    "summary": "CC 스트림이 choices[].index를 무시해 n>1 시 두 후보의 delta가 한 text 블록에 무경고 혼합됨",
+    "scenario": "네이티브 IR의 passthroughParams {provider, params:{n:2}}는 RESERVED 충돌 검사를 통과해(body에 n 미조립) wire에 n=2로 나간다. 스트림 chunk는 choices:[{index:1, delta:...}] 형태로 오는데 코드는 항상 choices[0]을 취하고 index를 확인하지 않아 후보 0·1의 content delta가 모두 TEXT_ID 단일 블록에 교차 누적 — 두 답변이 섞인 텍스트가 warning 없이 방출된다(D5 위반). 비스트림 경로(chat/response.ts 98행)는 같은 응답을 choices[0]만 취하고 block-dropped warning을 내 스트림/비스트림이 G2 단일 후보 규칙을 다르게 집행.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "stream.ts:140 `const choice = (choices[0] ?? {})` — choice.index는 파일 어디서도 읽지 않음(176행 index는 tool_calls[].index 전용). n=2 시 index 0·1 청크의 delta.content가 모두 144-151행에서 단일 TEXT_ID에 누적되고, 200-207행 미지필드 루프는 delta 키만 순회하므로 choice 레벨 index에 warning 없음(D5 위반). 트리거 실재: 네이티브 라우트(server/app.ts:299)는 IRRequestSchema만 검증하고 passthroughParams.params는 임의 JSONObject(ir/request.ts:65-72) — compat 라우트의 n>1 4xx 방어(inbound/openai-compat/request.ts:126-128)가 네이티브에는 없음. 어댑터의 RESERVED 검사(chat/request.ts:378)는 body[k]!==undefined일 때만 throw하는데 body[\"n\"]은 어디서도 조립되지 않아 통과, wire 스키마도 n 허용(chat/wire.ts:24) → n=2가 wire로 나감. xAI는 CC가 기본 표면이며 동일 스트림 변환기 재사용(xai/index.ts:68,113). 비스트림은 choices>1에 block-dropped warning 후 choices[0]만 사용(chat/response.ts:98-101) — 스트림/비스트림 G2 집행 불일치도 사실."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/openai/responses/stream.ts",
+    "line": 343,
+    "summary": "response.cancelled 터미널 미처리 — 취소가 502 절단 오류(fallbackEligible)로 둔갑",
+    "scenario": "background:true(PO passthrough 지원)로 스트리밍 중 취소되면 errors.ts mapResponsesFinishReason은 status \"cancelled\"를 {unified:\"other\", raw:\"cancelled\"}로 매핑하지만, 스트림 터미널 switch는 completed/incomplete/failed/error만 안다. response.cancelled 이벤트는 default로 떨어져 '미지 이벤트' warning+passthrough 처리되고 terminalEmitted가 안 서서 onStreamEnd가 502 provider_error(\"종료 이벤트 없이 끊김\", fallbackEligible:true, billed:sawCreated)를 방출 — 의도적 취소가 폴백 재시도 대상 오류로 분류되어 재과금 위험. 비스트림과 스트림이 같은 상태(cancelled)를 정반대로 처리하는 내부 모순.",
+    "severity": "medium",
+    "verdict": "PLAUSIBLE",
+    "reason": "메커니즘은 코드로 실증됨: stream.ts:343-384 터미널 switch는 completed/incomplete/failed/error만 처리하고, \"response.cancelled\"는 PROGRESS_EVENT_RE(stream.ts:36-37, 툴콜 접두만) 불일치로 default(stream.ts:386-394)에서 warning+passthrough 처리되어 terminalEmitted가 서지 않으며, onStreamEnd(stream.ts:399-408)가 streamTruncationError(errors.ts:207-217: provider_error/502/fallbackEligible:true/billed:sawCreated)를 방출. 비스트림 비대칭도 실재: errors.ts:92가 status \"cancelled\"→{unified:\"other\", raw:\"cancelled\"}로 매핑되어 response.ts:288-289에서 정상 finish 처리. background:true 스트림도 request.ts:465-469에서 passthrough로 도달 가능. 그러나 트리거가 불확실: OpenAI가 SSE로 `response.cancelled` 이벤트를 실제 방출한다는 증거가 없다 — 프로젝트 자체 wire 인벤토리(docs/research/2026-08-20-openai-api.md §D ~58종)의 라이프사이클 목록은 created/queued/in_progress/completed/failed/incomplete + error뿐이고 cancelled 이벤트가 없으며, 픽스처·테스트·SDK 타입 어디에도 부재. 백그라운드 취소 시 스트림이 터미널 이벤트 없이 단순 종료된다면 502는 어차피 발생하지만 그 경우 원인은 '누락된 case'가 아니라 신호 부재이며 어댑터가 구분할 방법 자체가 없다. 취소 상태는 폴링(비스트림)으로 관측되고 그 경로는 이미 올바르게 처리됨."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/xai/remap.ts",
+    "line": 191,
+    "summary": "xai 응답 방향 리라벨 누락 2건 — provider-error.message의 'openai' 문구, synth toolCallId의 'synth:openai:' 접두",
+    "scenario": "(1) xai 스트림이 [DONE] 없이 끊기면 streamTruncationError 메시지 \"openai chat-completions 스트림이 종료 이벤트 없이 끊김\"이 그대로 나간다 — eventFromBase provider-error 분기는 error.provider.key만 xai로 바꾸고 message는 안 바꿔, warning에는 relabelWarning을 적용하면서 IRError.message는 방치하는 비대칭(조용한 오표기 방지라는 리맵 자체 목적 위반). (2) grok CC 스트림 툴콜에 id가 없으면 chat/stream.ts 184행이 \"synth:openai:{id}:{index}:{name}\"을 합성하는데 remapBlock은 toolCallId를 건드리지 않아 xai 히스토리에 openai 라벨의 영속 id가 남는다 — ir-v0 §13.2 형식 synth:{provider} 위반.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "(1) openai/errors.ts:211 message=\"openai ${surface} 스트림이 종료 이벤트 없이 끊김\"; chat/stream.ts:224-230이 finish_reason 부재 절단 시 provider-error로 방출; xai/remap.ts:191-196 provider-error 분기는 error.provider.key만 xai로 교체하고 message 방치 — 같은 파일 182-183(warning 분기)은 relabelWarning(133-140, replaceAll(\"openai\",\"xai\"))을 적용하는 비대칭이 실재. xai/errors.ts·타 계층에 메시지 정정 없음(grep 무적중). (2) openai/chat/stream.ts:184가 id 미발급 시 \"synth:openai:{reqId}:{index}:{name}\" 합성; xai/remap.ts:79-94 remapBlock은 toolCallId를 건드리지 않고 tool-input-start는 197-198 default로 통과 — docs/specs/ir-v0.md:490 §13.2의 synth:{provider} 형식 위반. 저장소 전체에 \"synth:xai\" 정정 코드 0건."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/adapters/openai/responses/stream.ts",
+    "line": 262,
+    "summary": "reasoning 텍스트 보정 가드가 죽은 코드 — added 후 delta 없이 done에만 summary가 오면 텍스트 소실",
+    "scenario": "output_item.added(reasoning)가 reasoningStarted=true를 항상 세팅하므로, 262행의 보정 조건 `!open?.reasoningStarted && text.length>0`은 added가 아예 없던 경우에만 참이 된다 — 주석이 말하는 '스트림 delta 미수신 시 완성 item 텍스트 보정'은 실제로는 발동 불가. added→(summary/reasoning_text delta 0건)→done(summary:[{text:\"...\"}]) 조합에서 스트림 reasoning 블록 텍스트는 \"\"가 되고(PM item에만 잔존), 같은 최종 body를 비스트림 transformResponse에 넣으면 reasoningItemText로 텍스트가 복원된다 — 동일 wire에 대한 스트림/비스트림 결과 불일치.",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "반증 실패 — 발견의 두 주장 모두 코드로 입증된다. (1) 가드 사멸: stream.ts:137-140에서 `output_item.added`(reasoning)가 무조건 `open.reasoningStarted = true`를 세팅하고 `items.set(itemId, open)`하므로, done 처리(stream.ts:248-253)에서 added가 선행된 item은 항상 `open.reasoningStarted === true`. 따라서 262행 `if (!open?.reasoningStarted && text.length > 0)`는 added가 있었던 흐름에서 절대 참이 될 수 없다. OpenItem(stream.ts:30)에는 'delta 수신 여부' 플래그가 아예 없어(reasoningStarted?만 존재) 260행 주석의 의도('스트림 delta 미수신이면 완성 item 텍스트를 delta로 보정')를 이 가드로는 구현 불가 — 가드는 added 자체가 없던(open undefined) 경우에만 발동한다. (2) 스트림/비스트림 불일치: added→delta 0건→done(summary:[{text}]) wire에서 스트림 출력은 reasoning-start(259행) + 텍스트 없는 metadata-only reasoning-delta(265-270행) + reasoning-end(271행)로 블록 텍스트가 \"\"가 되는 반면(원문은 PM item에만 잔존), 동일 완성 item을 비스트림 경로에 넣으면 response.ts:156-165가 reasoningItemText(response.ts:75-88, summary[].text 결합)로 텍스트를 복원 — 결정론적 분기 불일치. 방어 부재도 확인: stream.test.ts:47-67의 유일한 reasoning 테스트는 delta를 포함한 경로만 검증하고, 실녹화 픽스처(fixtures/openai/oai-reasoning-stream.gpt-5.6-luna.2026-08-21.chunks.txt)도 summary_text.delta 84건이 항상 동반되는 형태라 무-delta 케이스는 어디서도 커버되지 않는다. 실 OpenAI wire가 'done에만 summary 텍스트' 형태를 실제로 보내는지는 픽스처상 미관측이므로 실전 발현 가능성은 낮음(severity low 타당)이나, '보정 가드가 주석의 목적대로는 발동 불가능한 죽은 코드'라는 핵심 주장 자체는 무조건적으로 참이다."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/openai-compat/stream.ts",
+    "line": 147,
+    "summary": "CC 스트림의 finish gateway chunk에 origin이 없고, 델타로 조립한 text/reasoning 블록에도 origin이 부착되지 않는다 — 비스트림(toChatResponse는 gateway.origin + §4.0 블록 origin 포함)과 같은 개념을 다르게 처리하며, §13.4-1 'gateway.ir = origin 포함 블록 원문' 위반",
+    "scenario": "claude 모델을 /compat/openai 스트림으로 호출 → gateway chunk에 ir/warnings/providerMetadata만 실림 → 클라이언트가 히스토리 재전송 시 request.ts:157의 gw.origin이 undefined → Message.origin 소실 → §13.4-3 규칙대로 '항상 이식성 판단 진입': 표면 sticky(ADR-0002)와 origin 기반 raw 복원이 스트림 턴에서만 붕괴. 같은 요청을 비스트림으로 하면 정상 — 무손실 왕복 보장이 stream 플래그 하나로 갈라진다",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "CONFIRMED. (1) stream.ts:60,72,75 — 델타 조립 text/reasoning 블록은 origin 없이 생성되고 text-end(66-68)는 providerMetadata/opaqueState만 부착; finish gateway chunk(146-153)는 ir/finish_reason_raw/warnings/providerMetadata만 — origin 키 부재. (2) 비스트림은 response.ts:65-66이 gateway.ir+gateway.origin을 싣고 블록 origin도 어댑터가 항상 부착(anthropic/response.ts:158-159 \"§4.0 — 응답 블록에는 id·origin 항상 존재\") — 동일 개념의 스트림/비스트림 비대칭 실재. (3) appendix-a-compat-inbound.md:26이 스트림 전용 gateway chunk의 ir을 \"블록 원문 (origin·opaqueState·providerMetadata 포함)\"으로 규정 — 위반 확정. (4) 재전송 시 request.ts:156-161에서 gw.origin undefined → Message.origin 소실, registry.ts:218-227 previousSurface가 origin을 못 찾아 표면 sticky(ADR-0002) 붕괴, gemini/request.ts:180의 origin 게이트 원문 복원 실패, §13.4-3 이식성 판단 상시 진입. 스트림 이벤트 스키마(ir/stream.ts)에 text/reasoning origin 슬롯이 없고 response-metadata.model.resolved={provider,model,surface}가 가용한데도 미활용 — 방어 부재는 compat.test.ts에도 미검증. 단 두 가지 완화로 시나리오가 다소 과장됨: tool-call 등 완성본 블록은 event.block에 어댑터 origin이 실려(anthropic/stream.ts:307) 해당 블록 포함 턴은 블록 origin으로 sticky 부분 생존; anthropic reasoning 복원은 opaqueState 게이트(anthropic/request.ts:169)라 서명 복원은 생존(downconverter가 opaqueState 보존, stream.ts:68,78). 즉 \"raw 복원 붕괴\"는 google 등 origin 게이트 경로와 text/reasoning-only 턴에 한정 — 핵심 주장(§13.4-1 위반, origin 소실, stream 플래그로 갈라지는 왕복 보장)은 코드로 입증됨."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/anthropic-compat/stream.ts",
+    "line": 153,
+    "summary": "anthropic-compat 스트림은 gateway.origin을 어디에서도 방출하지 않는다(message_start에도, message_delta.gateway에도 없음) — 비스트림 toMessagesResponse(response.ts:134)는 부가하므로 두 경로 불일치, §2.2가 '비-anthropic origin reasoning 복원 판단의 근거'로 지정한 필드가 스트림에서 통째로 빠짐",
+    "scenario": "GPT를 /compat/anthropic 스트림으로 호출(compat 존재 이유인 크로스 경로) → 응답 thinking 블록엔 signature가 없고 gateway.origin도 수신 불가 → 클라이언트가 assistant 턴 재전송 시 request.ts:155-159의 origin 복원이 성립할 수 없음 → 크로스 턴의 표면 sticky·reasoning 이식성 판단이 스트림에서만 영구 불가. §13.4-3의 '확장 부재 시 보장 하락'이 strict 아닌 기본 모드에서 발생",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "stream.ts 전체에 origin 방출 없음: 유일한 gateway 객체는 finish의 stream.ts:153-156으로 finish_reason_raw·warnings만 담고, message_start(stream.ts:50-58)는 id/model/content/usage/container만 — line 43의 originProvider는 stop_reason/usage 판정(145,148)에만 쓰임. 외곽 주입도 없음(server/app.ts:800-815는 downconvert 프레임을 그대로 write). 반면 비스트림은 response.ts:133-134에서 gateway.origin 부가 → 두 경로 불일치 실재. 복원은 request.ts:155-159가 messages[].gateway.origin만 읽으므로 스트림 클라이언트는 성립 불가하고, 그 결과 registry.ts:218-227 previousSurface(표면 sticky)와 adapters/openai/responses/request.ts:221(block.origin?.provider===\"openai\" 조건의 원문 item 재전송)이 크로스 스트림 턴에서 무력화됨. stream.ts:81이 anthropic 산 서명만 signature_delta로 내보내므로 GPT 크로스 thinking은 서명도 origin도 없이 반환 — ir-v0 §13.4-3의 \"origin 없음 = 이식성 판단 진입\" 하락이 비-strict 기본 모드에서 발생. ir-v0 §13.4-1은 규범으로 compat 응답에 gateway:{origin} 부가를 스트림 예외 없이 요구하나 부록 (a) §2.2는 스트림 슬롯(container·warnings·usage)만 명시하고 origin 침묵 — 스펙 공백+코드 공백 동시. 테스트도 비스트림만 커버(compat.test.ts:251-265), 스트림 origin 테스트 부재. 어디에도 방어 없음."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/openai-compat/stream.ts",
+    "line": 66,
+    "summary": "CC 다운컨버터에 text-start 케이스가 없어 델타 0회 text 블록이 blocks 맵에 생성되지 않고, text-end의 opaqueState/providerMetadata(blocks.get(event.id)===undefined)가 조용히 유실된다 — Gemini '빈 text part + thoughtSignature' 패턴(ir/stream.ts:69 주석이 명시한 A-1 대응)이 gateway.ir에서 소멸",
+    "scenario": "Gemini 함수호출 턴을 /compat/openai 스트림으로: gemini/stream.ts:97-106이 빈 텍스트+서명 part에 대해 text-start → text-end(opaqueState:{provider:google})를 델타 없이 방출 → 다운컨버터가 블록을 만들지 않아 서명이 gateway.ir에 미포함 → 히스토리 재전송 후 Gemini 재타게팅 시 thoughtSignature 왕복 실패로 멀티턴 함수호출이 거부/열화. 비스트림 경로는 블록에 opaqueState가 남아 정상",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "CONFIRMED. (1) 트리거: gemini/stream.ts:97의 프루닝은 서명 없는 빈 text만 걸러냄 — 빈 text+thoughtSignature는 text-start(101) 방출, text-delta 없음(103은 length>0 가드), closeOpen(62-67)이 opaqueState 실린 text-end 방출. ir/stream.ts:68-69 주석이 이 A-1 패턴을 명시. (2) 결함: inbound/openai-compat/stream.ts 스위치에 text-start 케이스 부재(default: return [], 165-166행) — 블록은 text-delta(60행 acc)에서만 생성되므로 델타 0회 블록은 미생성. text-end(65-69행)의 blocks.get(event.id)===undefined → opaqueState/providerMetadata 무경고 유실, order 미등록으로 finish의 gateway.ir(144-153행)에서 블록 자체가 소멸. (3) 타 계층 방어 없음: src/gateway·stream·bridge에 text-start/text-end 처리 0건, app.ts:741이 어댑터 이벤트를 직결. 대조군: anthropic-compat/stream.ts:61은 text-start를 명시 처리. (4) 영향 실재: compat.test.ts:78-102가 gateway.ir을 opaqueState 포함 1순위 이력 복원 경로로 확인, gemini/request.ts:92·214·240이 block.opaqueState→thoughtSignature 재전송 — 더미 삽입(274-283행)은 functionCall part 한정이라 text part 서명 유실은 미보상. (5) 비스트림 정상 주장도 사실: gemini/response.ts:52. 테스트 공백: 델타 0회 text 블록을 다루는 다운컨버터 테스트 없음."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/anthropic-compat/request.ts",
+    "line": 121,
+    "summary": "contentToBlocks가 빈 문자열 content를 빈 text 블록 1개로 변환하고, system은 무조건 push(143-145행)라 §3.4('빈 문자열/빈 배열 content 메시지는 역할 무관 생략')를 위반 — openai-compat(request.ts:74-75)은 올바르게 생략해 두 포맷이 비대칭",
+    "scenario": "(a) {system:\"\"} 또는 messages content:\"\" → 빈 text 블록이 IR 통과 → anthropic 타깃 wire에 {type:\"text\",text:\"\"}가 실려 업스트림 400 (게이트웨이가 생략했어야 함). (b) system:[] → blocks가 []인 채 push → MessageSchema.blocks.min(1)에 걸려 게이트웨이 400 'IR 변환 실패' — §3.4가 명시적으로 금지한 '프로바이더는 수용하는데 게이트웨이만 거부' 비대칭. 테스트도 openai쪽(compat.test.ts:537)만 고정하고 anthropic쪽은 없음",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "스펙 규칙 실재+양표면 적용: appendix-a-compat-inbound.md:86-88 §3.4은 '## 3. 요청 방향 매핑표'(3.1 openai + 3.2 anthropic 공통) 하위에 \"역할과 무관하게 메시지 자체를 생략\"과 \"게이트웨이만 거부하는 비대칭\" 금지를 명시. (a) src/inbound/anthropic-compat/request.ts:121 `if (typeof content === \"string\") return [{ type: \"text\", text: content }]`는 빈 문자열 가드 없음(openai-compat/request.ts:74-75는 `content.length > 0 ? [...] : []`로 생략), 143-145행 system 무조건 push → 빈 text 블록 1개는 min(1) 통과 → 아웃바운드 src/adapters/anthropic/request.ts:201-202 `case \"text\": return withCache({type:\"text\", text: block.text},...)`가 필터 없이 wire로 방출, 337행 `if (system.length > 0) body[\"system\"] = system`으로 실림 — 방어선 없음. messages content:\"\"도 블록 1개라 152행 `blocks.length === 0` 가드 미발동. (b) system:[] → contentToBlocks가 [] 반환(123행) → blocks:[] push → src/ir/message.ts:29 `blocks: z.array(BlockSchema).min(1)` 실패 → request.ts:241-243에서 400 'IR 변환 실패' — 저장소 내에서 결정론적으로 재현되는 게이트웨이 단독 거부. 테스트 비대칭도 사실: src/inbound/compat.test.ts:537-543은 compatChatToIR(openai)만 검증, compatMessagesToIR 빈 content 테스트 부재. problem-log.md:255가 이 규칙이 openai쪽 동일 버그 수정으로 규범화됐음을 기록 — anthropic-compat만 미적용 상태."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/openai-compat/stream.ts",
+    "line": 144,
+    "summary": "strict 모드에서 finish_reason_raw 처리가 3개 경로에서 서로 모순: CC 비스트림은 strict 가드 밖에서 병기(response.ts:71), CC 스트림은 gateway chunk 전체가 !strict 안이라 raw 전멸, anthropic-compat 스트림(stream.ts:154)은 strict에서도 병기 — §4.1 'paused/tool_error → raw 병기 (ir-v0 §9 명시)'를 CC 스트림만 위반",
+    "scenario": "x-gateway-compat: strict + 업스트림 tool_error 종료: 비스트림 응답은 gateway.finish_reason_raw로 원인 식별 가능하지만, 동일 요청의 스트림은 finish_reason:\"stop\"만 방출하고 raw가 어디에도 없음 → 툴 실행 오류가 정상 종료로 위장(D5 조용한 변조). paused의 경우 비표준 값 \"paused\"만 오고 설명 raw가 없어 §4.1의 병기 규범 위반",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "3개 경로의 모순이 코드로 입증됨. (1) CC 비스트림 src/inbound/openai-compat/response.ts:64-71 — !strict 가드가 70행에서 닫힌 뒤 71행 `if (raw !== undefined) gateway[\"finish_reason_raw\"] = raw;`가 무조건 실행 → strict에서도 raw 병기. (2) CC 스트림 src/inbound/openai-compat/stream.ts:144-154 — raw가 실릴 유일한 자리인 gateway chunk(146-153행 `...(raw ? { finish_reason_raw: raw } : {})`)가 통째로 `if (!strict)` 안 → strict에서 raw 전멸. tool_error는 toChatFinishReason default(response.ts:19)로 `{finish_reason:\"stop\", raw}`가 되고 stream.ts:140 `deltaChunk({}, finish_reason)`이 \"stop\"만 방출 — 툴 오류가 정상 종료로 위장(D5). paused는 비표준 값만 오고 raw 없음. (3) anthropic-compat 스트림 src/inbound/anthropic-compat/stream.ts:153-156 — 154행 raw는 무조건, 155행 warnings만 strict 게이트 → strict에서도 raw 병기 (비스트림 response.ts:138도 동일). 스펙 근거: appendix-a-compat-inbound.md §4.1(101-102행) paused/tool_error에 raw 병기 규범, ADR-0005-stream-contract.md §2 27행 \"다운컨버트 시 raw를 확장 필드에 병기\" — 4개 경로 중 3개가 raw-strict-생존을 구현해 CC 스트림만 이탈. 방어 부재: 유일한 strict 테스트(src/inbound/compat.test.ts:213)는 raw 없는 일반 stop 픽스처만 사용. 단서: appendix-a §2.1 29행 \"strict → gateway 확장 미부가\"와의 스펙 내부 긴장이 있어 어느 쪽이 정답인지는 문서 결정 필요하나, 동일 strict 요청에서 비스트림은 raw 보존·스트림은 소실이라는 모순 자체는 반박 불가."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/anthropic-compat/response.ts",
+    "line": 148,
+    "summary": "stop_sequence가 항상 null로 하드코딩(스트림 message_delta도 동일 — stream.ts:147)되어, raw 복원으로 stop_reason:\"stop_sequence\"를 내보내면서 짝 필드 stop_sequence는 null인 자기모순 wire를 생성 — 매치 문자열은 아웃바운드 어댑터(adapters/anthropic/response.ts transformResponse가 wire.stop_sequence 미수납)부터 유실되어 §0-2 'raw 우선 복원(stop_sequence 등 보존)' 약속이 반쪽",
+    "scenario": "anthropic origin + stop_sequences:[\"###\"] 요청, 모델이 \"###\"에서 정지 → 네이티브 응답은 {stop_reason:\"stop_sequence\", stop_sequence:\"###\"} 쌍 → compat 응답은 {stop_reason:\"stop_sequence\", stop_sequence:null} — 네이티브 API가 절대 내지 않는 조합. `if (msg.stop_reason===\"stop_sequence\") use(msg.stop_sequence)` 하는 표준 SDK 소비 코드가 null을 받아 오동작",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "전 체인 코드로 입증. (1) 유실 지점: src/adapters/anthropic/response.ts:11-18 WireResponseSchema에 stop_sequence 필드 자체가 없고 transformResponse는 finishReason: mapStopReason(wire.stop_reason)만 반환(±168행) — 매치 문자열 수납처 없음. 스트림도 동일: src/adapters/anthropic/stream.ts:316 message_delta에서 delta[\"stop_reason\"]만 읽고 delta[\"stop_sequence\"] 무시. known-fields.ts:8,48이 stop_sequence를 '기지 필드'로 등재해 드리프트 경고도 안 뜬 채 조용히 드롭(D5 위반 소지). (2) IR에 캐리어 없음: src/ir/finish.ts FinishReasonSchema={unified, raw}뿐 — raw는 \"stop_sequence\"라는 사유 라벨이지 매치 문자열이 아님. (3) 자기모순 wire 생성: src/inbound/anthropic-compat/response.ts:13 originIsAnthropic이면 stop_reason=fr.raw(\"stop_sequence\") 복원 + 같은 파일 148행 stop_sequence: null 하드코딩; 스트림도 src/inbound/anthropic-compat/stream.ts:147 delta:{stop_reason, stop_sequence: null}. (4) 트리거 도달 가능: inbound/anthropic-compat/request.ts:219 stop_sequences→IR stopSequences, adapters/anthropic/request.ts:394 업스트림 전달. (5) 방어 부재: toMessagesResponse가 유일 wire 경로(server/app.ts:745), anthropic→anthropic body 패스스루 없음, src/inbound/compat.test.ts에 stop_sequence 테스트 0건, 스펙(appendix-a-compat-inbound.md:10,108)은 오히려 \"raw 우선 복원 — stop_sequence 등 보존\"을 약속 — null이 의도된 문서화 동작이라는 근거 없음. 네이티브 API는 {stop_reason:\"stop_sequence\", stop_sequence:\"###\"} 쌍을 보장하므로 게이트웨이 출력 {stop_reason:\"stop_sequence\", stop_sequence:null}은 네이티브가 절대 내지 않는 조합."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/openai-compat/request.ts",
+    "line": 95,
+    "summary": "tool_calls arguments JSON 파싱 실패 시 text variant로 조용히 강등 — 부록 (a) §3.1 표가 명시한 '실패 시 text variant + warning'의 warning이 없고, compatChatToIR엔 warning 채널 자체가 없다(D5 조용한 변조 금지 위반)",
+    "scenario": "스트림 중단 등으로 절단된 arguments '{\"a\":1'을 담은 assistant 히스토리를 재전송(OpenAI 자체는 arguments를 임의 문자열로 수용) → 경고 없이 input.type=text로 강등 → anthropic 타깃이면 adapters/anthropic/request.ts:206-210의 AdapterInvalidRequestError로 원인 설명 없는 400, openai 타깃이면 강등 사실이 어디에도 보고되지 않음",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "src/inbound/openai-compat/request.ts:92-96의 catch가 warning 없이 `input = { type: \"text\", text: args }`로 강등하고, compatChatToIR(117행)은 IRRequest만 반환해 warning 채널 자체가 없음(호출자 src/server/app.ts:738도 IRRequest만 수취). 스펙은 docs/specs/appendix-a-compat-inbound.md:50에서 \"실패 시 text variant + warning\"을 명시하고, ir-v0.md:121·232와 src/ir/blocks.ts:37-38이 표준 코드 tool-input-demoted를 정의하나 이 코드는 응답 방향(adapters/anthropic/stream.ts:292, adapters/openai/responses/response.ts:101)에서만 발행됨. 다운스트림도 확인: src/adapters/anthropic/request.ts:206-209가 input.type===\"text\"에 AdapterInvalidRequestError(\"재타게팅 필요\")를 던져 원인 설명 없는 400이 됨. 트리거도 실재 — OpenAI wire는 arguments를 임의 문자열로 수용하고 게이트웨이 자신도 text variant 툴콜을 CC로 방출 가능(appendix-a:141), gateway.ir 복원(request.ts:154)은 확장을 에코하는 클라이언트에만 적용되어 일반 SDK·strict 모드는 우회 불가. 테스트(src/inbound/compat.test.ts:48)는 유효 JSON만 커버."
+   },
+   {
+    "file": "/Users/doogi/AIgateway/src/inbound/anthropic-compat/stream.ts",
+    "line": 115,
+    "summary": "passthrough 이벤트를 무조건 content_block_start{content_block: raw}+stop 쌍으로 재합성 — §6.2 'passthrough(provider==anthropic) → 원문 이벤트 복원'과 달리, 어댑터가 이벤트 원문 전체를 보존한 경우(adapters/anthropic/stream.ts:226·259·363) 이벤트 JSON이 가짜 콘텐츠 블록으로 둔갑한다",
+    "scenario": "Anthropic이 신규 SSE 이벤트/델타 타입을 출시(D10 100% 커버리지 대상) → 어댑터가 {type:\"content_block_delta\", index:0, delta:{type:\"신타입\"}} 전체를 passthrough block.raw로 보존 → 다운컨버터가 기존 블록 0에 대한 델타였던 것을 새 인덱스의 content_block_start(content_block=이벤트 원문)로 방출 — 원래 의미(기존 블록의 델타)가 소실되고 소비자 SDK가 미지 블록 타입의 신규 블록으로 오해석",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "adapters/anthropic/stream.ts:226·259·363이 preserve(json) — 이벤트 JSON 전체({type:\"content_block_delta\",index,delta} 등)를 passthrough block.raw로 보존(:78-80, id 없음). 다운컨버터 inbound/anthropic-compat/stream.ts:113-122는 모든 passthrough를 blockToWire → response.ts:119-121에서 raw 원문 그대로 받아 새 인덱스(id=restored_N)의 content_block_start{content_block: raw}+content_block_stop 쌍으로 방출 — raw가 블록 스냅샷인지 이벤트 원문인지 구분 없음. appendix-a-compat-inbound.md:165 §6.2 \"passthrough(provider==anthropic) → 원문 이벤트 복원\"과 불일치: 기존 블록 0의 미지 델타가 블록 타입 \"content_block_delta\"인 신규 블록으로 둔갑, 원래 의미 소실. server/app.ts:747 파이프라인에 필터 없고 compat.test.ts에 passthrough 다운컨버트 테스트 없음. 트리거는 미래 wire 신타입이지만 해당 입력에 대한 오출력은 코드상 결정적. (단, stream.ts:184·212의 블록 스냅샷 preserve는 start+stop 래핑이 타당 — 결함은 이벤트 원문 3개소에 한정, severity low 타당)"
+   },
+   {
+    "file": "src/gateway/session.ts",
+    "line": 137,
+    "summary": "영속화 체인의 appendEvent 클로저가 실행 시점에 persistBroken을 재확인하지 않고 invalidate()도 체인 밖(fire-and-forget)이라, append 실패로 버퍼를 무효화한 직후 이미 큐잉된 후속 append가 삭제된 Redis 키를 부활시킨다",
+    "scenario": "스트림 중 push A(seq N)와 push B(seq N+1)가 연속 큐잉 → A의 appendEvent가 일시 오류로 실패 → catch가 persistBroken=true 설정 + invalidate(DEL) 발행 → 체인상 다음인 B의 appendEvent가 그대로 실행돼 rPush로 키 재생성. Redis(redis.ts:42 lRange)와 인메모리(memory.ts:118 slice) 모두 '리스트 인덱스 == seq' 전제이므로, 재시작 후 재개 시 seq N이 빠진 목록이 인덱스 기준으로 어긋나게 재생된다 — 410 대신 델타가 소리 없이 유실/오정렬된 '틀린 재생'(F9-r4가 막으려던 바로 그 결함). markDone의 markEnded도 체인 뒤에 붙어 TTL까지 정상 세션처럼 설정된다",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "실제 StreamSession으로 재현 완료. (1) session.ts:134의 persistBroken 가드는 큐잉 시점에만 평가되고, 137행 클로저 `.then(() => persistence.appendEvent(...))`는 실행 시점 재확인이 없다 — 139행 체크는 catch 내부라 후속 append의 '실행'이 아니라 '중복 무효화'만 막는다. (2) 142행 `persistence.invalidate(...).catch(() => {})`는 persistTail 밖 fire-and-forget이라 DEL이 이미 큐잉된 rPush와 경합한다. (3) 재현 출력: seq2 실패 → invalidate DEL → 큐잉돼 있던 seq3/4/5 appendEvent가 그대로 실행돼 키 부활(list len=1,2,3) → markEnded ttl=300s(키 존재=true)까지 정상 세션처럼 TTL 스탬프(markDone이 실패 표면화 전에 호출돼 session.ts:226-227 체인에 이미 올라간 경우). (4) redis.ts:38 rPush는 무조건 재생성, redis.ts:46 lRange(afterSeq+1,-1)와 memory.ts:118 slice는 인덱스==seq 전제 — 부활한 키는 index 0에 seq=3이 놓여 어긋난다. Last-Event-ID=3으로 재개하면 loadEvents가 []를 반환하는데 app.ts:706-707은 null만 410으로 매핑하고 []는 빈 재생으로 통과시키며, app.ts:717의 persisted.length>0 가드 때문에 방어 터미널도 합성되지 않는다 — seq4·5(터미널 포함)가 소리 없이 유실된다. 트리거도 현실적: push는 동기, appendEvent는 Redis 왕복이라 다건 큐잉이 상시 발생하고, 일시 커넥션 리셋(A 실패, 후속은 node-redis 오프라인 큐로 재접속 후 성공)이 정확히 이 패턴이다. session.test.ts에 영속화 실패 경로 테스트 전무."
+   },
+   {
+    "file": "src/gateway/execute.ts",
+    "line": 295,
+    "summary": "리트라이 대기(sleep) 중 취소되면 이미 원장에 기록된 시도 번호를 canceled.attempt로 재사용해, 같은 (requestId, attempt)에 원장 행이 2개 적재된다 — '시도별 1행' 회계 불변식 위반",
+    "scenario": "시도 N이 429로 실패 → 285행에서 attempt=N, outcome=error 행 기록 → sleep 중 클라이언트 취소 → 293행에서 canceled.attempt=N으로 throw → 호출측(비스트림 326행 / 스트림 recordTerminal 484행)이 attempt=N, outcome=canceled 행을 또 기록. usage_ledger는 유니크 제약이 없어(BIGSERIAL PK) 둘 다 들어가고, aggregate의 COUNT(*)와 durationMs 합산이 같은 시도를 이중 계상한다. F6-r4 수정은 dispatch 중 취소(행 미기록 상태)만 커버했고 sleep-후-취소 경로는 중복이다",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "src/gateway/execute.ts:283-291에서 재시도 확정 시 attempt=N 행(outcome=error)을 원장에 기록한 뒤, 292행 sleep 후 293-296행에서 취소 시 `canceled.attempt = attempt`(여전히 N — 루프 증가는 다음 반복 시작에서만)로 throw한다. 비스트림 호출측(325-332행)은 `attempt = err.attempt`로 N을 받아 outcome=canceled 행을 다시 기록하고, 스트림 측도 526행에서 attempt=N을 받아 recordTerminal(484-494행)이 canceled 행을 기록한다 — 같은 (requestId, attempt=N)에 2행. 방어 부재: src/state/migrations.ts:31-54의 usage_ledger는 BIGSERIAL PK만 있고 (request_id, attempt) 유니크 제약 없음, src/state/postgres.ts:117-137 record()는 단순 INSERT. postgres.ts:155의 `COUNT(*)::bigint AS requests`가 같은 시도를 이중 계상한다. 대조군: 256-260행(F6-r4)의 dispatch 중 취소는 285행 기록 전이라 attempt=N 재사용이 무충돌 — sleep 후 경로만 기록 이후에 같은 번호를 재사용해 코드 자체 주석(\"원장 attempt 충돌 방지\", \"시도별 행\")의 불변식을 위반한다. 단, 시나리오 중 \"aggregate의 durationMs 합산\"은 부정확 — aggregate는 duration_ms를 합산하지 않음(COUNT(*)와 토큰/비용만). 취소 행의 durationMs가 총 경과시간(Date.now()-startedAt)이라 duration을 합산하는 소비자가 있으면 중복 계상되는 것은 사실."
+   },
+   {
+    "file": "src/gateway/execute.ts",
+    "line": 431,
+    "summary": "finish.billing이 최종 성공 시도의 usage만으로 계산된다 — ir-v0 §10.1 'billing.lineItems는 과금된 전 시도 합산' 위반으로 클라이언트 노출 금액이 과소",
+    "scenario": "fallbackModels 스트림에서 타깃 A가 200 수신 후 콘텐츠 방출 전 in-stream 에러(billed:true, usage 포함) → error-partial(willRetry:true)로 전환 → 타깃 B가 finish. finalizeDraft(431행)의 buildBilling은 B의 usage만 환산하므로 A의 과금분이 billing.lineItems에서 빠진다. 원장에는 시도별 행이 남아 게이트웨이 내부 회계와 클라이언트에게 보여준 billing.total이 어긋난다 (비스트림 387행도 동일 구조)",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "CONFIRMED. (1) 스펙: docs/specs/ir-v0.md:395 \"billing.lineItems는 과금된 전 시도 합산\". (2) 트리거 실재: src/adapters/anthropic/stream.ts:348-357이 message_start 후 in-stream error 시 provider-error{billed:true, usage:currentUsage()}를 방출하고, overloaded_error는 fallbackEligible:true (src/adapters/anthropic/errors.ts:63). message_start는 콘텐츠 블록 이전이므로 contentEmitted=false → finalizeDraft(execute.ts:427-428)가 usage를 실은 error-final 생성. (3) 폴백 진행: execute.ts:736-748이 error-final을 error-partial(willRetry:true)로 바꿔 타깃 B로 전환 — canFallback(execute.ts:646-648)은 billed를 검사하지 않음. (4) 과소 계산: B의 finish는 execute.ts:431 buildBilling(call.adapter.provider, call.ctx.modelId, draft.usage)로 B의 usage만 환산하고, 폴백 루프의 finish 처리(execute.ts:755-761)는 attempts 메타데이터만 병합할 뿐 billing을 재계산하지 않음. buildBilling(src/ops/billing.ts:12-41)에는 다중 시도 합산 경로가 없고 다른 호출처는 비스트림 387행(동일 구조)과 batches뿐. (5) 원장 괴리: recordTerminal(execute.ts:483-493)이 시도 A를 billed:true+usage로 원장에 적재하므로 내부 회계에는 A의 과금분이 있고 클라이언트 finish.billing.total에는 없다. 비스트림 387행도 실패 시도(catch에서 billed:true 기록, execute.ts:397-405) 후 성공 응답이 t.usage만 환산하는 동일 구조."
+   },
+   {
+    "file": "src/gateway/pricing.ts",
+    "line": 21,
+    "summary": "접두 \"gpt-5.6\"이 라우팅 가능 모델 gpt-5.6-pro까지 매칭해 pro 모델을 비-pro 단가로 조용히 과금하고, isPricedModel이 true가 되어 D5가 요구하는 billing-price-estimated warning까지 억제된다",
+    "scenario": "model=\"gpt-5.6-pro\" 요청(registry.ts:103 라우트가 수용, sample도 gpt-5.6-pro) → lookupPrice가 접두 \"gpt-5.6\"에 매칭돼 input 5/output 30 USD로 계산 — pro급 실단가는 그 수 배 이상. isPricedModel도 true라 execute.ts:145의 미등재 경고가 안 나가고, 가격표 완전성 테스트(provider-registration.test.ts:143)도 접두 충돌 덕에 통과해 UNPRICED_KNOWN 등재 강제가 무력화된다. costUsd 기반 예산 하드캡·정산이 전부 과소평가된다",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "pricing.ts:21의 prefix \"gpt-5.6\" + pricing.ts:34 startsWith 매칭이 registry.ts:103-107(sample \"gpt-5.6-pro\", modelId=요청 문자열: registry.ts:209)이 수용하는 gpt-5.6-pro를 sol 단가(5/30)로 매칭한다. pricing.ts:43-45 isPricedModel도 true라 execute.ts:144-153의 billing-price-estimated warning(ir-v0.md:232가 D5 위반으로 명시한 '돈의 조용한 근사' 보고 의무)이 억제되고, provider-registration.test.ts:143-146의 완전성 테스트도 !isPricedModel(r.sample) 필터가 접두 충돌로 통과해 UNPRICED_KNOWN 등재 강제가 무력화된다(128-140행에 pro 항목 없음). 프로젝트 자체 근거 문서(docs/research/2026-08-20-openai-api.md:186-188)도 $5/$30은 gpt-5.6-sol 단가이며 pro 계열은 단가 미기재 — 즉 pro를 sol 단가로 계산하는 것은 의도된 가격 결정이 아니라 미검증 근사이고, pricing.ts:21 주석도 luna/terra만 하위 매칭으로 상정. gpt-5-pro/gpt-5.4-pro는 충돌하지 않아(startsWith false → 폴백+warning 정상) gpt-5.6-pro만의 비의도 엣지임이 교차 확인됨. '실단가 수 배' 규모만 저장소 외부 추정이나, warning 억제와 테스트 우회는 규모와 무관하게 코드로 입증된다."
+   },
+   {
+    "file": "src/gateway/execute.ts",
+    "line": 578,
+    "summary": "콘텐츠 방출 전 취소의 터미널 타입이 경로마다 다르다 — dispatch 단계 취소는 error-partial(529행), body 소비 단계 취소는 error-final(578행). ir-v0 §10.4와 session.ts abortError 주석은 abort 계열 터미널을 error-partial로 규정",
+    "scenario": "클라이언트가 첫 토큰 전에 cancel 엔드포인트 호출: abort가 dispatchWithRetry 진행 중에 걸리면 error-partial(willRetry:false), 몇 ms 뒤 SSE body 수신 대기 중에 걸리면 error-final — 같은 상태(콘텐츠 0 + 취소)가 타이밍에 따라 다른 터미널 타입으로 나간다. §10.4 '취소·grace·백프레셔의 터미널 error-partial' 및 session.ts:100('펌프의 error-partial 조립에 사용')과 578행이 모순이고, 이벤트 타입으로 취소를 분류하는 네이티브 소비자·메트릭이 비결정적으로 갈린다",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "execute.ts:526-529 — dispatch 단계 abort: `if (signal?.aborted) yield emit({ type: \"error-partial\", error: abortBase(), willRetry: false })` (이 시점 contentEmitted는 항상 false). execute.ts:575-578 — body 소비 단계 abort: `contentEmitted ? {type:\"error-partial\",...} : {type:\"error-final\", error, usage: harvested?.usage}` — 콘텐츠 0 + 취소라는 동일 상태가 abort가 걸린 단계에 따라 error-partial(529) 또는 error-final(578)로 갈린다. 스펙 모순: ir-v0.md:438 \"초과 → 업스트림 취소 + `error-partial` 기록\", ir-v0.md:439 \"취소·grace 만료·백프레셔의 터미널 `error-partial`은 펌프가 ... 회수한 usage/billed를 실어 적재한다\" — abort 계열 터미널을 콘텐츠 조건 없이 error-partial로 규정. session.ts:101-103 `abortError()` 주석 \"펌프의 error-partial 조립에 사용\"도 동일하며 execute.ts:838 `abortDetail: () => session.abortError()`로 실제 배선됨. 반대 규칙(SW6-r4, execute.ts:452 \"콘텐츠 방출 후 = error-partial / 방출 전 = error-final\", problem-log.md:253)을 채택해도 529행이 그 규칙을 위반하므로 어느 규칙이 정본이든 두 경로는 상호 모순. 결정적 증거: 프로젝트 자체 취소 테스트 src/server/app.test.ts:186이 `expect([\"error-partial\", \"error-final\"]).toContain(last.event)`로 두 타입을 모두 허용 — 취소 터미널 타입의 비결정성을 테스트가 이미 실증."
+   },
+   {
+    "file": "src/gateway/retarget.ts",
+    "line": 164,
+    "summary": "cache-breakpoint-ignored 검사가 메시지 블록 PO만 훑고 툴 정의 PO(tools[].providerOptions.anthropic.cacheControl)는 건너뛴다 — 부록(a) §3.3·ir-v0 §14('블록/툴') 위반",
+    "scenario": "anthropic-compat 인바운드가 툴의 cache_control을 Tool.providerOptions.anthropic.cacheControl로 실어 넣고(inbound/anthropic-compat/request.ts:181) 라우팅 타깃이 openai/google이면, 툴 프리픽스 캐시 지시가 아무 warning 없이 소멸한다. 툴 배열 끝 브레이크포인트는 Anthropic 프롬프트 캐싱의 가장 흔한 배치라, 사용자는 캐시가 걸린 줄 알고 풀 인풋 단가를 계속 낸다 — 조용한 변조 금지(D5) 위반",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "트리거→누락→무방어가 전부 코드로 입증된다. (1) 트리거: 인바운드가 툴 cache_control을 Tool PO로 실어 넣는다 — src/inbound/anthropic-compat/request.ts:181 `{ cacheControl: cache_control as JSONObject }` → :185 `providerOptions: { anthropic: po }`. (2) 누락: retarget.ts의 cache-breakpoint-ignored 검사(src/gateway/retarget.ts:162-175)는 `msg.blocks.map((b, bi) => { const anthroPO = b.providerOptions?.[\"anthropic\"] ... })`로 메시지 블록 PO만 훑는다. `grep -c \"tools\" src/gateway/retarget.ts` = 0 — 파일 전체에서 req.tools를 단 한 번도 참조하지 않는다. 호출자 execute.ts:132도 retargetRequest 외 별도 툴 PO 처리 없음. (3) 무방어: 아웃바운드는 타 네임스페이스를 무시한다 — cacheControl을 다루는 비테스트 소스는 anthropic/options.ts·inbound/anthropic-compat/request.ts·retarget.ts뿐이고, gemini 툴 변환(src/adapters/gemini/request.ts:403-416)은 t.name/description/inputSchema/strict/inputExamples만 읽고 t.providerOptions는 건드리지 않는다(openai 어댑터도 cacheControl 참조 0건). warning 없이 소멸 확정. (4) 스펙 위반: ir-v0.md:524 \"Anthropic cache_control | 블록/툴 providerOptions.anthropic.cacheControl\" — 스펙이 명시적으로 '블록/툴' 양쪽을 규정하고, appendix-a-compat-inbound.md:83(§3.3)은 \"cache_control은 항상 providerOptions.anthropic.cacheControl로 실린다 … 재타게팅 패스가 타깃 상이 시 warning(cache-breakpoint-ignored)를 낸다\"고 블록 한정 없이 요구한다. 테스트 공백도 확인: retarget.test.ts에 \"cache\" 매치 0건 — 블록 경로조차 직접 테스트가 없고 툴 경로는 당연히 없다. D5(조용한 변조 금지) 위반 성립."
+   },
+   {
+    "file": "src/gateway/session.ts",
+    "line": 129,
+    "summary": "스트림 이벤트 직렬화(push의 JSON.stringify)가 스키마 정의 순서를 강제하지 않아, finalizeDraft가 billing을 뒤에 spread한 finish는 D10 'wire 키 순서 = 스키마 필드 순서'를 위반한다",
+    "scenario": "anthropic 코드실행 스트림의 finish draft는 {type, finishReason, usage, providerMetadata}(adapters/anthropic/stream.ts:335) → execute.ts:431이 billing을 마지막에 붙여 wire가 …usage, providerMetadata, billing 순 — Finish 스키마 순서(billing, attempts, providerMetadata)와 불일치. 폴백 attempts 병합(execute.ts:499·758)도 attempts를 맨 끝에 붙인다. stringifyCanonical로 재직렬화하는 소비자/골든 비교는 SSE 원문과 바이트가 달라지고, 이 wire에서 뜬 골든 픽스처는 틀린 순서를 정답으로 고정한다",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "Finish 스키마 순서는 type,seq,finishReason,usage,billing,attempts,providerMetadata (src/ir/stream.ts:38-46)인데, anthropic finish draft는 providerMetadata를 usage 뒤에 구성(src/adapters/anthropic/stream.ts:335-343; gemini도 동일 src/adapters/gemini/stream.ts:326-330)하고 execute.ts:431이 `{...draft, billing}`으로 billing을 맨 뒤에, :499/:758이 attempts를 맨 뒤에 spread한다. session.push는 `{type, seq, ...rest}` 후 zod parse 없이 JSON.stringify(src/gateway/session.ts:124-129)하며, 그 바이트가 그대로 SSE로 나간다(src/server/app.ts:120: data: event.json). stringifyCanonical(src/ir/canonical.ts:12-14)·StreamEventSchema는 이 경로에서 미사용(전 소스 grep 확인), session.test.ts:38 테스트는 type/seq 선두만 검증. 따라서 providerMetadata 있는 finish의 wire 키 순서 …usage,providerMetadata,billing[,attempts]는 D10 규칙 \"객체 키는 스키마 정의 순서로 직렬화\"(docs/specs/ir-v0.md:29) 위반 — 트리거(anthropic container / gemini grounding)와 잘못된 출력이 모두 코드로 입증됨."
+   },
+   {
+    "file": "src/gateway/execute.ts",
+    "line": 748,
+    "summary": "provider-switched의 to가 skip 판정 전의 targets[i+1]을 가리켜, 다음 타깃이 skip되면 전환 대상 오표기 + 잔여 전 타깃 skip 시 실제 실패를 '모든 폴백 타깃이 skip됨' 400으로 오보고",
+    "scenario": "targets=[A,B,C], B는 자격증명 부재. A가 콘텐츠 전 529로 실패 → error-partial(willRetry:true) + provider-switched{to:B} 방출 → B는 skip되고 실제로는 C가 이어받는다(클라이언트가 받은 to와 불일치). targets=[A,B]에서 같은 상황이면 이미 A가 실패(529)했는데 최종 터미널이 791행의 invalid_request 400 '모든 폴백 타깃이 skip됨'으로 나가 실패 원인·카테고리가 왜곡된다",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "src/gateway/execute.ts:745-750 — provider-switched의 to가 `targets[i + 1]`을 무조건 사용하는데, 해당 타깃의 skip 판정은 다음 루프 반복의 712행 `skipReason(target,...)`에서야 일어난다(595-598행 fallbackTargets는 dedupe만 하고 사전 필터 없음). 따라서 targets=[A,B,C]에서 B 자격증명 부재 시 A의 pre-content 실패(736행 분기)가 to:B를 방출한 뒤 i=1에서 B가 713-715행으로 skip되고 실제로는 C가 시도됨 — 클라이언트가 받은 to와 불일치(776행 catch 경로도 동일). targets=[A,B] 시나리오: A 실패 시 736행 조건(i=0 < 1)이 참이라 error-partial{willRetry:true}+provider-switched 후 break, i=1에서 B skip→continue, 루프 종료 후 791-794행이 `irError(\"invalid_request\", 400, \"모든 폴백 타깃이 skip됨...\")`으로 error-final을 방출 — priorAttempts에 A가 outcome:\"failed\"(738행)로 기록돼 있음에도 실제 실패(예: 529 overloaded)가 invalid_request 400 \"전 타깃 skip\"으로 오보고되고 attempts도 미첨부. 비스트림 경로는 689행 `if (lastErr) throw lastErr`로 방어되지만 스트림 경로(789-794행)에는 대응 방어가 없음."
+   },
+   {
+    "file": "src/server/app.ts",
+    "line": 141,
+    "summary": "MAX_UPLOAD_BYTES(64MB) 사문화 — /v0/files 업로드가 바로 다음 줄의 /v0/* 공통 JSON 리미터(10MB)에 중첩 적용되어 10MB에서 413난다. hono bodyLimit는 미들웨어마다 독립 실행되므로(라인 140의 업로드 리미터 통과 후 라인 141 리미터가 같은 요청을 다시 검사) 더 작은 상한이 항상 이긴다.",
+    "scenario": "20MB PDF를 multipart로 POST /v0/files → 라인 140의 64MB 리미터는 통과하지만 라인 141의 10MB 리미터가 Content-Length(또는 스트림 계수)로 413 content_too_large 반환. '파일 업로드만 별도 상한'이라는 라인 134-135 주석 의도와 정반대. ops-flow.test.ts의 상한 테스트는 JSON 경로만 검증해 이 구멍을 못 잡는다.",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "src/server/app.ts:140-141 — 라인 140의 /v0/files 64MB 리미터 통과 후 라인 141의 `app.use(\"/v0/*\", bodyLimit({maxSize: jsonLimit}))`가 같은 요청에 재적용된다. hono bodyLimit 구현(node_modules/hono/dist/middleware/body-limit/index.js)은 인스턴스마다 Content-Length/스트림을 독립 검사하며 공유 상태가 없다. 실증: 20MB multipart POST /v0/files → 413 {\"category\":\"content_too_large\",\"message\":\"요청 본문이 상한(10485760B)을 초과했습니다\"} — 메시지의 10485760B(=10MB jsonLimit)가 라인 141 리미터 발화를 입증(64MB였다면 67108864B). 5MB 대조군은 리미터를 통과해 핸들러(app.ts:422)까지 도달(501 파일 스토어 미설정). 테스트 갭도 사실: src/server/ops-flow.test.ts:465-503은 /v0/responses·/compat JSON 경로만 검증, /v0/files에 10MB 초과 업로드 테스트 없음. 라인 135 주석 \"파일 업로드만 별도 상한\" 의도와 정반대 — MAX_UPLOAD_BYTES는 10MB 미만으로 설정하지 않는 한 사문화."
+   },
+   {
+    "file": "src/ops/resources.ts",
+    "line": 153,
+    "summary": "리소스 스윕이 프로바이더 DELETE의 HTTP 실패(401/404/429/5xx)를 성공으로 계상 — fetch는 비-2xx에서 throw하지 않는데 res.ok 검사가 없어 deleted+=1 후 레지스트리에서 제거한다. '실패 리소스는 레지스트리 유지 — 다음 스윕 재시도'(라인 160 주석) 계약은 네트워크 예외에만 성립.",
+    "scenario": "테넌트 BYO openai 키로 생성된 response 리소스가 만료 → 스윕은 풀 키만 쓰므로(app.ts:674 credentialsFor가 credentialHeaders 고정) 매번 401 응답 → 그래도 deleted로 집계되고 store.delete로 레지스트리 소멸 → 프로바이더 쪽 서버 상태는 영구 잔존하는데 게이트웨이는 삭제 성공을 보고. 429 레이트리밋 응답도 동일하게 영구 유실.",
+    "severity": "high",
+    "verdict": "CONFIRMED",
+    "reason": "src/ops/resources.ts:153-157 — `await fetchImpl(..., {method:\"DELETE\",...})`의 반환값을 변수에 받지도 않고 res.ok 검사 없이 `deleted += 1`, 이어 라인 165 `await store.delete(...)`로 레지스트리 제거. fetch는 비-2xx에서 reject하지 않고, 래퍼 withUpstreamTimeout(src/gateway/http.ts:26-52)도 응답을 그대로 반환하며 타임아웃 abort만 throw로 승격하므로 401/404/429/5xx가 전부 '삭제 성공'으로 계상된다 — 라인 160 주석의 재시도 계약은 네트워크 예외에만 성립. 트리거도 실재: BYO 키 지원(src/server/app.ts:68, src/ops/keys.ts:99-116)과 openai store 옵트인 등록(resources.ts:32-36)이 있는데 스윕 호출부 src/server/app.ts:674는 `credentialsFor: (p) => credentialHeaders(getProvider(p))`로 풀 키 고정 — src/gateway/execute.ts:107-110의 자체 주석(\"직접 credentialHeaders를 부르면 BYO 테넌트가 풀 계정으로 나간다\")이 경고하는 바로 그 패턴이라 BYO 생성 리소스는 매 스윕 401/404 응답에도 deleted로 보고되고 레지스트리에서 영구 소멸한다. sweepExpiredResources를 다루는 테스트는 전무하고, ADR-0006(docs/decisions/ADR-0006-state-layer.md:26)의 '삭제 대행' 계약을 조용히 위반. (발견의 경로 표기 app.ts:674는 실제로는 src/server/app.ts:674 — 사소한 오기)"
+   },
+   {
+    "file": "src/server/app.ts",
+    "line": 256,
+    "summary": "keySource(정산 분리 기준)가 최초 라우팅 타깃 프로바이더로 1회만 계산되어 tenantContext에 고정 — 크로스 프로바이더 폴백 시도의 원장 행(execute.ts rowBase 186-192)에 틀린 keySource가 스탬프된다. 배치 경로는 batchDeps(app.ts:480-491)에 keySource가 아예 없어 배치 원장 행은 항상 keySource 누락.",
+    "scenario": "테넌트가 openai BYO 키만 보유, model=gpt-5.x + fallbackModels=[claude-...] 요청 → openai 5xx 실패 후 anthropic으로 폴백(풀 키 사용) → anthropic 성공 행이 keySource:'byo'로 적재 → 풀 키 사용분이 BYO로 분류되어 테넌트 과금 누락(역방향이면 이중 청구). ADR-0007의 '원장 정산 분리 기준'이 폴백에서 깨진다.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "① keySource 1회 고정: app.ts:273-276이 targetProvider를 req.model에서만 해소, app.ts:256이 `keySource: await ops.resolver.sourceFor(targetProvider)`로 tenantContext에 고정. ② 폴백 루프 미갱신: execute.ts:658-674의 `fixedDeps = { ...deps, genId }`가 tenantContext를 전 타깃에 그대로 전파 — resolver.sourceFor(keys.ts:116)는 execute.ts에서 접근 불가(credentials 클로저만 주입). ③ 오염된 원장 행: execute.ts:186-192(rowBase)가 모든 행에 deps.tenantContext.keySource를 스탬프(provider는 179행에서 call.adapter.provider로 올바름 — 즉 anthropic 행에 openai 기준 keySource). ④ 트리거 실재: skipReason(execute.ts:619-624)이 resolver.credentials→byoKey(anthropic)=null→env 풀 키(keys.ts:111-115)로 통과하므로 풀 키 사용 행이 'byo'로 적재; 5xx/429는 fallbackEligible:true(adapters/anthropic/errors.ts:61, errors.ts:36-45 providerError). ADR-0007-billing-envelope.md:47이 keySource를 BYO/풀 정산 분리 기준으로 명시. ⑤ 배치 누락: app.ts:480-491 batchDeps에 keySource 부재, batches.ts:637은 `...(deps.keySource ? ...)` 조건부라 서버 경로 배치 행은 항상 keySource 누락(batches.test.ts:320은 수동 주입으로 통과). 방어 부재: src/ 전체 grep에서 keySource 재계산 지점 없음, 유일한 테스트(ops-flow.test.ts:91)는 단일 프로바이더 케이스만 검증."
+   },
+   {
+    "file": "src/bridge/batches.ts",
+    "line": 615,
+    "summary": "배치 결과 원장 적재의 중복 방지 플래그(ledgerRecorded)가 전체 항목 기록 루프가 끝난 뒤에야 저장돼(라인 647), 동시 getBatchResults 2건(멀티탭 폴링·크로스 레플리카)이 모두 플래그 미설정을 관측하면 원장 행과 spendTracker 지출이 2배로 적재된다.",
+    "scenario": "완료된 100항목 배치를 콘솔 폴링과 클라이언트가 동시에 GET /v0/batches/:id/results → 둘 다 bridgeState.ledgerRecorded !== 'true' 관측(항목당 await ledger.record 루프라 경합 창이 수 초) → 200행 이중 적재 + withSpendTracking이 tracker.add를 2회 호출 → hard 예산이 실지출의 2배로 집계되어 후속 요청이 조기 402. 플래그 put 전 크래시 후 재조회도 동일 중복.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "경합 창 실재: src/bridge/batches.ts:566에서 job 스냅샷 로드 → :615에서 그 스냅샷의 ledgerRecorded 플래그 검사 → :569 업스트림 결과 HTTP 페치 + :617-646 항목당 `await deps.ledger.record` 루프(100항목이면 DB INSERT 100회) 이후에야 :647 `deps.batches.put(...ledgerRecorded:\"true\")` — 검사와 플래그 저장 사이가 수 초. 방어 부재 3중 확인: (1) 라우트 src/server/app.ts:541-548은 무락 직행, PostgresBatchStore.put은 버전 검사 없는 blind upsert(src/state/postgres.ts:594-601), advisory lock은 DDL 전용(:71-80); (2) usage_ledger는 비유니크 인덱스만 존재(src/state/migrations.ts:55 `CREATE INDEX ... usage_ledger_request_idx`), record()는 ON CONFLICT 없는 순수 INSERT(src/state/postgres.ts:117-137) → 중복 행 그대로 적재; (3) 프로덕션 배선 src/server/index.ts:70 `withSpendTracking(baseLedger, spendTracker)`의 record가 keyId && costUsd>0이면 tracker.add 호출(src/ops/budget.ts:46-52), 배치 루프는 keyId(app.ts:488→batches.ts:636)와 costUsd(batches.ts:640)를 모두 전달 → 이중 수확 시 tracker.add 2회 → evaluateBudget(app.ts:220-221)이 부풀린 지출로 hard 예산 402 조기 차단. 테스트는 순차 재호출만 검증(src/bridge/batches.test.ts:152-155 — 첫 호출이 플래그를 저장한 뒤라 경합 미커버). 플래그 put 직전 크래시 시 재수확 중복도 동일 코드 경로로 성립."
+   },
+   {
+    "file": "src/server/index.ts",
+    "line": 187,
+    "summary": "graceful shutdown의 drain이 스트림 세션만 대기(sessions.drain) — 진행 중 비스트림 요청은 아무도 기다리지 않아 server.close()도 await 없이 지나가고 process.exit(0)에 잘린다. '진행 중 요청의 과금 원장 write 유실 방지'라는 라인 159-163 주석의 목표가 비스트림 경로에서 깨진다.",
+    "scenario": "활성 스트림 0, 업스트림 지연 20초인 비스트림 /v0/responses 진행 중 SIGTERM 수신 → DRAIN_DELAY 5초 후 drain()이 즉시 0 반환 → db/redis close 후 process.exit(0) (~5.1초 시점) → 프로바이더는 200을 완성해 과금됐지만 recordAttempt 도달 전 프로세스 소멸 → 원장 무기록 + 클라이언트 연결 리셋.",
+    "severity": "medium",
+    "verdict": "CONFIRMED",
+    "reason": "비스트림 요청은 어디에도 등록되지 않는다: 세션 생성은 스트림 전용 startStreamSession 내부뿐이고(src/gateway/execute.ts:813 `deps.sessions.create(id, ...)`), 비스트림 경로는 `executeNonStream`을 직접 await한다(src/server/app.ts:316-321, 778-782). 따라서 활성 스트림 0이면 `SessionStore.drain`(src/gateway/session.ts:274-279, `while (this.activeCount > 0 ...)`)은 즉시 0을 반환한다. shutdown(src/server/index.ts:171-205)은 ①185행 `server.close();`를 await/콜백 없이 호출(Node http.Server.close는 콜백으로만 기존 연결 종료를 알림) → ②187행 `sessions.drain`만 대기 → ③195-201행 db/redis close → ④204행 무조건 `process.exit(0)`. 비스트림의 과금 원장 write는 `executeNonStreamTarget`에서 `await dispatchWithRetry(...)` 반환 후의 `recordAttempt`(src/gateway/execute.ts:322-327)이므로, 업스트림 응답 대기 중 exit(0)에 잘리면 원장 무기록이 확정된다 — 설령 write가 경합해도 pool은 이미 close됨. `isDraining`은 /ready 503 판정에만 쓰여(src/server/app.ts:154-155) 데이터 평면을 방어하지 않는다. 라인 159-163 주석의 유실 방지 목표가 비스트림 경로에서 실제로 깨진다."
+   },
+   {
+    "file": "src/ops/budget.ts",
+    "line": 69,
+    "summary": "스펙-코드 의미론 불일치: ir-v0.md §10.4(라인 441)는 스트림 중 hard 예산 초과 시 warning(code: budget-exhausted-next-request-blocked)을 스트림에 방출하라고 명시하나, 이 코드는 PreRequest 1회 평가뿐이고 해당 코드는 402 에러의 provider.code(라인 97)로만 존재 — warning 이벤트로 방출하는 지점이 소스 전체에 없다(grep 확인).",
+    "scenario": "hardUsd 직전 잔액에서 고비용 스트림 실행 → 터미널 usage 적재로 hard 초과 확정 → 스펙대로면 해당 스트림에 budget-exhausted-next-request-blocked warning이 실려 클라이언트가 차단을 예고받아야 하나 아무 신호 없이 정상 finish → 다음 요청이 예고 없는 402. CLAUDE.md '불일치 시 문서 우선' 규칙상 코드 수정 또는 문서 수정+problem log가 필요.",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "스펙 ir-v0.md:441은 스트림 중 hard 초과 시 `warning(code: \"budget-exhausted-next-request-blocked\")` 스트림 방출을 명시 (ADR-0007-billing-envelope.md:46도 §10.4 위임, ops-plane.md:17도 warning 발화 계획). 그러나 소스 전체에서 이 코드는 src/ir/common.ts:61(enum 등록)과 src/ops/budget.ts:97(402 GatewayError의 provider.code)뿐 — makeWarning으로 생성되는 곳이 없다. evaluateBudget의 유일 호출자는 src/server/app.ts:221(PreRequest)이고, blocked면 즉시 402(app.ts:222), 통과하면 soft warning만 preWarnings로 전달(app.ts:223). 터미널 usage를 적재하는 withSpendTracking(budget.ts:42-59)은 트래커 갱신만 하고 진행 중 스트림에 warning을 실을 경로가 없다. 테스트(src/ops/ops.test.ts:91-99)도 soft/blocked만 검증. 따라서 hardUsd 직전 잔액 → 고비용 스트림 → 예고 없는 정상 finish → 다음 요청 402 시나리오가 코드로 입증됨. \"요청당 1회 평가\" 반론은 성립 안 함 — §10.4 같은 문장에서 1회 평가(차단 단위)와 warning 방출을 별도로 모두 요구."
+   },
+   {
+    "file": "src/server/portal.ts",
+    "line": 182,
+    "summary": "로그인 레이트리밋 키가 무검증·무상한 이메일 문자열(EMAIL_RE는 가입 경로만 적용) — portal:login:<email>이 그대로 저장 키가 되고, InMemoryRateLimiter(rate-limit.ts:36-38)는 창이 지나도 counters Map 항목을 영구 보존해 무인증 메모리 팽창 벡터가 된다.",
+    "scenario": "공격자가 매 요청 고유한 이메일(최대 ~10MB 문자열 — JSON 바디 상한까지 허용)로 POST /portal/login 반복 → 요청마다 InMemory Map(또는 Redis)에 수 MB짜리 키가 신규 생성되고 회수 경로 없음 → REDIS_URL 미설정 단일 프로세스 배포에서 힙 고갈, Redis 배포에서는 windowSeconds+1초 TTL 전까지 대형 키 적체.",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "모든 고리가 코드로 입증된다. (1) 무검증 이메일: src/server/portal.ts:176은 `typeof body?.email === \"string\" ? body.email.trim().toLowerCase() : \"\"`만 수행하고, EMAIL_RE(portal.ts:59)는 가입 경로(portal.ts:151)에서만 검사된다 — 로그인은 truthy 검사(portal.ts:179)뿐, 형식·길이 상한 없음. (2) 그 문자열이 그대로 저장 키가 됨: portal.ts:182 `deps.rateLimiter.hit(`portal:login:${email}`, 10, 60, now())` — 계정 조회(portal.ts:185)보다 앞서 실행되므로 존재하지 않는 이메일도 무인증으로 키를 생성한다. (3) 바디 상한이 유일한 길이 제한: src/server/app.ts:136,143 — `/portal/*`에 MAX_JSON_BODY_BYTES 기본 10MB(`10 * 1024 * 1024`)의 bodyLimit만 적용되어 수 MB짜리 이메일 문자열이 통과한다. (4) 영구 보존: src/ops/rate-limit.ts:32-40 InMemoryRateLimiter는 `counters.set(keyId, ...)`만 있고 delete/sweep/eviction 코드가 클래스 전체에 없다 — 창이 지나도 항목은 같은 키가 재히트될 때만 덮어써질 뿐 제거되지 않는다. (5) 프로덕션 배선: src/server/index.ts:69 `const rateLimiter = redisUrl ? new RedisRateLimiter(redisUrl) : new InMemoryRateLimiter()` → index.ts:131에서 deps로 주입되므로 REDIS_URL 미설정 배포에서 실제로 이 경로가 활성이다. Redis 쪽 주장도 정확: src/state/redis.ts:215-217은 첫 INCR 시 `expire(key, windowSeconds + 1)`로 61초 TTL을 걸어 그때까지만 대형 키가 적체된다. 유일한 전제조건은 포털 활성(GATEWAY_ADMIN_KEY 설정 시 enabled, portal.ts:141의 501 가드)과 content-type: application/json 헤더인데 둘 다 공격을 막는 방어가 아니다. severity=low(느린 힙 팽창, 단일 프로세스 한정)도 타당하다."
+   },
+   {
+    "file": "src/server/portal.ts",
+    "line": 227,
+    "summary": "포털 키 발급의 maxKeys 검사가 카운트 조회와 발급 사이 원자성 없는 TOCTOU — 동시 POST /portal/keys N건이 전부 active.length < maxKeys를 관측하면 한도를 초과해 발급된다.",
+    "scenario": "활성 키 4개(한도 5)인 계정이 POST /portal/keys 10건을 동시 발사 → 10건 모두 myKeys() 조회 시점에 4개를 관측 → 전부 통과해 활성 키 14개 — '무한도 셀프 발급 방지'라는 라인 21-22 설계 전제가 동시성에서 무력화 (키마다 개별 rpm·예산은 붙지만 계정 합산 한도는 초과).",
+    "severity": "low",
+    "verdict": "CONFIRMED",
+    "reason": "src/server/portal.ts:226-227의 `active.length >= l.maxKeys` 검사와 234행 `issueVirtualKey` 사이에 await 경계(230행 `c.req.json()` 포함)가 있고 잠금·재검사·스토어 제약이 전무하다. issueVirtualKey(src/ops/keys.ts:44)는 무조건 `store.put`, KeyStore 인터페이스(src/state/types.ts:72-77)에 조건부 삽입이 없으며 Postgres put(src/state/postgres.ts:307)은 단순 upsert로 테넌트별 카운트 제약이 없다. POST /portal/keys에는 signup/login과 달리 rateLimiter 호출도 없어 동시 N건이 모두 같은 카운트를 관측해 한도를 초과 발급한다(다중 레플리카에선 더 자명). 테스트(src/server/portal.test.ts:233-248)는 순차 호출만 검증. 단, 각 키에 rpm·예산 한도는 부착되므로 severity low는 타당."
+   }
+  ],
+  "refuted": []
+ }
+}

@@ -395,3 +395,26 @@ PRICE_TABLE 누락은 **조용히 틀린 금액**, SERVER_STATE_KEYS 누락은 *
 교훈은 앞선 Dockerfile 건과 같은 계열이다: **단위 테스트는 함수를 검증하고, 실행은 배선을
 검증한다.** 이번 세션에서 실제로 잡힌 결함 3건(@hono/node-server devDependency, 이 CLI 버그,
 그리고 골든셋이 굳혀둔 effort 반전) 중 둘이 "실제로 돌려봐야만 나오는" 종류였다.
+
+## 2026-08-24 — 전수 감사 (API 패리티 웹 대조 + 코드 모순 6렌즈): 93건
+
+멀티에이전트 감사 2트랙(에이전트 70·툴콜 1,306): ① 4사 공식 문서를 웹에서 실조회해 커버리지와
+양방향 대조(빠진 것 + **과잉 드롭**) ② 코드 모순 6렌즈 탐색 후 전건 적대적 검증.
+결과: 트랙 A 갭 45건, 트랙 B 결함 48건(47 CONFIRMED). 전체 목록·우선순위·근거는
+[전수 감사 보고서](../research/2026-08-24-full-audit.md) + 동명 .data.json(검증 근거 전문).
+
+계열이 아니라 **패턴**으로 기록한다 — 다음 다섯이 93건의 대부분을 만든다:
+
+1. **인바운드에 warning 채널이 구조적으로 없다** — compat 변환기가 IRRequest만 반환해
+   강등·날조(arguments 파싱 실패→text, ""→{})가 전부 무증상. D5가 아웃바운드에만 구현된 셈.
+2. **블록·툴 레벨 PO가 2급 시민** — envelope PO만 D5 검증. 툴 레벨 PO는 어느 어댑터도 안 읽어
+   output_schema·responseJsonSchema·defer_loading이 4사 공통으로 도달 불가.
+3. **표면 간 D5 비대칭** — openai Responses는 드롭 보고, CC는 조용히 무시(4종+verbosity 과잉드롭).
+4. **"문서가 진실"의 부채** — ADR-0005 fallbacks·부록(b) deferred·§4.5 videoMetadata·§0-2 raw
+   복원·§10.1 billing 합산이 문서엔 확정, 코드엔 부재. coverage-matrix가 분류 문자열 존재만
+   검사해 이 드리프트를 원리적으로 못 잡는다.
+5. **테스트가 결함을 고정** 세 번째 사례 — xGrokConvId 골든셋이 opt-in 우회를 내장.
+
+돈이 틀리는 P0가 6건 포함: billing 전 시도 합산 위반(ir-v0 §10.1), gpt-5.6-pro 접두 오매칭
+과금, anthropic reasoning 토큰 0 고정(자기 problem-log가 이미 반증한 전제), 배치 원장 2배
+경합, 스윕 실패의 성공 계상, 64MB 업로드 상한 사문화.
