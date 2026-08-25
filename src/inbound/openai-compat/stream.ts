@@ -25,6 +25,8 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
   const order: string[] = [];
   const warnings: Warning[] = []; // D5 — finish의 gateway chunk로 일괄 전달 (리뷰 G2)
   let providerMetadata: NS | undefined; // container 등 응답 레벨 PM (리뷰 G4)
+  // 표면 sticky 복원 근거 (§13.4-1) — 비스트림 toChatResponse와 대칭 (감사 #7)
+  let origin: { provider: string; model: string; surface?: string } | undefined;
 
   const acc = (blockId: string, make: () => Block): Block => {
     let b = blocks.get(blockId);
@@ -51,11 +53,17 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
         if (event.providerMetadata) providerMetadata = { ...providerMetadata, ...event.providerMetadata };
         id = event.id;
         model = event.model.resolved.model;
+        origin = event.model.resolved;
         created = Math.floor(Date.parse(event.created) / 1000);
         if (roleSent) return [];
         roleSent = true;
         return [deltaChunk({ role: "assistant" })];
       }
+      case "text-start":
+        // 델타 0회 text 블록(Gemini 빈 text + thoughtSignature 패턴)도 블록 생성 —
+        // 없으면 text-end의 opaqueState/PM이 조용히 유실된다 (감사 #9)
+        acc(event.id, () => ({ type: "text", text: "", id: event.id }));
+        return [];
       case "text-delta": {
         const b = acc(event.id, () => ({ type: "text", text: "", id: event.id }));
         if (b.type === "text") b.text += event.delta;
@@ -142,10 +150,15 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
         ];
         if (event.providerMetadata) providerMetadata = { ...providerMetadata, ...event.providerMetadata };
         if (!strict) {
-          const ir = order.map((k) => blocks.get(k)).filter((b): b is Block => b !== undefined);
+          // §13.4-1: gateway.ir = origin 포함 블록 원문. 델타 조립 블록은 origin 부착 (감사 #7)
+          const ir = order
+            .map((k) => blocks.get(k))
+            .filter((b): b is Block => b !== undefined)
+            .map((b) => (b.origin === undefined && origin !== undefined ? { ...b, origin } : b));
           frames.push(chunk({
             gateway: {
               ir: ir as unknown as JSONValue,
+              ...(origin ? { origin: origin as unknown as JSONValue } : {}), // 비스트림 대칭 (§2.1)
               ...(raw ? { finish_reason_raw: raw } : {}),
               ...(warnings.length > 0 ? { warnings: warnings as unknown as JSONValue } : {}),
               ...(providerMetadata ? { providerMetadata: providerMetadata as unknown as JSONValue } : {}),

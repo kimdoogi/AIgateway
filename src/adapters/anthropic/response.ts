@@ -13,6 +13,7 @@ const WireResponseSchema = z.looseObject({
   model: z.string(),
   content: z.array(z.record(z.string(), z.unknown())),
   stop_reason: z.string().nullish(),
+  stop_details: z.record(z.string(), z.unknown()).nullish(), // refusal category·explanation (§9 — 폴백 정책 근거)
   usage: z.record(z.string(), z.unknown()).optional(),
   container: z.record(z.string(), z.unknown()).nullish(), // 코드 실행 샌드박스 id·만료 (§14)
 });
@@ -116,13 +117,15 @@ export function wireBlockToIR(
     default:
       break;
   }
-  // *_tool_result (서버 툴 결과) — providerExecuted toolResult로 수납 + wireType 보존 (G1 왕복)
+  // *_tool_result (서버 툴 결과) — providerExecuted toolResult로 수납 + wireType 보존 (G1 왕복).
+  // is_error도 §4.4 직교 규칙대로 보존 — 유실되면 실패한 서버 툴 결과가 성공으로 둔갑 (감사 #23)
   if (typeof type === "string" && type.endsWith("_tool_result") && typeof raw["tool_use_id"] === "string") {
+    const value = (raw["content"] ?? null) as JSONValue;
     return {
       type: "toolResult",
       toolCallId: raw["tool_use_id"],
       toolName: type.replace(/_tool_result$/, ""),
-      output: { type: "json", value: (raw["content"] ?? null) as JSONValue },
+      output: raw["is_error"] === true ? { type: "errorJson", value } : { type: "json", value },
       providerExecuted: true,
       providerMetadata: { anthropic: { wireType: type } },
     };
@@ -162,14 +165,19 @@ export function transformResponse(
     }
     blocks.push(withIds);
   });
+  // container 유실 방지 (2026-08-21 neuro 연동 검출) — 재사용 계약은 id 왕복이 전제.
+  // stop_details(refusal category·explanation)는 폴백 트리거 정책의 판단 근거 — 보존이 전제
+  // (폴백 경합 매트릭스 2026-08-25 행, 감사 anthropic #3)
+  const pm: Record<string, JSONValue> = {};
+  if (wire.container) pm["container"] = wire.container as JSONValue;
+  if (wire.stop_details) pm["stopDetails"] = wire.stop_details as JSONValue;
   return {
     blocks,
     origin,
     finishReason: mapStopReason(wire.stop_reason),
     usage: convertUsage(wire.usage ?? {}),
     providerRequestId: wire.id,
-    // container 유실 방지 (2026-08-21 neuro 연동 검출) — 재사용 계약은 id 왕복이 전제
-    ...(wire.container ? { providerMetadata: { anthropic: { container: wire.container as JSONValue } } } : {}),
+    ...(Object.keys(pm).length > 0 ? { providerMetadata: { anthropic: pm } } : {}),
     warnings,
   };
 }

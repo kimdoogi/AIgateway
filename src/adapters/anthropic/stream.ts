@@ -43,6 +43,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
   // container 추적 — message_start 외에 top-level·message_delta.delta로도 온다 (턴 중 생성·교체.
   // 리뷰 G1 — 후기 도착분은 response-metadata가 이미 나갔으므로 finish PM에 싣는다)
   let latestContainer: JSONValue | undefined;
+  let stopDetails: JSONValue | undefined; // refusal category·explanation (감사 anthropic #3)
   let terminalEmitted = false;
   const warnedUnknown = new Set<string>(); // 미지 타입별 warning 1회 (§10.2 스팸 방지)
 
@@ -318,6 +319,10 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
         case "message_delta": {
           const delta = (json["delta"] ?? {}) as Record<string, unknown>;
           if (typeof delta["stop_reason"] === "string") stopReason = delta["stop_reason"];
+          // stop_details 보존 — 폴백 트리거 정책 근거 (감사 anthropic #3, 매트릭스 2026-08-25 행)
+          if (delta["stop_details"] && typeof delta["stop_details"] === "object") {
+            stopDetails = delta["stop_details"] as JSONValue;
+          }
           const deltaContainer = json["container"] ?? delta["container"]; // 실관측 2경로 (리뷰 G1)
           if (deltaContainer && typeof deltaContainer === "object") latestContainer = deltaContainer as JSONValue;
           const wireUsage = json["usage"];
@@ -336,15 +341,18 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
 
         case "message_stop": {
           terminalEmitted = true;
-          out.push({
-            type: "finish",
-            finishReason: mapStopReason(stopReason),
-            usage: currentUsage(),
-            // 최종 container — 턴 중 생성·교체분 포함 (§10.1 PM 대칭, 리뷰 G1)
-            ...(latestContainer !== undefined
-              ? { providerMetadata: { anthropic: { container: latestContainer } } }
-              : {}),
-          });
+          {
+            // 최종 container(턴 중 생성·교체분 포함, §10.1 PM 대칭 — 리뷰 G1) + stop_details
+            const finishPM: Record<string, JSONValue> = {};
+            if (latestContainer !== undefined) finishPM["container"] = latestContainer;
+            if (stopDetails !== undefined) finishPM["stopDetails"] = stopDetails;
+            out.push({
+              type: "finish",
+              finishReason: mapStopReason(stopReason),
+              usage: currentUsage(),
+              ...(Object.keys(finishPM).length > 0 ? { providerMetadata: { anthropic: finishPM } } : {}),
+            });
+          }
           return out;
         }
 

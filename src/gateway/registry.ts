@@ -87,16 +87,49 @@ export interface ModelRoute {
 const OPENAI_REASONING_REJECTS = ["temperature", "topP", "topK", "presencePenalty", "frequencyPenalty"] as const;
 const OPENAI_GPT56_EFFORTS = ["none", "low", "medium", "high", "xhigh", "max"] as const; // minimal 없음
 
+// Anthropic 신세대(Fable 5/Mythos 5/Opus 5/4.8/4.7/Sonnet 5)가 400으로 거부하는 파라미터
+// (인벤토리 (a-cov) §9 — 감사 anthropic #2: 게이트 전무로 업스트림 400 누수)
+const ANTHROPIC_NEWGEN_REJECTS = ["temperature", "topP", "topK"] as const;
+const ANTHROPIC_FULL_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+
 export const MODEL_ROUTES: ModelRoute[] = [
-  // ── Anthropic ──
+  // ── Anthropic ── (세대별 게이트: 인벤토리 (a-cov) §9 매트릭스)
   // mid-conversation system 지원: Opus 5/4.8/Fable 5 계열 (adapters/types.ts 주석 참조)
   {
     pattern: /^claude-(opus-5|opus-4-8|fable-5|mythos-5)/,
     sample: "claude-opus-5",
     provider: "anthropic",
-    capabilities: { midConversationSystem: true },
+    capabilities: {
+      midConversationSystem: true,
+      unsupportedParams: ANTHROPIC_NEWGEN_REJECTS,
+      supportedEfforts: ANTHROPIC_FULL_EFFORTS,
+      assistantPrefill: false,
+    },
   },
-  { pattern: /^claude-/, sample: "claude-haiku-4-5", provider: "anthropic" },
+  {
+    pattern: /^claude-(sonnet-5|opus-4-7)/,
+    sample: "claude-sonnet-5",
+    provider: "anthropic",
+    capabilities: {
+      unsupportedParams: ANTHROPIC_NEWGEN_REJECTS,
+      supportedEfforts: ANTHROPIC_FULL_EFFORTS,
+      assistantPrefill: false,
+    },
+  },
+  {
+    // 4.6 세대 — temperature 허용, effort는 high까지 (xhigh/max는 400 → 클램프+warning)
+    pattern: /^claude-sonnet-4-6/,
+    sample: "claude-sonnet-4-6",
+    provider: "anthropic",
+    capabilities: { supportedEfforts: ["low", "medium", "high"] },
+  },
+  {
+    // 4.5 이하 — output_config.effort 미지원 (thinking budget_tokens 세계, §9). effort는 드롭+warning
+    pattern: /^claude-/,
+    sample: "claude-haiku-4-5",
+    provider: "anthropic",
+    capabilities: { supportedEfforts: [] },
+  },
 
   // ── OpenAI ── (인벤토리 §H — pro/computer-use/deep-research는 Responses 전용, audio는 CC 전용)
   {
@@ -182,12 +215,18 @@ export const MODEL_ROUTES: ModelRoute[] = [
     pattern: /^grok-.*non-reasoning/,
     sample: "grok-4.3-non-reasoning",
     provider: "xai",
+    capabilities: { supportedEfforts: [] }, // 비추론 모델 — effort 드롭 + warning
   },
   {
+    // 기본 grok 라우트 — supportedEfforts 미지정이면 xhigh 등이 무클램프 통과해 프로바이더 400
+    // (감사 xai #6. grok-4.3 레퍼런스 기준 — none 포함 여부는 라이브 probe 후 재확인)
     pattern: /^grok-/,
     sample: "grok-4.3",
     provider: "xai",
-    capabilities: { unsupportedParams: ["presencePenalty", "frequencyPenalty", "stopSequences"] },
+    capabilities: {
+      supportedEfforts: ["none", "low", "medium", "high"],
+      unsupportedParams: ["presencePenalty", "frequencyPenalty", "stopSequences"],
+    },
   },
 ];
 

@@ -47,7 +47,7 @@
 | `model` | `model` |
 | `messages[].role: system/developer` | system 메시지 (+developer는 `providerOptions.openai.role`) |
 | `messages[].content` (string \| parts) | text/file 블록 (image_url→file(url\|base64), input_audio→file(audio/*), file→file(reference\|base64)) |
-| `messages[].tool_calls[]` | toolCall 블록 (arguments JSON 파싱, 실패 시 text variant + warning) |
+| `messages[].tool_calls[]` | toolCall 블록 (arguments JSON 파싱, 실패 시 text variant + warning. **빈 문자열은 '인자 없음'의 CC 관례 → `{type:"json", value:{}}`, warning 없음** — §4.3이 금지하는 '{}' 날조는 파싱 *실패*의 은폐를 말한다. 2026-08-25 감사 #16 해소 명문화) |
 | `messages[] role:tool` | tool 메시지 + toolResult(text) |
 | assistant `gateway.ir` | **블록 직접 복원 (1순위)** |
 | `max_completion_tokens`/`max_tokens`(deprec) | `maxOutputTokens` |

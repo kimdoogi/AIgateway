@@ -32,6 +32,7 @@ export const SERVER_TOOL_CALL_TYPES: ReadonlySet<string> = new Set([
   "apply_patch_call",
   "mcp_call",
   "tool_search_call",
+  "x_search_call", // xai responses (base 상속 — OpenAI 미발행이라 base 무해. 감사 xai #3: 미등록 시 providerExecuted가 passthrough 강등)
 ]);
 
 /** custom 블록으로 수납하는 item 타입 (라운드트립 무변경 재전송 — §4.7) */

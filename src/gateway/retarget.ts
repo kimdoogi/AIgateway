@@ -171,6 +171,17 @@ export function retargetRequest(req: IRRequest, targetProvider: string): Retarge
           ),
         );
       }
+      // openai 파트 브레이크포인트 → 타 타깃 대칭 검사 (감사 openai #2)
+      if (targetProvider !== "openai" && b.providerOptions?.["openai"]?.["promptCacheBreakpoint"] !== undefined) {
+        warnings.push(
+          makeWarning(
+            "compatibility",
+            "cache-breakpoint-ignored",
+            `타깃(${targetProvider})은 openai promptCacheBreakpoint를 해석하지 않음 — 캐시 지시 무효`,
+            `messages[${mi}].blocks[${bi}]`,
+          ),
+        );
+      }
       const bPO = stripServerStatePO(b.providerOptions, targetProvider, `messages[${mi}].blocks[${bi}].providerOptions`, warnings);
       if (bPO === b.providerOptions) return b;
       blockChanged = true;
@@ -185,6 +196,23 @@ export function retargetRequest(req: IRRequest, targetProvider: string): Retarge
     return next;
   });
   if (msgChanged) messages = strippedMessages;
+
+  // 툴 정의 PO의 캐시 브레이크포인트도 동일 검사 — 부록 (a) §3.3·§14 '블록/툴' (감사 #34)
+  if (targetProvider !== "anthropic") {
+    req.tools?.forEach((t, ti) => {
+      const toolPO = t.providerOptions?.["anthropic"];
+      if (toolPO && (toolPO["cacheControl"] ?? toolPO["cache_control"])) {
+        warnings.push(
+          makeWarning(
+            "compatibility",
+            "cache-breakpoint-ignored",
+            `타깃(${targetProvider})은 anthropic cache_control을 해석하지 않음 — 캐시 지시 무효`,
+            `tools[${ti}]`,
+          ),
+        );
+      }
+    });
+  }
 
   if (messages === req.messages && envPO === req.providerOptions && repairedMessages === null && !passthroughDropped) {
     return { request: req, warnings }; // warning만 발생한 경우(캐시 브레이크포인트 등)도 이 경로

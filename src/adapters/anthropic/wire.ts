@@ -7,7 +7,7 @@ import { z } from "zod";
 
 export const AnthropicWireRequestSchema = z.looseObject({
   model: z.string().min(1),
-  max_tokens: z.number().int().positive(),
+  max_tokens: z.number().int().nonnegative(), // 0 = 캐시 프리워밍 (ir-v0 §6)
   system: z.array(z.record(z.string(), z.unknown())).optional(),
   messages: z.array(
     z.looseObject({

@@ -3,8 +3,13 @@ import { readFixture } from "../../tools/capture/fixtures.js";
 import { parseSSEText } from "../stream/sse.js";
 import { bootstrapProviders } from "../gateway/bootstrap.js";
 import { createApp } from "../server/app.js";
-import { compatChatToIR } from "./openai-compat/request.js";
-import { compatMessagesToIR } from "./anthropic-compat/request.js";
+import { compatChatToIR as chatConvert } from "./openai-compat/request.js";
+import { compatMessagesToIR as messagesConvert } from "./anthropic-compat/request.js";
+
+// 변환기는 {request, warnings}를 반환 (관통 패턴 #1 — warning 채널). 기존 단언은 request 대상 —
+// 래퍼로 언랩하고, warnings 단언이 필요한 테스트만 원 함수(chatConvert/messagesConvert)를 쓴다.
+const compatChatToIR = (...args: Parameters<typeof chatConvert>) => chatConvert(...args).request;
+const compatMessagesToIR = (...args: Parameters<typeof messagesConvert>) => messagesConvert(...args).request;
 import { GatewayError } from "../gateway/errors.js";
 import { anthropicAdapter } from "../adapters/anthropic/index.js";
 import { createStreamTransformer as createAnthropicStream } from "../adapters/anthropic/stream.js";
@@ -109,6 +114,29 @@ describe("openai-compat 요청 변환 (§3.1)", () => {
         false,
       ),
     ).toThrow(GatewayError);
+  });
+
+  it("arguments 파싱 실패 → text 강등 + warning, 빈 문자열 → {} (§3.1/§4.3 — 감사 #29/#16)", () => {
+    const { request, warnings } = chatConvert(
+      {
+        model: "m",
+        messages: [
+          {
+            role: "assistant",
+            tool_calls: [
+              { id: "call_1", type: "function", function: { name: "bad", arguments: "{not json" } },
+              { id: "call_2", type: "function", function: { name: "noargs", arguments: "" } },
+            ],
+          },
+        ],
+      },
+      false,
+    );
+    const blocks = request.messages[0]!.blocks;
+    expect(blocks[0]).toMatchObject({ type: "toolCall", input: { type: "text", text: "{not json" } });
+    expect(blocks[1]).toMatchObject({ type: "toolCall", input: { type: "json", value: {} } }); // 인자 없음 관례 — 날조 아님 (§3.1)
+    expect(warnings.some((w) => w.code === "tool-input-demoted")).toBe(true);
+    expect(warnings).toHaveLength(1); // 빈 문자열엔 warning 없음
   });
 
   it("n>1은 400 (G2), 미지 키는 400 (D5)", () => {

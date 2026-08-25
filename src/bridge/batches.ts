@@ -32,6 +32,8 @@ export interface BatchBridgeDeps extends ExecuteDeps {
   /** 발급 가상 키 — 원장 행 귀속·예산 집계 기준 (ADR-0007 §3) */
   keyId?: string;
   keySource?: "byo" | "pool";
+  /** 프로바이더별 keySource 해소 — 배치 원장 행의 정산 분리 기준 (감사 #35: 배치 경로 keySource 누락) */
+  keySourceFor?: (provider: string) => Promise<"byo" | "pool">;
 }
 
 export interface BatchItemInput {
@@ -616,6 +618,8 @@ export async function getBatchResults(gatewayBatchId: string, deps: BatchBridgeD
   // 남는다 — 이중 과금(과다)보다 낫고, 항목별 실패는 아래 catch가 로그로 남긴다.
   if (deps.ledger && (await deps.batches.claimBridgeFlag(job.tenant, job.gatewayBatchId, "ledgerRecorded"))) {
     const createdAt = (deps.now?.() ?? new Date()).toISOString();
+    // 배치 원장 keySource — 프로바이더별 해소 (감사 #35: 배치 행은 keySource가 통째로 빠져 있었다)
+    const keySource = deps.keySource ?? (deps.keySourceFor ? await deps.keySourceFor(job.provider) : undefined);
     for (const r of out) {
       try {
         const itemModel = job.itemModels[r.customId] ?? job.provider;
@@ -636,7 +640,7 @@ export async function getBatchResults(gatewayBatchId: string, deps: BatchBridgeD
           // 귀속 없는 행은 예산 집계(withSpendTracking)와 테넌트 정산에서 통째로 빠진다 (리뷰 2026-08-22)
           tenant: job.tenant,
           ...(deps.keyId ? { keyId: deps.keyId } : {}),
-          ...(deps.keySource ? { keySource: deps.keySource } : {}),
+          ...(keySource ? { keySource } : {}),
           // 배치 할인 SKU 기준 비용 (부록 (b) §3.4) — 동기 경로의 recordAttempt와 대칭
           ...(r.response
             ? { costUsd: buildBilling(job.provider, itemModel, r.response.usage, { batch: true }).total }

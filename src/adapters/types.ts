@@ -57,6 +57,11 @@ export interface AdapterCapabilities {
    */
   multimodalFunctionResponse?: boolean;
   /**
+   * 말미 assistant 턴(prefill) 허용 여부 — Anthropic 신세대는 400 (인벤토리 (a-cov) §9).
+   * false면 어댑터가 사전 4xx (업스트림 400을 명확한 에러로 예방). 부재 = 허용.
+   */
+  assistantPrefill?: boolean;
+  /**
    * 모델이 접근 가능한 표면 집합 (예: gpt-5-pro = ["responses"], gpt-audio-* = ["chat-completions"]).
    * 미지정이면 프로바이더의 전 표면 허용. 표면 선택자의 게이트 입력 (ADR-0002 결과 절).
    */

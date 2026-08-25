@@ -89,6 +89,9 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
       if (text.length > 0) out.push({ type: "reasoning-delta", id: open.irId, delta: text });
       if (signature !== undefined) {
         out.push({ type: "reasoning-delta", id: open.irId, opaqueState: { provider: "google", data: signature } });
+        // 서명은 part 경계 표식 — 즉시 닫아 서명별 1블록 보장. 연속 서명 thought가 한 블록에
+        // opaqueState 2건으로 실리면 소비자 last-wins로 앞 서명 유실 (감사 #21 — text 경로와 대칭)
+        closeOpen(out);
       }
       return;
     }

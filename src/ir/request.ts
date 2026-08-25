@@ -32,7 +32,7 @@ export const IRRequestSchema = z.strictObject({
   parallelToolCalls: z.boolean().optional(), // 기본 true
 
   // sampling — 모델 게이트로 사전 검증(D10-4), 클램프/드롭은 warning(D5)
-  maxOutputTokens: z.number().int().positive().optional(),
+  maxOutputTokens: z.number().int().nonnegative().optional(), // 0 = 캐시 프리워밍 (ir-v0 §6 2026-08-25 완화)
   temperature: z.number().optional(),
   topP: z.number().optional(),
   topK: z.number().int().optional(),

@@ -6,10 +6,14 @@ import type { Message } from "../../ir/message.js";
 import type { IRRequest } from "../../ir/request.js";
 import { IRRequestSchema } from "../../ir/request.js";
 import type { Tool } from "../../ir/tools.js";
+import type { Warning } from "../../ir/common.js";
+import { makeWarning } from "../../adapters/shared.js";
 import { GatewayError, irError } from "../../gateway/errors.js";
 
-// openai-compat CC 인바운드: wire 요청 → IRRequest (부록 (a) §3.1).
+// openai-compat CC 인바운드: wire 요청 → IRRequest + warnings (부록 (a) §3.1).
 // 미지 최상위 키는 4xx (D5). assistant gateway.ir은 복원 1순위 (§13.4-2).
+// warnings는 호출측(app.ts)이 preWarnings로 병합 — 인바운드 강등도 D5 보고 대상
+// (감사 2026-08-24 관통 패턴 #1: 채널 부재로 강등이 구조적 무증상이었다)
 
 const KNOWN_TOP_KEYS = new Set([
   "model", "messages", "tools", "tool_choice", "parallel_tool_calls", "temperature", "top_p",
@@ -80,7 +84,7 @@ function contentToBlocks(content: unknown, path: string): Block[] {
   return [];
 }
 
-function toolCallsToBlocks(toolCalls: unknown, path: string): Block[] {
+function toolCallsToBlocks(toolCalls: unknown, path: string, warnings: Warning[]): Block[] {
   if (!Array.isArray(toolCalls)) return [];
   return toolCalls.map((raw, i) => {
     const tc = (raw ?? {}) as Record<string, unknown>;
@@ -89,10 +93,15 @@ function toolCallsToBlocks(toolCalls: unknown, path: string): Block[] {
     if (!name) throw invalid(`${path}.tool_calls[${i}]: function.name 필요`);
     const args = String(fn["arguments"] ?? "");
     let input: { type: "json"; value: JSONValue } | { type: "text"; text: string };
+    // 빈 문자열은 '인자 없음'의 CC 관례 → {} (부록 (a) §3.1 명문화 — 날조가 아니라 등가 표현)
     try {
       input = { type: "json", value: (args.length > 0 ? JSON.parse(args) : {}) as JSONValue };
     } catch {
+      // §4.3: 파싱 불가 → text 강등 + 보고 ('{}' 삽입 금지). 무경고 강등은 D5 위반 (감사 #29)
       input = { type: "text", text: args };
+      warnings.push(
+        makeWarning("compatibility", "tool-input-demoted", `tool_calls arguments가 유효 JSON이 아님 — text 강등 (${name})`, `${path}.tool_calls[${i}]`),
+      );
     }
     return {
       type: "toolCall",
@@ -114,9 +123,15 @@ function gatewayIrBlocks(message: Record<string, unknown>): Block[] | null {
   return parsed.data;
 }
 
-export function compatChatToIR(wire: unknown, allowUnknown: boolean): IRRequest {
+export interface InboundConversion {
+  request: IRRequest;
+  warnings: Warning[];
+}
+
+export function compatChatToIR(wire: unknown, allowUnknown: boolean): InboundConversion {
   if (!wire || typeof wire !== "object" || Array.isArray(wire)) throw invalid("JSON 객체 body가 아닙니다");
   const w = wire as Record<string, unknown>;
+  const warnings: Warning[] = [];
   if (!allowUnknown) {
     const unknown = Object.keys(w).filter((k) => !KNOWN_TOP_KEYS.has(k));
     if (unknown.length > 0) {
@@ -167,7 +182,7 @@ export function compatChatToIR(wire: unknown, allowUnknown: boolean): IRRequest 
         ...(typeof m["refusal"] === "string" && m["refusal"].length > 0
           ? [{ type: "text", text: m["refusal"], providerMetadata: { openai: { refusal: true } } } as Block]
           : []),
-        ...toolCallsToBlocks(m["tool_calls"], path),
+        ...toolCallsToBlocks(m["tool_calls"], path, warnings),
       ];
       if (blocks.length > 0) messages.push({ role: "assistant", blocks });
       return;
@@ -277,5 +292,5 @@ export function compatChatToIR(wire: unknown, allowUnknown: boolean): IRRequest 
   if (!parsed.success) {
     throw invalid(`IR 변환 실패: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
   }
-  return parsed.data;
+  return { request: parsed.data, warnings };
 }

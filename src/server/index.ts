@@ -182,7 +182,10 @@ async function shutdown(signal: string): Promise<void> {
   hardExit.unref?.();
 
   await sleep(DRAIN_DELAY_MS);
-  server.close();
+  // close 콜백 = 모든 커넥션 종료 후 — 비스트림 진행 요청의 완주 신호 (감사 #37: 아무도
+  // 기다리지 않아 process.exit에 잘리고 과금 원장 write가 유실됐다)
+  const serverClosed = new Promise<void>((resolve) => server.close(() => resolve()));
+  (server as { closeIdleConnections?: () => void }).closeIdleConnections?.(); // keep-alive 유휴는 즉시 정리
 
   const remaining = await sessions.drain(DRAIN_TIMEOUT_MS);
   if (remaining > 0) {
@@ -191,6 +194,8 @@ async function shutdown(signal: string): Promise<void> {
     sessions.cancelAll();
     await sleep(1_000);
   }
+  // 비스트림 잔여 완주 대기 (상한 10s — hardExit 40s 예산 내). 스트림은 위에서 종결됨
+  await Promise.race([serverClosed, sleep(10_000)]);
 
   await Promise.allSettled([
     shutdownTracing(), // 잔여 span 플러시 — 마지막 요청의 트레이스 유실 방지

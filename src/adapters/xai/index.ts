@@ -1,4 +1,4 @@
-import type { JSONObject } from "../../ir/json.js";
+import type { JSONObject, JSONValue } from "../../ir/json.js";
 import type { Warning } from "../../ir/common.js";
 import type { IRRequest } from "../../ir/request.js";
 import type {
@@ -9,7 +9,7 @@ import type {
   SurfaceSelector,
   TransformedRequest,
 } from "../types.js";
-import { makeWarning } from "../shared.js";
+import { AdapterInvalidRequestError, makeWarning } from "../shared.js";
 import { openaiChatAdapter, openaiResponsesAdapter } from "../openai/index.js";
 import { mapXAIError } from "./errors.js";
 import { eventFromBase, requestToBase, responseFromBase, relabelWarning, stripBodyKeys } from "./remap.js";
@@ -26,14 +26,17 @@ const XAI_REJECTED_CC_KEYS = ["store", "metadata", "modalities", "audio", "predi
 const XAI_REJECTED_RESPONSES_KEYS = ["metadata", "safety_identifier", "prompt_cache_options", "prompt_cache_retention", "truncation", "moderation"] as const;
 
 /**
- * xGrokConvId는 헤더 전용(오버라이드 #7) — base로 넘기면 openai 스키마의 미지 키라
- * 기본 4xx, opt-in 시엔 wire body로 누출된다 (감사 2026-08-24 #6). base 전달 전 제거,
- * 헤더 주입은 postprocess가 원본 req에서 읽는다.
+ * xai 전용 키(xGrokConvId·deferred)는 base로 넘기면 openai 스키마의 미지 키라 기본 4xx,
+ * opt-in 시엔 wire body로 누출된다 (감사 2026-08-24 #6). base 전달 전 제거하고
+ * postprocess가 원본 req에서 읽어 헤더/전용 body 필드로 주입한다.
  */
-function withoutConvId(req: IRRequest): IRRequest {
+const XAI_SPECIAL_KEYS = ["xGrokConvId", "deferred"] as const;
+
+function withoutXaiSpecials(req: IRRequest): IRRequest {
   const ns = req.providerOptions?.["xai"];
-  if (!ns || ns["xGrokConvId"] === undefined) return req;
-  const { xGrokConvId: _c, ...rest } = ns;
+  if (!ns || XAI_SPECIAL_KEYS.every((k) => ns[k] === undefined)) return req;
+  const rest = { ...ns };
+  for (const k of XAI_SPECIAL_KEYS) delete rest[k];
   const po = { ...req.providerOptions };
   if (Object.keys(rest).length > 0) po["xai"] = rest;
   else delete po["xai"];
@@ -62,6 +65,19 @@ function postprocess(
   const convId = req.providerOptions?.["xai"]?.["xGrokConvId"];
   if (typeof convId === "string" && convId.length > 0) headers["x-grok-conv-id"] = convId;
 
+  // 타사(openai) NS는 base 진입 시 중립 라벨로 밀려 미소비 — 무경고 소실 금지 (감사 xai #1, 부록 (a):84)
+  const foreign = req.providerOptions?.["openai"];
+  if (foreign && Object.keys(foreign).length > 0) {
+    warnings.push(
+      makeWarning(
+        "compatibility",
+        "parameter-dropped",
+        `타사(openai) providerOptions는 xai 타깃에서 미소비 — 드롭: ${Object.keys(foreign).join(", ")} (통과시키려면 xai NS로 명시)`,
+        "providerOptions.openai",
+      ),
+    );
+  }
+
   return { request: { ...base.request, headers, body: body as JSONObject }, warnings };
 }
 
@@ -80,9 +96,37 @@ export const xaiChatAdapter: OutboundAdapter = {
   provider: "xai",
   surface: "chat-completions",
   transformRequest(req: IRRequest, ctx: RequestContext): TransformedRequest {
-    return postprocess(openaiChatAdapter.transformRequest(requestToBase(withoutConvId(req)), ctx), req, XAI_REJECTED_CC_KEYS);
+    const out = postprocess(openaiChatAdapter.transformRequest(requestToBase(withoutXaiSpecials(req)), ctx), req, XAI_REJECTED_CC_KEYS);
+    // deferred completions — 부록 (b) §4 PO 통과 계약 (감사 xai #5). CC 전용, stream과 상호배타
+    if (req.providerOptions?.["xai"]?.["deferred"] === true) {
+      if (req.stream) {
+        throw new AdapterInvalidRequestError("xai.deferred는 stream과 동시 지정 불가 — 핸들 응답에는 스트림이 없다");
+      }
+      out.request.body["deferred"] = true;
+    }
+    return out;
   },
-  transformResponse: (body, ctx) => responseFromBase(openaiChatAdapter.transformResponse(body, ctx)),
+  transformResponse: (body, ctx) => {
+    // deferred 핸들 응답 {request_id} 단독 분기 — 콘텐츠 없는 정상 수리, 핸들은 PM으로 (부록 (b) §4)
+    const b = body as Record<string, unknown> | null;
+    if (b && typeof b["request_id"] === "string" && b["choices"] === undefined) {
+      return {
+        blocks: [],
+        origin: { provider: "xai", model: ctx.modelId, surface: "chat-completions" },
+        finishReason: { unified: "other", raw: "deferred" },
+        usage: {
+          input: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+          output: { total: 0, text: 0, reasoning: 0 },
+          totalTokens: 0,
+          raw: body as JSONValue,
+        },
+        providerRequestId: b["request_id"],
+        providerMetadata: { xai: { requestId: b["request_id"] as JSONValue } },
+        warnings: [],
+      };
+    }
+    return responseFromBase(openaiChatAdapter.transformResponse(body, ctx));
+  },
   createStreamTransformer: wrapStream(openaiChatAdapter.createStreamTransformer),
   mapHttpError: mapXAIError,
 };
@@ -91,11 +135,18 @@ export const xaiResponsesAdapter: OutboundAdapter = {
   provider: "xai",
   surface: "responses",
   transformRequest(req: IRRequest, ctx: RequestContext): TransformedRequest {
-    return postprocess(
-      openaiResponsesAdapter.transformRequest(requestToBase(withoutConvId(req)), ctx),
+    const out = postprocess(
+      openaiResponsesAdapter.transformRequest(requestToBase(withoutXaiSpecials(req)), ctx),
       req,
       XAI_REJECTED_RESPONSES_KEYS,
     );
+    // deferred는 CC 전용 (부록 (b) §4) — responses 도달 시 드롭 + warning
+    if (req.providerOptions?.["xai"]?.["deferred"] === true) {
+      out.warnings.push(
+        makeWarning("unsupported", "parameter-dropped", "xai.deferred는 chat-completions 전용 — responses에서 드롭", "providerOptions.xai.deferred"),
+      );
+    }
+    return out;
   },
   transformResponse: (body, ctx) => responseFromBase(openaiResponsesAdapter.transformResponse(body, ctx)),
   createStreamTransformer: wrapStream(openaiResponsesAdapter.createStreamTransformer),

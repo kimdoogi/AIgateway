@@ -43,7 +43,8 @@ export const selectOpenAISurface: SurfaceSelector = ({ request }) => {
   if (request.tools?.some((t) => t.type === "provider" && t.id.startsWith("openai."))) {
     return { surface: RESPONSES, required: true, reason: "빌트인 툴은 Responses 전용" };
   }
-  const responsesOnly = ["include", "reasoning", "textVerbosity", "truncation", "maxToolCalls",
+  // textVerbosity는 CC도 지원(top-level verbosity — 감사 openai #5)이라 표면 강제 사유 아님
+  const responsesOnly = ["include", "reasoning", "truncation", "maxToolCalls",
     "contextManagement", "background", "previousResponseId", "conversation", "prompt", "moderation"];
   for (const key of responsesOnly) {
     if (po[key] !== undefined) {
@@ -60,15 +61,25 @@ export const selectOpenAISurface: SurfaceSelector = ({ request }) => {
   }
 
   // ── CC 전용 트리거 (ADR-0002 §4 — audio/predicted outputs/CC 전용 파라미터) ──
-  const ccOnly = ["prediction", "audio", "modalities", "logitBias", "logprobs", "webSearchOptions"];
-  for (const key of ccOnly) {
+  // CC 없이는 기능 자체가 성립 안 하는 것만 required — 진짜 CC 전용 기능
+  const ccRequired = ["prediction", "audio", "modalities"];
+  for (const key of ccRequired) {
     if (po[key] !== undefined) {
       return { surface: CHAT, required: true, reason: `providerOptions.openai.${key}는 chat-completions 전용` };
     }
   }
+  // 강등 가능한 파라미터는 선호일 뿐 — required로 강제하면 responses 전용 모델(pro 등)에서
+  // capability 게이트와 충돌해 하드 400이 난다. 소프트 선호면 게이트가 responses로 전환 +
+  // 어댑터가 드롭 + warning (감사 #24)
+  const ccPreferred = ["logitBias", "logprobs", "webSearchOptions"];
+  for (const key of ccPreferred) {
+    if (po[key] !== undefined) {
+      return { surface: CHAT, reason: `providerOptions.openai.${key}는 chat-completions 전용 (강등 가능 — 소프트 선호)` };
+    }
+  }
   if (request.seed !== undefined || request.presencePenalty !== undefined ||
       request.frequencyPenalty !== undefined || request.stopSequences !== undefined) {
-    return { surface: CHAT, required: true, reason: "seed/penalties/stop은 chat-completions 전용" };
+    return { surface: CHAT, reason: "seed/penalties/stop은 chat-completions 전용 (강등 가능 — 소프트 선호)" };
   }
   for (const msg of request.messages) {
     for (const block of msg.blocks) {

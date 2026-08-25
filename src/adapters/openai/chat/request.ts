@@ -246,6 +246,13 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
         const fn: JSONObject = { name: t.name, parameters: t.inputSchema };
         if (t.description) fn["description"] = t.description;
         if (t.strict !== undefined) fn["strict"] = t.strict;
+        // 툴 레벨 PO는 Responses 전용 좌석 — CC 도달 시 무증상 소멸 금지 (감사 openai #3)
+        const toolPO = t.providerOptions?.["openai"];
+        if (toolPO && Object.keys(toolPO).length > 0) {
+          warnings.push(
+            makeWarning("unsupported", "parameter-dropped", `CC 표면은 툴 레벨 PO 미지원 — 드롭: ${Object.keys(toolPO).join(", ")} (${t.name})`, "tools"),
+          );
+        }
         return { type: "function", function: fn };
       }
       throw new AdapterInvalidRequestError(
@@ -283,7 +290,10 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   if (gated["topP"] !== undefined) body["top_p"] = gated["topP"];
   if (gated["presencePenalty"] !== undefined) body["presence_penalty"] = gated["presencePenalty"];
   if (gated["frequencyPenalty"] !== undefined) body["frequency_penalty"] = gated["frequencyPenalty"];
-  if (req.maxOutputTokens !== undefined) body["max_completion_tokens"] = req.maxOutputTokens;
+  if (req.maxOutputTokens === 0) {
+    // 0(캐시 프리워밍)은 anthropic 전용 의미론 — openai는 미지원, 드롭 + warning (ir-v0 §6)
+    warnings.push(makeWarning("unsupported", "parameter-dropped", "maxOutputTokens 0(프리워밍)은 openai 미지원 — 드롭", "maxOutputTokens"));
+  } else if (req.maxOutputTokens !== undefined) body["max_completion_tokens"] = req.maxOutputTokens;
   if (gated["stopSequences"] !== undefined) body["stop"] = gated["stopSequences"];
   if (req.seed !== undefined) body["seed"] = req.seed;
   dropUnsupportedParams({ topK: req.topK }, req.strictParameters, "openai chat-completions", warnings);
@@ -324,13 +334,17 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   if (opts.safetyIdentifier !== undefined) body["safety_identifier"] = opts.safetyIdentifier;
   if (opts.user !== undefined) body["user"] = opts.user;
   if (opts.store !== undefined) body["store"] = opts.store; // CC 기본 false — 강제 불요
+  // CC도 지원하는 4종 — 조용한 무시는 over-dropping (감사 openai #1/#5: 공식 문서 웹 대조로 확증)
+  if (opts.moderation) body["moderation"] = opts.moderation as JSONValue;
+  if (opts.promptCacheOptions) body["prompt_cache_options"] = opts.promptCacheOptions as JSONValue;
+  if (opts.promptCacheRetention) body["prompt_cache_retention"] = opts.promptCacheRetention;
+  if (opts.textVerbosity) body["verbosity"] = opts.textVerbosity; // CC는 top-level verbosity
 
   // Responses 전용 PO가 여기 도달 — 드롭 + 보고
   dropUnsupportedParams(
     {
       "openai.include": opts.include,
       "openai.reasoning": opts.reasoning,
-      "openai.textVerbosity": opts.textVerbosity,
       "openai.truncation": opts.truncation,
       "openai.maxToolCalls": opts.maxToolCalls,
       "openai.contextManagement": opts.contextManagement,
@@ -359,7 +373,13 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
 
   if (req.stream) {
     body["stream"] = true;
-    body["stream_options"] = { include_usage: true }; // usage는 최종 chunk에만 (인벤토리 §D)
+    body["stream_options"] = {
+      include_usage: true, // usage는 최종 chunk에만 (인벤토리 §D)
+      // include_obfuscation은 CC도 지원 — 무시하면 over-dropping (감사 openai #1)
+      ...(opts.streamOptions?.includeObfuscation !== undefined
+        ? { include_obfuscation: opts.streamOptions.includeObfuscation }
+        : {}),
+    };
   }
 
   for (const [k, v] of Object.entries(opts.extra)) {

@@ -19,6 +19,8 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
   let requestId = "";
   let model = "";
   let originProvider = "";
+  // §2.2: 비-anthropic origin reasoning 복원 판단 근거 — 비스트림 toMessagesResponse와 대칭 (감사 #8/#19)
+  let origin: { provider: string; model: string; surface?: string } | undefined;
   // D5 — warning은 wire에 자리가 없어 finish의 gateway 확장으로 일괄 전달 (리뷰 G2)
   const warnings: Warning[] = [];
 
@@ -41,6 +43,7 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
         requestId = event.id;
         model = event.model.resolved.model;
         originProvider = event.model.resolved.provider;
+        origin = event.model.resolved;
         if (started) return [];
         started = true;
         const container = event.providerMetadata?.["anthropic"]?.["container"];
@@ -151,6 +154,7 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
         const container = event.providerMetadata?.["anthropic"]?.["container"];
         if (container !== undefined) deltaBody["container"] = container;
         const gateway: JSONObject = {};
+        if (!strict && origin !== undefined) gateway["origin"] = origin as unknown as JSONValue; // 비스트림 대칭 (§2.2)
         if (raw !== undefined) gateway["finish_reason_raw"] = raw;
         if (!strict && warnings.length > 0) gateway["warnings"] = warnings as unknown as JSONValue;
         if (Object.keys(gateway).length > 0) deltaBody["gateway"] = gateway;

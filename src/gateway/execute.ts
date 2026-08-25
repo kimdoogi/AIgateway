@@ -44,7 +44,13 @@ export interface ExecuteDeps {
   upstreamTimeoutMs?: number;
   // ── 운영 평면 (ADR-0006/0007 — 2026-08-21) ──
   /** 인증 미들웨어가 해석한 테넌트 컨텍스트 — 원장 행에 병기 (정산 분리 기준) */
-  tenantContext?: { tenant: string; keyId?: string; keySource?: "byo" | "pool" };
+  tenantContext?: {
+    tenant: string;
+    keyId?: string;
+    keySource?: "byo" | "pool";
+    /** 크로스 프로바이더 폴백 대응 — 시도의 실제 프로바이더로 원장 keySource 스탬프 (감사 #35) */
+    keySourceByProvider?: Record<string, "byo" | "pool">;
+  };
   /** 정책 레이어 사전 warning (예산 soft 등) — 응답/stream-start warnings에 병합 */
   preWarnings?: Warning[];
   /** 자격증명 결정자 — 기본 env 풀 키. BYO는 앱이 테넌트 키로 오버라이드 (ADR-0001 하이브리드) */
@@ -187,7 +193,10 @@ function rowBase(
       ? {
           tenant: deps.tenantContext.tenant,
           ...(deps.tenantContext.keyId ? { keyId: deps.tenantContext.keyId } : {}),
-          ...(deps.tenantContext.keySource ? { keySource: deps.tenantContext.keySource } : {}),
+          // 시도의 실제 프로바이더 기준 — 최초 타깃 고정값은 폴백 시 오염 (감사 #35)
+          ...((deps.tenantContext.keySourceByProvider?.[call.adapter.provider] ?? deps.tenantContext.keySource)
+            ? { keySource: deps.tenantContext.keySourceByProvider?.[call.adapter.provider] ?? deps.tenantContext.keySource }
+            : {}),
         }
       : {}),
   };
@@ -292,7 +301,9 @@ async function dispatchWithRetry(
     await sleep(delay); // ponytail: sleep은 abort 비인지 — 아래 체크가 커버, race 도입은 로드맵 4에서
     if (signal?.aborted) {
       const canceled = new GatewayError(irError("gateway_error", 499, "리트라이 대기 중 취소"));
-      canceled.attempt = attempt;
+      // 직전 attempt는 위에서 이미 error 행으로 적재됨 — 같은 번호로 canceled 행을 또 쓰면
+      // '시도별 1행' 불변식 위반 (감사 #30). 취소는 시작 못 한 다음 시도 번호로.
+      canceled.attempt = attempt + 1;
       throw canceled;
     }
   }
@@ -571,12 +582,9 @@ async function* executeStreamTarget(
         /* 어댑터 flush 실패 — 기본 abort 터미널로 진행 */
       }
       const error = { ...abortBase(), ...(harvested ? { billed: harvested.billed } : {}) };
-      // 콘텐츠 유무로 partial/final 구분 (기방출 이벤트 유효 의미론 — 리뷰 SW6-r4)
-      yield emit(
-        contentEmitted
-          ? { type: "error-partial", error, usage: harvested?.usage, willRetry: false }
-          : { type: "error-final", error, usage: harvested?.usage },
-      );
+      // abort 계열 터미널은 error-partial 고정 (§10.4 / session.abortError 계약) — dispatch 단계
+      // 취소 경로와 동일. 경로별 partial/final 불일치는 소비자 분기를 깨뜨린다 (감사 #33)
+      yield emit({ type: "error-partial", error, usage: harvested?.usage, willRetry: false });
       return;
     }
     const error = providerError(`스트림 소비 중단: ${err instanceof Error ? err.message : String(err)}`);

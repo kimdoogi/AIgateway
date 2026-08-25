@@ -4,10 +4,12 @@ import type { Message } from "../../ir/message.js";
 import type { IRRequest } from "../../ir/request.js";
 import { IRRequestSchema } from "../../ir/request.js";
 import type { Tool } from "../../ir/tools.js";
-import { OriginSchema } from "../../ir/common.js";
+import { OriginSchema, type Warning } from "../../ir/common.js";
+import { makeWarning } from "../../adapters/shared.js";
 import { GatewayError, irError } from "../../gateway/errors.js";
+import type { InboundConversion } from "../openai-compat/request.js";
 
-// anthropic-compat Messages 인바운드: wire 요청 → IRRequest (부록 (a) §3.2).
+// anthropic-compat Messages 인바운드: wire 요청 → IRRequest + warnings (부록 (a) §3.2).
 // 블록 구조가 IR과 1:1 — cache_control은 PO.anthropic으로, thinking signature는 opaqueState로.
 
 const KNOWN_TOP_KEYS = new Set([
@@ -123,7 +125,8 @@ export function wireBlockToIRBlock(raw: Record<string, unknown>, path: string): 
 }
 
 function contentToBlocks(content: unknown, path: string): Block[] {
-  if (typeof content === "string") return [{ type: "text", text: content }];
+  // 빈 문자열 content는 메시지 생략 대상 — §3.4 (감사 #10/#15: openai-compat과 비대칭이었다)
+  if (typeof content === "string") return content.length > 0 ? [{ type: "text", text: content }] : [];
   if (Array.isArray(content)) return content.map((c, i) => wireBlockToIRBlock((c ?? {}) as Record<string, unknown>, `${path}[${i}]`));
   return [];
 }
@@ -132,9 +135,10 @@ export function compatMessagesToIR(
   wire: unknown,
   allowUnknown: boolean,
   betaHeader?: string,
-): IRRequest {
+): InboundConversion {
   if (!wire || typeof wire !== "object" || Array.isArray(wire)) throw invalid("JSON 객체 body가 아닙니다");
   const w = wire as Record<string, unknown>;
+  const warnings: Warning[] = [];
   // 미지 top-level 키는 원문 통과 (부록 (a) §3.2 2026-08-21 개정 — D10-1 compat passthrough 경로).
   // anthropic-compat는 D10 100% 커버리지 대상: container·context_management·mcp_servers·베타
   // 신필드를 게이트웨이가 몰라도 죽이지 않는다. pinned → 폴백 시 타 프로바이더는 skipped.
@@ -146,7 +150,9 @@ export function compatMessagesToIR(
 
   const messages: Message[] = [];
   if (w["system"] !== undefined) {
-    messages.push({ role: "system", blocks: contentToBlocks(w["system"], "system") });
+    // §3.4: 빈 system은 생략 — Anthropic은 수용하는데 게이트웨이만 400 내는 비대칭 방지 (감사 #15)
+    const systemBlocks = contentToBlocks(w["system"], "system");
+    if (systemBlocks.length > 0) messages.push({ role: "system", blocks: systemBlocks });
   }
   const rawMessages = Array.isArray(w["messages"]) ? w["messages"] : [];
   rawMessages.forEach((raw, mi) => {
@@ -204,6 +210,12 @@ export function compatMessagesToIR(
     else if (t["type"] === "any") toolChoice = "required";
     else if (t["type"] === "none") toolChoice = "none";
     else if (t["type"] === "tool" && typeof t["name"] === "string") toolChoice = { type: "tool", toolName: t["name"] };
+    else {
+      // 미지 type 조용한 드롭 금지 (D5 — 감사 anthropic #10)
+      warnings.push(
+        makeWarning("unsupported", "parameter-dropped", `미지의 tool_choice type '${String(t["type"])}' — 드롭`, "tool_choice"),
+      );
+    }
   }
 
   const po: JSONObject = {};
@@ -253,5 +265,5 @@ export function compatMessagesToIR(
   if (!parsed.success) {
     throw invalid(`IR 변환 실패: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
   }
-  return parsed.data;
+  return { request: parsed.data, warnings };
 }

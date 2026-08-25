@@ -1,9 +1,17 @@
 import type { JSONObject, JSONValue } from "../../ir/json.js";
 import type { Block, FileBlock, ToolResultBlock } from "../../ir/blocks.js";
-import type { NS, Warning } from "../../ir/common.js";
+import type { Citation, NS, Warning } from "../../ir/common.js";
 import type { IRRequest } from "../../ir/request.js";
 import type { RequestContext, TransformedRequest } from "../types.js";
-import { AdapterInvalidRequestError, dropUnsupportedParams, gateEffort, makeWarning } from "../shared.js";
+import { z } from "zod";
+import { AdapterInvalidRequestError, dropUnsupportedParams, gateEffort, gateUnsupportedParams, makeWarning, partitionProviderOptions } from "../shared.js";
+
+// 툴 레벨 providerOptions.anthropic 인지 키 (D5 — 감사 #17: 툴 PO 미지 키 무증상 방지)
+const AnthropicToolLevelSchema = z.object({
+  cacheControl: z.record(z.string(), z.unknown()).optional(),
+  cache_control: z.record(z.string(), z.unknown()).optional(),
+  wireExtras: z.record(z.string(), z.unknown()).optional(),
+});
 import { parseAnthropicRequestOptions, readBlockCacheControl, readBlockWireType, readWireExtras } from "./options.js";
 import { AnthropicWireRequestSchema } from "./wire.js";
 
@@ -109,8 +117,14 @@ function toolResultToWire(block: ToolResultBlock, cctx: ConvertCtx, path: string
   // 서버 툴 결과 (providerExecuted): G1 왕복 — wireType이 있으면 원문 wire 블록 복원 (리뷰 R1)
   if (block.providerExecuted) {
     const wireType = readBlockWireType(block.providerOptions, block.providerMetadata);
-    if (wireType && block.output.type === "json") {
-      return { type: wireType, tool_use_id: block.toolCallId, content: block.output.value };
+    // errorJson도 원문 복원 — is_error:true 재조립 (§4.4 직교, 감사 #23)
+    if (wireType && (block.output.type === "json" || block.output.type === "errorJson")) {
+      return {
+        type: wireType,
+        tool_use_id: block.toolCallId,
+        content: block.output.value,
+        ...(block.output.type === "errorJson" ? { is_error: true } : {}),
+      };
     }
     // 타 프로바이더 산(또는 wireType 소실) 서버 툴 결과 → D6-6: 텍스트 강등 + warning
     cctx.warnings.push(
@@ -198,10 +212,53 @@ function reasoningToWire(block: Extract<Block, { type: "reasoning" }>, cctx: Con
   }
 }
 
+// IR Citation → anthropic wire citation 역매핑 (요청 히스토리 — 감사 #20: 응답은 보존하는데
+// 요청 방향이 무경고 드롭해 G1 왕복이 깨졌다). 표현 불가한 것(outputRange 등)만 드롭 + warning.
+function citationToWire(c: Citation): JSONObject | null {
+  if (c.source.type === "url") {
+    return {
+      type: "web_search_result_location",
+      ...(c.source.url ? { url: c.source.url } : {}),
+      ...(c.source.title ? { title: c.source.title } : {}),
+      ...(c.citedText ? { cited_text: c.citedText } : {}),
+    };
+  }
+  const LOC_KEYS: Record<string, [string, string, string]> = {
+    char: ["char_location", "start_char_index", "end_char_index"],
+    page: ["page_location", "start_page_number", "end_page_number"],
+    block: ["content_block_location", "start_block_index", "end_block_index"],
+  };
+  const k = c.location ? LOC_KEYS[c.location.type] : undefined;
+  if (!k || !c.location) return null;
+  return {
+    type: k[0],
+    ...(c.citedText ? { cited_text: c.citedText } : {}),
+    ...(c.source.title ? { document_title: c.source.title } : {}),
+    ...(c.source.documentIndex !== undefined ? { document_index: c.source.documentIndex } : {}),
+    [k[1]]: c.location.start,
+    [k[2]]: c.location.end,
+  };
+}
+
 function blockToWire(block: Block, cctx: ConvertCtx, path: string): JSONObject | null {
   switch (block.type) {
-    case "text":
-      return withCache({ type: "text", text: block.text }, block.providerOptions);
+    case "text": {
+      const wire: JSONObject = { type: "text", text: block.text };
+      if (block.citations && block.citations.length > 0) {
+        const mapped: JSONObject[] = [];
+        block.citations.forEach((c, ci) => {
+          const w = citationToWire(c);
+          if (w) mapped.push(w);
+          else {
+            cctx.warnings.push(
+              makeWarning("compatibility", "block-dropped", "anthropic wire로 표현 불가한 citation — 드롭", `${path}.citations[${ci}]`),
+            );
+          }
+        });
+        if (mapped.length > 0) wire["citations"] = mapped;
+      }
+      return withCache(wire, block.providerOptions);
+    }
     case "reasoning":
       return reasoningToWire(block, cctx, path);
     case "toolCall": {
@@ -265,6 +322,14 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   const warnings: Warning[] = [];
   const cctx: ConvertCtx = { warnings, retargetReasoning: req.retarget?.reasoning ?? "drop" };
   const body: JSONObject = { model: ctx.modelId };
+
+  // 신세대는 assistant prefill(말미 assistant 턴) 400 — 업스트림 400을 명확한 사전 4xx로
+  // (인벤토리 (a-cov) §9, 감사 anthropic #2. 콘텐츠라 드롭 불가 — 조용한 제거는 D5 위반)
+  if (ctx.capabilities?.assistantPrefill === false && req.messages.at(-1)?.role === "assistant") {
+    throw new AdapterInvalidRequestError(
+      `${ctx.modelId}는 assistant prefill(말미 assistant 메시지)을 지원하지 않습니다 — 메시지 제거 또는 구세대 모델 사용`,
+    );
+  }
 
   // max_tokens는 Anthropic wire 필수 — 기본값 주입은 반드시 보고 (리뷰 A6)
   if (req.maxOutputTokens !== undefined) {
@@ -347,7 +412,19 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
         if (t.description) def["description"] = t.description;
         if (t.strict !== undefined) def["strict"] = t.strict;
         if (t.inputExamples) def["input_examples"] = t.inputExamples;
+        // 툴 레벨 PO D5 — 인지 키(cacheControl·wireExtras) 외 미지 키는 기본 4xx, opt-in 통과+warning
+        // (감사 #17: 블록·툴 PO가 무검증 조회만 받는 2급 시민이었다)
+        const toolPO = partitionProviderOptions(
+          t.providerOptions,
+          "anthropic",
+          AnthropicToolLevelSchema,
+          req.allowUnknownProviderOptions ?? false,
+          warnings,
+        );
         mergeWireExtras(def, readWireExtras(t.providerOptions, undefined), warnings, `tools[${ti}]`);
+        for (const [k, v] of Object.entries(toolPO.extra)) {
+          if (def[k] === undefined) def[k] = v; // opt-in 통과분 (warning 동반, 기존 필드 보호)
+        }
         return withCache(def, t.providerOptions);
       }
       // provider 툴: id = "anthropic.web_search" 등. args가 wire 정의 원문 (type 필수)
@@ -389,10 +466,17 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
     }
   }
 
-  // ── sampling ──
-  if (req.temperature !== undefined) body["temperature"] = req.temperature;
-  if (req.topP !== undefined) body["top_p"] = req.topP;
-  if (req.topK !== undefined) body["top_k"] = req.topK;
+  // ── sampling — 세대 게이트: 신세대는 temperature/top_p/top_k 400 (인벤토리 (a-cov) §9, 감사 anthropic #2) ──
+  const sampling = gateUnsupportedParams(
+    { temperature: req.temperature, topP: req.topP, topK: req.topK },
+    ctx.capabilities?.unsupportedParams,
+    req.strictParameters,
+    "anthropic",
+    warnings,
+  );
+  if (sampling.temperature !== undefined) body["temperature"] = sampling.temperature;
+  if (sampling.topP !== undefined) body["top_p"] = sampling.topP;
+  if (sampling.topK !== undefined) body["top_k"] = sampling.topK;
   if (req.stopSequences) body["stop_sequences"] = req.stopSequences;
   dropUnsupportedParams(
     { seed: req.seed, presencePenalty: req.presencePenalty, frequencyPenalty: req.frequencyPenalty },

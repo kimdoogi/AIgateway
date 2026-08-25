@@ -3,15 +3,25 @@ import type { Block, FileBlock, ToolResultBlock } from "../../../ir/blocks.js";
 import type { Warning } from "../../../ir/common.js";
 import type { IRRequest } from "../../../ir/request.js";
 import type { RequestContext, TransformedRequest } from "../../types.js";
+import { z } from "zod";
 import {
   AdapterInvalidRequestError,
   dropUnsupportedParams,
   gateEffort,
   gateUnsupportedParams,
   makeWarning,
+  partitionProviderOptions,
 } from "../../shared.js";
 import { overrideWarning, parseOpenAIRequestOptions, readItem } from "../options.js";
 import { ResponsesWireRequestSchema } from "./wire.js";
+
+// 툴 레벨 providerOptions.openai — 함수 툴 신필드 (인벤토리 §1, 감사 openai #3).
+// D5 미지 키 정책은 partitionProviderOptions 공통 (감사 #17 — 툴 레벨도 2급 시민 금지)
+const ToolLevelOptionsSchema = z.object({
+  outputSchema: z.record(z.string(), z.unknown()).optional(),
+  allowedCallers: z.array(z.string()).optional(),
+  deferLoading: z.boolean().optional(),
+});
 
 // IR → OpenAI Responses wire (ADR-0002, 인벤토리 §A/§B, ir-v0 §13).
 // 순수 함수. 핵심 계약: store:false 강제(명시 PO는 §2 규칙으로 override + warning),
@@ -199,10 +209,14 @@ function messageToItems(
   blocks.forEach((block, bi) => {
     const path = `${basePath}.blocks[${bi}]`;
     switch (block.type) {
-      case "text":
-        pendingParts.push({ type: partType, text: block.text });
+      case "text": {
+        // 파트 레벨 명시적 캐시 (인벤토리 §1 input_text — 감사 openai #2: explicit 모드 결합 시
+        // 브레이크포인트 표현 불가면 조용한 캐시 전멸)
+        const bp = block.providerOptions?.["openai"]?.["promptCacheBreakpoint"];
+        pendingParts.push({ type: partType, text: block.text, ...(bp !== undefined ? { prompt_cache_breakpoint: bp as JSONValue } : {}) });
         return;
-      case "file":
+      }
+      case "file": {
         if (role === "assistant") {
           // 출력 방향 file 재전송 표현 없음 — 드롭 + 보고
           cctx.warnings.push(
@@ -210,8 +224,12 @@ function messageToItems(
           );
           return;
         }
-        pendingParts.push(fileToPart(block, path));
+        const filePart = fileToPart(block, path);
+        const bp = block.providerOptions?.["openai"]?.["promptCacheBreakpoint"];
+        if (bp !== undefined) filePart["prompt_cache_breakpoint"] = bp as JSONValue;
+        pendingParts.push(filePart);
         return;
+      }
       case "reasoning": {
         flush();
         const item = reasoningToItem(block, cctx, path);
@@ -360,6 +378,19 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
             makeWarning("unsupported", "parameter-dropped", `openai 미지원 inputExamples 드롭 (${t.name})`, "tools"),
           );
         }
+        // 툴 레벨 PO — output_schema·allowed_callers·defer_loading 방출 + D5 미지 키 정책
+        // (감사 openai #3/#17: 어댑터가 툴 PO를 아예 읽지 않아 신필드가 도달 불가였다)
+        const toolPO = partitionProviderOptions(
+          t.providerOptions,
+          "openai",
+          ToolLevelOptionsSchema,
+          req.allowUnknownProviderOptions ?? false,
+          warnings,
+        );
+        if (toolPO.known.outputSchema) def["output_schema"] = toolPO.known.outputSchema as JSONValue;
+        if (toolPO.known.allowedCallers) def["allowed_callers"] = toolPO.known.allowedCallers;
+        if (toolPO.known.deferLoading !== undefined) def["defer_loading"] = toolPO.known.deferLoading;
+        for (const [k, v] of Object.entries(toolPO.extra)) def[k] = v; // opt-in 통과분 (warning 동반)
         return def;
       }
       // provider 툴: "openai.web_search" 등 — args가 wire 정의 원문
@@ -394,7 +425,10 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   );
   if (gated["temperature"] !== undefined) body["temperature"] = gated["temperature"];
   if (gated["topP"] !== undefined) body["top_p"] = gated["topP"];
-  if (req.maxOutputTokens !== undefined) body["max_output_tokens"] = req.maxOutputTokens;
+  if (req.maxOutputTokens === 0) {
+    // 0(캐시 프리워밍)은 anthropic 전용 의미론 — openai는 미지원, 드롭 + warning (ir-v0 §6)
+    warnings.push(makeWarning("unsupported", "parameter-dropped", "maxOutputTokens 0(프리워밍)은 openai 미지원 — 드롭", "maxOutputTokens"));
+  } else if (req.maxOutputTokens !== undefined) body["max_output_tokens"] = req.maxOutputTokens;
   // Responses 표면 미지원 IR 표준 파라미터 (인벤토리 §1 — CC 전용). 선택자가 CC로 못 보낸 경우 드롭+보고
   dropUnsupportedParams(
     {
@@ -486,7 +520,18 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   if (opts.truncation) body["truncation"] = opts.truncation;
   if (opts.prompt) body["prompt"] = opts.prompt as JSONValue;
   if (opts.promptCacheKey) body["prompt_cache_key"] = opts.promptCacheKey;
-  if (opts.promptCacheOptions) body["prompt_cache_options"] = opts.promptCacheOptions as JSONValue;
+  if (opts.promptCacheOptions) {
+    body["prompt_cache_options"] = opts.promptCacheOptions as JSONValue;
+    // explicit 모드인데 파트 브레이크포인트 0개 = 캐시 전멸 함정 — 보고 (감사 openai #2)
+    if (
+      (opts.promptCacheOptions as Record<string, unknown>)["mode"] === "explicit" &&
+      !req.messages.some((m) => m.blocks.some((b) => b.providerOptions?.["openai"]?.["promptCacheBreakpoint"] !== undefined))
+    ) {
+      warnings.push(
+        makeWarning("degraded", "cache-breakpoint-ignored", "prompt_cache_options.mode=explicit인데 파트 브레이크포인트(promptCacheBreakpoint) 0개 — 캐시 미적중", "providerOptions.openai.promptCacheOptions"),
+      );
+    }
+  }
   if (opts.promptCacheRetention) body["prompt_cache_retention"] = opts.promptCacheRetention;
   if (opts.contextManagement) body["context_management"] = opts.contextManagement as JSONValue;
   if (opts.moderation) body["moderation"] = opts.moderation as JSONValue;

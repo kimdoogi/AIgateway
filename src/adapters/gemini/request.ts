@@ -3,9 +3,17 @@ import type { Block, FileBlock, ToolResultBlock } from "../../ir/blocks.js";
 import type { Warning } from "../../ir/common.js";
 import type { IRRequest } from "../../ir/request.js";
 import type { RequestContext, TransformedRequest } from "../types.js";
-import { AdapterInvalidRequestError, gateEffort, makeWarning } from "../shared.js";
+import { z } from "zod";
+import { AdapterInvalidRequestError, gateEffort, makeWarning, partitionProviderOptions } from "../shared.js";
 import { parseGoogleRequestOptions, readPartExtras } from "./options.js";
 import { GeminiWireRequestSchema } from "./wire.js";
+
+// 툴 레벨 providerOptions.google — functionDeclaration 신좌석 (인벤토리 §K, 감사 google #8)
+const GeminiToolLevelSchema = z.object({
+  response: z.record(z.string(), z.unknown()).optional(),
+  responseJsonSchema: z.record(z.string(), z.unknown()).optional(),
+  behavior: z.string().optional(), // Live 비동기 NON_BLOCKING (인벤토리 §K)
+});
 
 // IR → Gemini generateContent wire (ADR-0003, ir-v0 §13, docs/research/2026-08-20-gemini-api.md)
 // 순수 함수. 스트리밍은 body가 아니라 경로로 갈린다 (:streamGenerateContent?alt=sse 강제 — ADR-0003 §2).
@@ -92,6 +100,10 @@ function fileToWire(block: FileBlock, cctx: ConvertCtx, path: string): JSONObjec
   }
   // 미디어 part에 실려온 서명 왕복 (C-2 — 모든 part에 부착 가능)
   if (block.opaqueState?.provider === "google") part["thoughtSignature"] = block.opaqueState.data;
+  // §4.5 계약: videoMetadata({startOffset,endOffset,fps})는 providerOptions.google — 미소비 시
+  // 클리핑 무시로 전체 비디오 과금 (감사 google #4 / P0 #14 짝)
+  const vm = block.providerOptions?.["google"]?.["videoMetadata"];
+  if (vm && typeof vm === "object") part["videoMetadata"] = vm as JSONValue;
   // gemini wire에 대응 좌석이 없는 문서 메타 — 조용한 유실 금지 (D5)
   for (const key of ["title", "context", "citationsEnabled", "filename"] as const) {
     if (block[key] !== undefined) {
@@ -100,7 +112,8 @@ function fileToWire(block: FileBlock, cctx: ConvertCtx, path: string): JSONObjec
       );
     }
   }
-  return part;
+  // partExtras(mediaResolution 등) — 미디어 part에도 배선 (감사 google #4: 무경고 무시였다)
+  return withPartExtras(part, block);
 }
 
 /** functionResponse.response는 Struct(객체) 필수 — 비객체는 output/error 래핑 (SDK 관례) */
@@ -429,6 +442,18 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
         if (t.inputExamples) {
           dropParam("gemini 함수 툴은 inputExamples 미지원 — 드롭", `tools[${ti}].inputExamples`);
         }
+        // 툴 레벨 PO — response/responseJsonSchema 등 (감사 google #8: 좌석 미독취) + D5 미지 키 정책
+        const toolPO = partitionProviderOptions(
+          t.providerOptions,
+          "google",
+          GeminiToolLevelSchema,
+          req.allowUnknownProviderOptions ?? false,
+          warnings,
+        );
+        if (toolPO.known.response) def["response"] = toolPO.known.response as JSONValue;
+        if (toolPO.known.responseJsonSchema) def["responseJsonSchema"] = toolPO.known.responseJsonSchema as JSONValue;
+        if (toolPO.known.behavior) def["behavior"] = toolPO.known.behavior;
+        for (const [k, v] of Object.entries(toolPO.extra)) def[k] = v; // opt-in 통과분 (warning 동반)
         functionDeclarations.push(def);
         return;
       }
@@ -483,7 +508,10 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
 
   // ── generationConfig (sampling — 전 표준 파라미터 지원, 인벤토리 B-2) ──
   const gen: JSONObject = {};
-  if (req.maxOutputTokens !== undefined) gen["maxOutputTokens"] = req.maxOutputTokens;
+  if (req.maxOutputTokens === 0) {
+    // 0(캐시 프리워밍)은 anthropic 전용 의미론 — gemini는 미지원, 드롭 + warning (ir-v0 §6)
+    warnings.push(makeWarning("unsupported", "parameter-dropped", "maxOutputTokens 0(프리워밍)은 gemini 미지원 — 드롭", "maxOutputTokens"));
+  } else if (req.maxOutputTokens !== undefined) gen["maxOutputTokens"] = req.maxOutputTokens;
   if (req.temperature !== undefined) gen["temperature"] = req.temperature;
   if (req.topP !== undefined) gen["topP"] = req.topP;
   if (req.topK !== undefined) gen["topK"] = req.topK;

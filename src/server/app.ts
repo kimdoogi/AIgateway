@@ -250,15 +250,20 @@ export function createApp(deps: AppDeps = {}): Hono {
     return next();
   });
 
-  /** 요청별 실행 deps 확장 — 테넌트 컨텍스트·BYO 자격증명·사전 warning */
-  async function withOps(c: Context, targetProvider?: string): Promise<Partial<GatewayExecuteDeps>> {
+  /** 요청별 실행 deps 확장 — 테넌트 컨텍스트·BYO 자격증명·사전 warning.
+   *  keySource는 프로바이더별 맵 — 폴백 타깃 시도 행에 최초 타깃 값이 오염되는 것 방지 (감사 #35) */
+  async function withOps(c: Context, targetProviders: string[] = []): Promise<Partial<GatewayExecuteDeps>> {
     const ops = opsCtx.get(c.req.raw);
     if (!ops) return {};
+    const providers = [...new Set(targetProviders)];
+    const keySourceByProvider: Record<string, "byo" | "pool"> = {};
+    for (const p of providers) keySourceByProvider[p] = await ops.resolver.sourceFor(p);
     return {
       tenantContext: {
         tenant: ops.key.tenant,
         keyId: ops.key.keyId,
-        ...(targetProvider ? { keySource: await ops.resolver.sourceFor(targetProvider) } : {}),
+        ...(providers[0] ? { keySource: keySourceByProvider[providers[0]] } : {}),
+        ...(providers.length > 0 ? { keySourceByProvider } : {}),
       },
       ...(ops.preWarnings.length > 0 ? { preWarnings: [...ops.preWarnings] } : {}),
       credentials: ops.resolver.credentials,
@@ -279,12 +284,20 @@ export function createApp(deps: AppDeps = {}): Hono {
     try {
       targetProvider = resolveModel(req.model).provider;
     } catch { /* 미라우팅 모델은 실행부의 라우팅 에러 경로로 */ }
+    // 폴백 타깃 프로바이더까지 — keySource 맵은 시도 가능한 전 프로바이더를 덮는다 (감사 #35)
+    const allProviders = [req.model, ...(req.fallbackModels ?? [])].flatMap((m) => {
+      try {
+        return [resolveModel(m).provider];
+      } catch {
+        return [];
+      }
+    });
     const ops = opsCtx.get(c.req.raw);
     let request = req;
     if (targetProvider) {
       request = (await resolveGatewayFileRefs(request, targetProvider, deps.files, ops?.key.tenant)).request;
     }
-    const execDeps = await withOps(c, targetProvider);
+    const execDeps = await withOps(c, allProviders);
     if (targetProvider && deps.resources && ops) {
       const resourceWarnings = await checkInboundResources(request, targetProvider, ops.key.tenant, deps.resources);
       if (resourceWarnings.length > 0) {
@@ -490,7 +503,12 @@ export function createApp(deps: AppDeps = {}): Hono {
       batches: deps.batches,
       signal: c.req.raw.signal,
       ...(ops
-        ? { tenant: ops.key.tenant, keyId: ops.key.keyId, credentials: ops.resolver.credentials }
+        ? {
+            tenant: ops.key.tenant,
+            keyId: ops.key.keyId,
+            credentials: ops.resolver.credentials,
+            keySourceFor: ops.resolver.sourceFor, // 배치 원장 keySource (감사 #35)
+          }
         : {}),
     };
   };
@@ -732,7 +750,7 @@ export function createApp(deps: AppDeps = {}): Hono {
 
   // ── compat 인바운드 2종 (부록 (a)) — 실행 경로는 native와 동일 (G1 우회 없음) ──
   interface CompatFormat {
-    toIR(body: unknown, allowUnknown: boolean, c: Context): IRRequest;
+    toIR(body: unknown, allowUnknown: boolean, c: Context): { request: IRRequest; warnings: Warning[] };
     toWireResponse(response: IRResponse, strict: boolean): JSONObject;
     toWireError(error: import("../ir/error.js").IRError): JSONObject;
     downconverter(strict: boolean): (event: StreamEvent) => Array<{ event?: string; data: string; comment?: string }>;
@@ -771,9 +789,13 @@ export function createApp(deps: AppDeps = {}): Hono {
       let req: IRRequest;
       let opsDeps: Partial<GatewayExecuteDeps>;
       try {
-        req = format.toIR(json, allowUnknown, c);
-        // native와 동일한 운영 평면 통과 — 인증·예산은 미들웨어, 여기는 파일 ref·BYO·리소스 검증
+        // 인바운드 변환 warnings → preWarnings 합류 (D5 — 강등·드롭도 응답 warnings로 보고)
+        const conv = format.toIR(json, allowUnknown, c);
+        req = conv.request;
         ({ request: req, execDeps: opsDeps } = await prepareInbound(c, req));
+        if (conv.warnings.length > 0) {
+          opsDeps.preWarnings = [...(opsDeps.preWarnings ?? []), ...conv.warnings];
+        }
       } catch (err) {
         if (err instanceof GatewayError) return compatErr(err.irError);
         throw err;
