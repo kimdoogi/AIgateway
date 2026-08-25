@@ -19,11 +19,16 @@ import { eventFromBase, requestToBase, responseFromBase, relabelWarning, stripBo
 // 주 표면 = chat-completions (OpenAI와 반대 — xAI CC는 reasoning_content가 있어 결격 없음),
 // 기능 트리거 시 responses 스위칭 + store:false 강제(base가 수행).
 
-/** xAI가 400으로 거부하는 OpenAI 파라미터 (오버라이드 #2 — 무시가 아니라 거부라 strip 필수) */
-// 2026-08-21 실측: store는 400 거부가 아니라 200 묵살로 드리프트(problem log) — strip은
-// ADR-0004 store:false 정책 근거로 유지. 나머지 키의 400 여부는 미재검증.
+/** xAI가 수용하지 않는 OpenAI 파라미터 — strip + warning (거부/묵살 방지) */
+// 2026-08-25 키별 실측 (B2-7 표 확정): CC의 metadata·modalities·audio·prediction·
+// safety_identifier는 전부 **200 묵살** (400 아님 — 사용자 기대와 다르게 조용히 무시되므로
+// strip+warning 유지가 D5에 부합). store도 200 묵살(2026-08-21) — strip은 ADR-0004
+// store:false 정책 근거. responses의 background는 400 실측 ("Argument not supported").
 const XAI_REJECTED_CC_KEYS = ["store", "metadata", "modalities", "audio", "prediction", "safety_identifier"] as const;
-const XAI_REJECTED_RESPONSES_KEYS = ["metadata", "safety_identifier", "prompt_cache_options", "prompt_cache_retention", "truncation", "moderation"] as const;
+const XAI_REJECTED_RESPONSES_KEYS = ["metadata", "safety_identifier", "prompt_cache_options", "prompt_cache_retention", "truncation", "moderation", "background"] as const;
+// 'Not Actively Used' 실측 (2026-08-25): logprobs/top_logprobs는 200 묵살 — 방출은 유지하되
+// 결과가 오지 않음을 보고 (거부는 아니라 strip 불요)
+const XAI_IGNORED_CC_KEYS = ["logprobs", "top_logprobs"] as const;
 
 /**
  * xai 전용 키(xGrokConvId·deferred)는 base로 넘기면 openai 스키마의 미지 키라 기본 4xx,
@@ -54,8 +59,16 @@ function postprocess(
   const warnings: Warning[] = base.warnings.map(relabelWarning);
   const body = { ...base.request.body };
   stripBodyKeys(body, rejected, warnings, (key) =>
-    makeWarning("unsupported", "parameter-dropped", `xai 미지원 파라미터 ${key} 제거 (400 거부 방지 — 인벤토리 B2-7)`, key),
+    makeWarning("unsupported", "parameter-dropped", `xai 미지원 파라미터 ${key} 제거 (거부/묵살 방지 — B2-7 실측 2026-08-25)`, key),
   );
+  // 묵살 확정 키 — 방출은 유지, 결과 미제공을 보고 (실측 2026-08-25: 200 + 필드 무응답)
+  for (const key of XAI_IGNORED_CC_KEYS) {
+    if (body[key] !== undefined) {
+      warnings.push(
+        makeWarning("degraded", "parameter-dropped", `xai는 ${key}를 묵살(200, 결과 미제공 — 실측 2026-08-25) — 값은 전달되나 효과 없음`, key),
+      );
+    }
+  }
   // metadata.userId → user (xAI는 safety_identifier 미지원, user 지원)
   if (body["user"] === undefined && typeof req.metadata?.["userId"] === "string") {
     body["user"] = req.metadata["userId"];

@@ -1,0 +1,35 @@
+{
+  "case": "xai-probe-context-management",
+  "recordedAt": "2026-08-25",
+  "model": "grok-4.6",
+  "stream": false,
+  "request": {
+    "path": "/v1/responses",
+    "body": {
+      "model": "grok-4.6",
+      "input": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "hi"
+            }
+          ]
+        }
+      ],
+      "context_management": {
+        "truncation": "auto"
+      },
+      "store": false,
+      "max_output_tokens": 16
+    }
+  },
+  "status": 422,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": "Failed to deserialize the JSON body into the target type: context_management: invalid type: map, expected a sequence"
+  }
+}

@@ -1,7 +1,7 @@
 # 전수 감사 2026-08-24 — API 패리티(4사 웹 대조) + 코드 모순
 
 > 요청: "코드 전수조사 + 각 모델 API 확인(인터넷 검색) — 빠진 기능·에이전트 루프·파라미터·코드 모순 전부"
-> 상태: **수정 실질 완료** (2026-08-25, 테스트 558/558 그린) — §5 문서 선행 5건 + P0 14건 전건 + P1 24/26 + P2 16/18(+2 부분). 잔여는 전부 외부 의존: P1 #18(빌트인 툴 output — IR 설계+라이브 녹화), P1 #24 블록 레벨 파티셔너 승격, P2 #17/#18의 라이브 probe·재검증분. 우선순위 계획은 §1.
+> 상태: **수정 실질 완료 + 라이브 probe 반영** (2026-08-25) — §5 문서 선행 5건 + P0 14건 전건 + P1 24/26 + P2 17/18(#17 종결·#18 gemini 2건만 잔여). probe 실측 14건 반영(문제 로그 2026-08-25 참조). 잔여: P1 #18(빌트인 툴 output — IR 설계 선행), P1 #24 블록 레벨 파티셔너, gemini probe 2건(GEMINI_API_KEY 필요). 우선순위 계획은 §1.
 
 ## 방법론
 
@@ -69,10 +69,11 @@
 
 ### P2 — 저위험·문서 드리프트·정리 — 2026-08-25 수정: 18건 중 16건 완료 + 2건 부분
 
-부분: **#17** Live Search — 410 메시지 단정형→추정형 완화만 선행, 실거동 확정은 라이브 probe(D9 opt-in) 필요.
-**#18** — coverage-matrix 'PO 분류→구현 실존' 교차 검증 신설 + anthropic §2 PO군 7키 스키마 승격으로
-구조적 재발 방지는 완료. 라이브/웹 재검증이 필요한 인벤토리 행(openai ultrafast·minimal, gemini MCP·id에코,
-xai B2-7 키별 실거동)은 probe 후 갱신.
+**#17 종결** (2026-08-25 라이브 probe): Live Search 410 확정 — errors.ts 문구 확정형 복원.
+**#18 대부분 종결**: coverage-matrix 교차 검증 + anthropic PO군 승격 + 실측 반영(xai B2-7 표 —
+5건 200 묵살 반증·background 400·context_management 배열형, openai minimal 400 확정,
+anthropic format 잉여 키 400 → 드롭+warning). 잔여는 gemini 2건(mcpServers·멀티모달 FR) —
+GEMINI_API_KEY 확보 시 probe 계획 문서대로.
 
 1. openai-compat usage/finishReason raw 복원(§0-2) 미구현
 2. stop_sequence 미보존 + compat null 하드코딩 자기모순

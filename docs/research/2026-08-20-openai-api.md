@@ -183,7 +183,7 @@ CC 대비: `chat.completion.chunk` 단일 타입, `choices[].delta.{content, too
 
 | 모델 | 컨텍스트/출력 | 엔드포인트 | 특이사항 |
 |---|---|---|---|
-| **gpt-5.6-sol** (= alias `gpt-5.6`) | 1.05M / 128K | Responses, CC, Batch | effort `none/low/medium(기본)/high/xhigh/max`(**minimal 없음**), `reasoning.mode: pro`(Responses 전용), 272K 초과 입력 프리미엄 단가(입력 2×/출력 1.5×), $5/$0.5/$30 per 1M |
+| **gpt-5.6-sol** (= alias `gpt-5.6`) | 1.05M / 128K | Responses, CC, Batch | effort `none/low/medium(기본)/high/xhigh/max`(**minimal 없음 — 2026-08-25 luna 실측 400: "Supported values are: 'none', 'low', 'medium', 'high', 'xhigh', and 'max'"**), `reasoning.mode: pro`(Responses 전용), 272K 초과 입력 프리미엄 단가(입력 2×/출력 1.5×), $5/$0.5/$30 per 1M |
 | gpt-5.6-terra / gpt-5.6-luna | 동일 | 동일 | 균형형 / 저비용 |
 | gpt-5-pro / gpt-5.4-pro | — | **Responses 전용** (CC 404) | multi-turn 내부 추론 |
 | computer-use, deep research 계열 | — | Responses 전용 | |

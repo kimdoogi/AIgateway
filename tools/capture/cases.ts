@@ -1297,7 +1297,31 @@ export const CASES: CaptureCase[] = [
       max_tokens: 100,
       messages: [{ role: "user", content: 'Return {"ok": true}' }],
       output_config: {
-        format: { type: "json_schema", schema: { type: "object", properties: { ok: { type: "boolean" } } }, name: "probe", description: "probe", strict: true },
+        // additionalProperties:false 필수 (2026-08-25 1차 probe: 이게 빠지면 잉여 키와 무관하게 400)
+        format: {
+          type: "json_schema",
+          schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"], additionalProperties: false },
+          name: "probe",
+          description: "probe",
+          strict: true,
+        },
+      },
+    },
+  },
+  {
+    name: "anthropic-probe-format-clean",
+    model: HAIKU,
+    manual: true,
+    note: "output_config.format 정상형(type/schema만) 200 확정 — request.ts TODO(wire 형태 녹화 검증) 해소",
+    body: {
+      model: HAIKU,
+      max_tokens: 100,
+      messages: [{ role: "user", content: 'Return {"ok": true}' }],
+      output_config: {
+        format: {
+          type: "json_schema",
+          schema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"], additionalProperties: false },
+        },
       },
     },
   },

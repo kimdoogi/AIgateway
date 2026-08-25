@@ -447,7 +447,6 @@ exports[`골든셋 ① IR → anthropic wire > response-format+effort — output
       "model": "claude-haiku-4-5",
       "output_config": {
         "format": {
-          "name": "result",
           "schema": {
             "properties": {
               "ok": {
@@ -472,6 +471,12 @@ exports[`골든셋 ① IR → anthropic wire > response-format+effort — output
       "code": "parameter-dropped",
       "message": "anthropic 모델이 추론 비활성(effort 'none')을 표현할 수 없음 — output_config.effort 미방출 (모델 기본 동작)",
       "path": "reasoning.effort",
+      "type": "unsupported",
+    },
+    {
+      "code": "parameter-dropped",
+      "message": "anthropic output_config.format은 name 미수용(실측 400) — 드롭",
+      "path": "responseFormat.name",
       "type": "unsupported",
     },
   ],

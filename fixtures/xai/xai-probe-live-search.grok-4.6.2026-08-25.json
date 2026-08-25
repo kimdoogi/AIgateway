@@ -1,0 +1,29 @@
+{
+  "case": "xai-probe-live-search",
+  "recordedAt": "2026-08-25",
+  "model": "grok-4.6",
+  "stream": false,
+  "request": {
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "grok-4.6",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What happened in tech news today? One sentence."
+        }
+      ],
+      "search_parameters": {
+        "mode": "auto"
+      },
+      "max_completion_tokens": 60
+    }
+  },
+  "status": 410,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": "Live search is deprecated. Please switch to the Agent Tools API: https://docs.x.ai/docs/guides/tools/overview"
+  }
+}

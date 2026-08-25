@@ -2165,3 +2165,27 @@ exports[`골든셋 ② openai 픽스처 → IR > oai-web-search 1`] = `
   "warnings": [],
 }
 `;
+
+exports[`골든셋 ② openai 픽스처 → IR > openai-probe-minimal-effort 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "Unsupported value: 'minimal' is not supported with the 'gpt-5.6-luna' model. Supported values are: 'none', 'low', 'medium', 'high', 'xhigh', and 'max'.",
+  "provider": {
+    "code": "unsupported_value",
+    "key": "openai",
+    "param": "reasoning.effort",
+    "raw": {
+      "error": {
+        "code": "unsupported_value",
+        "message": "Unsupported value: 'minimal' is not supported with the 'gpt-5.6-luna' model. Supported values are: 'none', 'low', 'medium', 'high', 'xhigh', and 'max'.",
+        "param": "reasoning.effort",
+        "type": "invalid_request_error",
+      },
+    },
+    "status": 400,
+  },
+}
+`;

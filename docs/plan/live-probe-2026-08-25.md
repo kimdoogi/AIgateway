@@ -3,7 +3,10 @@
 > 목적: [전수 감사](../research/2026-08-24-full-audit.md) 잔여 9건 중 **라이브 실측이 필요한 것**을
 > 한 세션에 처리한다. probe 케이스는 [tools/capture/cases.ts](../../tools/capture/cases.ts)의
 > `*-probe-*` (전건 `manual` — 기본 캡처 실행에서 제외). D9 opt-in — 실 API 키 필요.
-> 상태: **준비 완료, 실행 대기**
+> 상태: **14/16 실행 완료 (2026-08-25, $0.003)** — 결과는 §2 표의 판정대로 반영됨
+> (problem-log 2026-08-25 + xai 인벤토리 실측 부록). **잔여: gemini 2건 + gemini-tool-call 재녹화 —
+> GEMINI_API_KEY 부재.** 키 확보 시:
+> `pnpm capture gemini-probe-mcp-servers gemini-probe-multimodal-fr gemini-tool-call`
 
 ## 0. 사전 조건
 

@@ -1,0 +1,64 @@
+{
+  "case": "xai-probe-top-logprobs",
+  "recordedAt": "2026-08-25",
+  "model": "grok-4.6",
+  "stream": false,
+  "request": {
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "grok-4.6",
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ],
+      "logprobs": true,
+      "top_logprobs": 3,
+      "max_completion_tokens": 16
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "id": "uuid_fixture0001",
+    "object": "chat.completion",
+    "created": 1787624761,
+    "model": "grok-4.6",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Hi there. How can I help you today?",
+          "reasoning_content": "The user said \"hi\". This is a simple greeting. I should respond in a friendly, helpful manner as Grok, built by xAI.\n",
+          "refusal": null
+        },
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 637,
+      "completion_tokens": 10,
+      "total_tokens": 697,
+      "prompt_tokens_details": {
+        "text_tokens": 637,
+        "audio_tokens": 0,
+        "image_tokens": 0,
+        "cached_tokens": 512
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 50,
+        "audio_tokens": 0,
+        "accepted_prediction_tokens": 0,
+        "rejected_prediction_tokens": 0
+      },
+      "num_sources_used": 0,
+      "cost_in_usd_ticks": 8660000
+    },
+    "system_fingerprint": "fp_a7b4933f4a93564d",
+    "service_tier": "default"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "case": "xai-probe-deferred",
+  "recordedAt": "2026-08-25",
+  "model": "grok-4.6",
+  "stream": false,
+  "request": {
+    "path": "/v1/chat/completions",
+    "body": {
+      "model": "grok-4.6",
+      "messages": [
+        {
+          "role": "user",
+          "content": "hi"
+        }
+      ],
+      "deferred": true,
+      "max_completion_tokens": 16
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "request_id": "uuid_fixture0001"
+  }
+}

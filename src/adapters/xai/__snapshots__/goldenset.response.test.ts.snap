@@ -25,7 +25,7 @@ exports[`골든셋 ② xai 픽스처 → IR > xai-gate-live-search-410 1`] = `
   "category": "invalid_request",
   "fallbackEligible": false,
   "httpStatus": 410,
-  "message": "Live search is deprecated. Please switch to the Agent Tools API: https://docs.x.ai/docs/guides/tools/overview (폐기 추정 API — Live Search는 agent tools 이관 추정, 미확정)",
+  "message": "Live search is deprecated. Please switch to the Agent Tools API: https://docs.x.ai/docs/guides/tools/overview (폐기된 API — Live Search는 agent tools로 이관됨, 2026-08-25 실측 확정)",
   "provider": {
     "key": "xai",
     "raw": {
@@ -122,6 +122,591 @@ exports[`골든셋 ② xai 픽스처 → IR > xai-gate-unsupported-param 1`] = `
       "total_tokens": 339,
     },
     "totalTokens": 222,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-audio-param 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The user said "hi". This is a simple greeting. I should respond in a friendly, helpful manner.
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "Hi there! How can I help you today?",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 512,
+      "cacheWrite": 0,
+      "noCache": 125,
+      "total": 637,
+    },
+    "output": {
+      "reasoning": 45,
+      "text": 0,
+      "total": 10,
+    },
+    "raw": {
+      "completion_tokens": 10,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 45,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 8360000,
+      "num_sources_used": 0,
+      "prompt_tokens": 637,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 512,
+        "image_tokens": 0,
+        "text_tokens": 637,
+      },
+      "total_tokens": 692,
+    },
+    "totalTokens": 647,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-background 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "Argument not supported: background",
+  "provider": {
+    "code": "400",
+    "key": "xai",
+    "raw": {
+      "code": "400",
+      "error": "Argument not supported: background",
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-context-management 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 422,
+  "message": "Failed to deserialize the JSON body into the target type: context_management: invalid type: map, expected a sequence",
+  "provider": {
+    "key": "xai",
+    "raw": {
+      "error": "Failed to deserialize the JSON body into the target type: context_management: invalid type: map, expected a sequence",
+    },
+    "status": 422,
+  },
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-deferred 1`] = `
+{
+  "blocks": [],
+  "finishReason": {
+    "raw": "deferred",
+    "unified": "other",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerMetadata": {
+    "xai": {
+      "requestId": "uuid_fixture0001",
+    },
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 0,
+      "total": 0,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 0,
+      "total": 0,
+    },
+    "raw": {
+      "request_id": "uuid_fixture0001",
+    },
+    "totalTokens": 0,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-effort-none-43 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.3",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "Hello! How can I help you today?",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.3",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 128,
+      "cacheWrite": 0,
+      "noCache": 57,
+      "total": 185,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 9,
+      "total": 9,
+    },
+    "raw": {
+      "completion_tokens": 9,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 0,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 1193500,
+      "num_sources_used": 0,
+      "prompt_tokens": 185,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 128,
+        "image_tokens": 0,
+        "text_tokens": 185,
+      },
+      "total_tokens": 194,
+    },
+    "totalTokens": 194,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-live-search 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 410,
+  "message": "Live search is deprecated. Please switch to the Agent Tools API: https://docs.x.ai/docs/guides/tools/overview (폐기된 API — Live Search는 agent tools로 이관됨, 2026-08-25 실측 확정)",
+  "provider": {
+    "key": "xai",
+    "raw": {
+      "error": "Live search is deprecated. Please switch to the Agent Tools API: https://docs.x.ai/docs/guides/tools/overview",
+    },
+    "status": 410,
+  },
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-metadata 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The user said "hi". This is a simple greeting. I should respond in a friendly, helpful manner.
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "Hello! How can I help you today?",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 512,
+      "cacheWrite": 0,
+      "noCache": 125,
+      "total": 637,
+    },
+    "output": {
+      "reasoning": 74,
+      "text": 0,
+      "total": 9,
+    },
+    "raw": {
+      "completion_tokens": 9,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 74,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 10040000,
+      "num_sources_used": 0,
+      "prompt_tokens": 637,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 512,
+        "image_tokens": 0,
+        "text_tokens": 637,
+      },
+      "total_tokens": 720,
+    },
+    "totalTokens": 646,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-modalities 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The user said "hi". This is a simple greeting. I should respond in a friendly, helpful manner.
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "Hi there! How can I help you today?",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 512,
+      "cacheWrite": 0,
+      "noCache": 125,
+      "total": 637,
+    },
+    "output": {
+      "reasoning": 45,
+      "text": 0,
+      "total": 10,
+    },
+    "raw": {
+      "completion_tokens": 10,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 45,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 8360000,
+      "num_sources_used": 0,
+      "prompt_tokens": 637,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 512,
+        "image_tokens": 0,
+        "text_tokens": 637,
+      },
+      "total_tokens": 692,
+    },
+    "totalTokens": 647,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-prediction 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The user said "hi". This is a simple greeting. I should respond in a friendly, helpful way.
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "Hi there! How can I help you today?",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 512,
+      "cacheWrite": 0,
+      "noCache": 125,
+      "total": 637,
+    },
+    "output": {
+      "reasoning": 99,
+      "text": 0,
+      "total": 10,
+    },
+    "raw": {
+      "completion_tokens": 10,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 99,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 11600000,
+      "num_sources_used": 0,
+      "prompt_tokens": 637,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 512,
+        "image_tokens": 0,
+        "text_tokens": 637,
+      },
+      "total_tokens": 746,
+    },
+    "totalTokens": 647,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-safety-identifier 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The user said "hi". This is a simple greeting. I should respond in a friendly, helpful manner.
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "Hi there! How can I help you today?",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 512,
+      "cacheWrite": 0,
+      "noCache": 125,
+      "total": 637,
+    },
+    "output": {
+      "reasoning": 48,
+      "text": 0,
+      "total": 10,
+    },
+    "raw": {
+      "completion_tokens": 10,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 48,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 8540000,
+      "num_sources_used": 0,
+      "prompt_tokens": 637,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 512,
+        "image_tokens": 0,
+        "text_tokens": 637,
+      },
+      "total_tokens": 695,
+    },
+    "totalTokens": 647,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② xai 픽스처 → IR > xai-probe-top-logprobs 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "The user said "hi". This is a simple greeting. I should respond in a friendly, helpful manner as Grok, built by xAI.
+",
+      "type": "reasoning",
+    },
+    {
+      "id": "blk_1",
+      "origin": {
+        "model": "grok-4.6",
+        "provider": "xai",
+        "surface": "chat-completions",
+      },
+      "text": "Hi there. How can I help you today?",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "stop",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "grok-4.6",
+    "provider": "xai",
+    "surface": "chat-completions",
+  },
+  "providerRequestId": "uuid_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 512,
+      "cacheWrite": 0,
+      "noCache": 125,
+      "total": 637,
+    },
+    "output": {
+      "reasoning": 50,
+      "text": 0,
+      "total": 10,
+    },
+    "raw": {
+      "completion_tokens": 10,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": 0,
+        "audio_tokens": 0,
+        "reasoning_tokens": 50,
+        "rejected_prediction_tokens": 0,
+      },
+      "cost_in_usd_ticks": 8660000,
+      "num_sources_used": 0,
+      "prompt_tokens": 637,
+      "prompt_tokens_details": {
+        "audio_tokens": 0,
+        "cached_tokens": 512,
+        "image_tokens": 0,
+        "text_tokens": 637,
+      },
+      "total_tokens": 697,
+    },
+    "totalTokens": 647,
   },
   "warnings": [],
 }

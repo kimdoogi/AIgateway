@@ -513,12 +513,17 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
     if (effort !== undefined) outputConfig["effort"] = effort;
   }
   if (req.responseFormat && req.responseFormat.type === "json") {
-    // TODO(녹화 검증): output_config.format wire 형태를 골든셋 녹화에서 확정
+    // wire 형태 실측 확정 (2026-08-25 probe): format은 type/schema만 — name/description/strict는
+    // "Extra inputs are not permitted" 400. 드롭 + 보고 (감사 anthropic #9)
     const fmt: JSONObject = { type: "json_schema" };
     if (req.responseFormat.schema) fmt["schema"] = req.responseFormat.schema;
-    if (req.responseFormat.name) fmt["name"] = req.responseFormat.name;
-    if (req.responseFormat.description) fmt["description"] = req.responseFormat.description;
-    if (req.responseFormat.strict !== undefined) fmt["strict"] = req.responseFormat.strict;
+    for (const key of ["name", "description", "strict"] as const) {
+      if (req.responseFormat[key] !== undefined) {
+        warnings.push(
+          makeWarning("unsupported", "parameter-dropped", `anthropic output_config.format은 ${key} 미수용(실측 400) — 드롭`, `responseFormat.${key}`),
+        );
+      }
+    }
     outputConfig["format"] = fmt;
   }
   if (Object.keys(outputConfig).length > 0) body["output_config"] = outputConfig;

@@ -56,8 +56,8 @@ export function mapXAIError(status: number, body: unknown, headers?: Record<stri
   return {
     category,
     httpStatus: status,
-    // 단정형 → 추정형 (감사 xai #9: 최신 레퍼런스에 search_parameters 잔존 — 라이브 probe로 확정 전까지)
-    message: status === 410 ? `${message} (폐기 추정 API — Live Search는 agent tools 이관 추정, 미확정)` : message,
+    // 2026-08-25 라이브 probe 실측: search_parameters → 410 확정 (레퍼런스 잔존은 문서 지연)
+    message: status === 410 ? `${message} (폐기된 API — Live Search는 agent tools로 이관됨, 2026-08-25 실측 확정)` : message,
     ...(retryAfter != null && Number.isFinite(retryAfter) ? { retryAfter } : {}),
     fallbackEligible,
     billed: false,

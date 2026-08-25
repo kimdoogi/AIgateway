@@ -209,6 +209,21 @@ usage: {
 13. **레거시 가드**: `search_parameters` 인입 시 어댑터 레벨에서 agent tools로 변환하거나 명시적 거부.
 14. **레이트리밋**: `x-ratelimit-*` 헤더 옵셔널 취급, 부재 시 429 + 지수 백오프. RPS(초당) 한도이므로 게이트웨이 토큰버킷을 초 단위로 설계.
 
+## 실측 부록 (2026-08-25 라이브 probe — 전수 감사 잔여분 확정)
+
+키별 실거동 표 (B2-7 재검증 — probe 픽스처 `fixtures/xai/xai-probe-*`):
+
+| 파라미터 | 표면 | 실거동 | 게이트웨이 처리 |
+|---|---|---|---|
+| `metadata` / `modalities` / `audio` / `prediction` / `safety_identifier` | CC | **200 묵살** (400 아님 — 문서의 '거부' 전제 반증) | strip + warning 유지 (묵살 = 조용한 무시라 D5 보고 대상) |
+| `store` | CC | 200 묵살 (2026-08-21 기실측) | strip (ADR-0004 store:false 정책) |
+| `background` | Responses | **400** "Argument not supported: background" | XAI_REJECTED_RESPONSES_KEYS strip |
+| `logprobs` / `top_logprobs` | CC | 200 묵살 (결과 필드 미제공) | 방출 유지 + degraded warning |
+| `context_management` | Responses | **422** "invalid type: map, expected a sequence" — **xAI wire는 배열형** (OpenAI 객체형과 상이) | 통과 유지 (사용자가 xAI 형태로 지정 가능). 객체형 전달 시 업스트림 422가 명확 |
+| `search_parameters` | CC | **410 확정** "Live search is deprecated → Agent Tools API" | 410 매핑 문구 확정형 (§13 레거시 가드 유효) |
+| `deferred: true` | CC | **200 `{request_id}` 단독 응답** (부록 (b) §4 계약 실증) | 어댑터 deferred 분기 → PM `xai.requestId` (골든셋 픽스처) |
+| `reasoning_effort: "none"` | CC (grok-4.3) | **200 수용** | registry grok-4.3 supportedEfforts에 none 유지 확정 |
+
 ## 주요 출처
 
 - https://docs.x.ai/docs/api-reference · https://docs.x.ai/developers/rest-api-reference · https://docs.x.ai/developers/rest-api-reference/inference/chat

@@ -16,6 +16,7 @@ import {
   unknownStreamFields as anthropicUnknownStream,
 } from "../../src/adapters/anthropic/known-fields.js";
 import { unknownResponseFields as openaiUnknownResponse } from "../../src/adapters/openai/known-fields.js";
+import { unknownResponseFields as xaiUnknownResponse } from "../../src/adapters/xai/known-fields.js";
 import {
   unknownResponseFields as geminiUnknownResponse,
   unknownStreamFields as geminiUnknownStream,
@@ -84,9 +85,8 @@ const PROVIDERS: Record<string, ProviderConfig> = {
       authorization: `Bearer ${invalid ? "xai-invalid-fixture-key-0000000000" : apiKey}`,
     }),
     replay: (text, modelId, path) => replayXAIStream(text, { modelId }, path),
-    // wire가 OpenAI 패턴이라 openai 감지기를 그대로 상속한다 (어댑터가 base 상속인 것과 대칭 — D8).
-    // 이전에는 () => []로 드리프트에 무감각했다 (리뷰 2026-08-22 #15)
-    unknownResponse: openaiUnknownResponse,
+    // openai 감지기 상속 + xAI 고유 인지 필드 오버레이 (request_id·citations·output_files — 감사 xai #4)
+    unknownResponse: xaiUnknownResponse,
     usageFromBody: (body) => {
       const wireUsage = (body as { usage?: OpenAIWireUsage }).usage; // usage 구조 OpenAI 호환 (§F)
       return wireUsage ? convertOpenAIUsage(wireUsage) : undefined;

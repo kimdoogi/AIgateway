@@ -1,5 +1,82 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`골든셋 ② anthropic 픽스처 → IR > anthropic-probe-format-clean 1`] = `
+{
+  "blocks": [
+    {
+      "id": "blk_0",
+      "origin": {
+        "model": "claude-haiku-4-5-20251001",
+        "provider": "anthropic",
+        "surface": "messages",
+      },
+      "text": "{"ok":true}",
+      "type": "text",
+    },
+  ],
+  "finishReason": {
+    "raw": "end_turn",
+    "unified": "stop",
+  },
+  "origin": {
+    "model": "claude-haiku-4-5-20251001",
+    "provider": "anthropic",
+    "surface": "messages",
+  },
+  "providerRequestId": "msg_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 153,
+      "total": 153,
+    },
+    "output": {
+      "reasoning": 0,
+      "text": 8,
+      "total": 8,
+    },
+    "raw": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0,
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "not_available",
+      "input_tokens": 153,
+      "output_tokens": 8,
+      "service_tier": "standard",
+    },
+    "totalTokens": 161,
+  },
+  "warnings": [],
+}
+`;
+
+exports[`골든셋 ② anthropic 픽스처 → IR > anthropic-probe-format-extras 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "output_config.format.name: Extra inputs are not permitted",
+  "provider": {
+    "code": "invalid_request_error",
+    "key": "anthropic",
+    "raw": {
+      "error": {
+        "message": "output_config.format.name: Extra inputs are not permitted",
+        "type": "invalid_request_error",
+      },
+      "request_id": "req_fixture0001",
+      "type": "error",
+    },
+    "status": 400,
+  },
+}
+`;
+
 exports[`골든셋 ② anthropic 픽스처 → IR > cache-read 1`] = `
 {
   "blocks": [

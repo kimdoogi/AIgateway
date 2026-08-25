@@ -436,3 +436,27 @@ PRICE_TABLE 누락은 **조용히 틀린 금액**, SERVER_STATE_KEYS 누락은 *
 아니라 **구조**였다 — 개별 패치 79건보다 구조 수정 3건(채널·파티셔너·교차 검증)이 재발을 막는다.
 테스트가 결함을 고정한 세 번째 사례(xGrokConvId)는 "결함 수정 시 그 결함을 정답으로 삼던
 테스트를 반드시 찾아 교정"을 표준 절차로 만들 근거가 됐다.
+
+## 2026-08-25 — 라이브 probe 세션: 감사 잔여 실측 14건 ($0.003)
+
+probe 케이스 14건(+정상형 1건 추가) 실행 — 판정표는 [probe 계획](../plan/live-probe-2026-08-25.md),
+실측 표는 xai 인벤토리 실측 부록. 반증·확정된 전제:
+
+1. **Live Search 410 확정** — 레퍼런스 잔존은 문서 지연이었다. errors.ts 문구 확정형 복원.
+2. **B2-7 '400 거부' 전제 5건 반증** — metadata·modalities·audio·prediction·safety_identifier
+   전부 **200 묵살**. strip의 근거가 '400 방지'에서 '조용한 묵살 방지(D5)'로 바뀌었다 —
+   행동은 같아도 이유가 다르면 문서에 그렇게 적어야 다음 감사가 헛돌지 않는다.
+3. **background는 진짜 400** ("Argument not supported") — responses strip 목록에 추가.
+4. **xai context_management는 배열형** — OpenAI 객체형과 wire가 다르다 (422 "expected a sequence").
+   거부가 아니라 형태 차이. 인벤토리에 기록, strip하지 않음 (xAI 형태 지정은 유효해야 한다).
+5. **deferred `{request_id}` 단독 응답 실증** — 부록 (b) §4 계약이 실물로 확인됐고,
+   P1에서 구현한 어댑터 deferred 분기가 골든셋 픽스처를 얻었다.
+6. **anthropic output_config.format은 type/schema만** — name/description/strict는
+   "Extra inputs are not permitted" 400. 어댑터 드롭+warning 전환. **주의**: 1차 probe는
+   schema에 additionalProperties:false가 빠져 그것 때문에 400이 났다 — probe는 한 번에
+   하나만 다르게. 부수로 schema에 additionalProperties:false 필수임도 확인.
+7. **gpt-5.6 minimal 없음 확정** — 400 메시지가 지원 집합을 그대로 나열 (registry와 일치).
+8. **grok-4.3 effort none 수용** — registry 유지 확정.
+
+잔여: gemini 2건 (mcpServers 실재·멀티모달 FR) — **GEMINI_API_KEY 부재로 미실행**.
+키 확보 시 `pnpm capture gemini-probe-mcp-servers gemini-probe-multimodal-fr gemini-tool-call`.
