@@ -395,6 +395,75 @@ exports[`골든셋 ② gemini 픽스처 → IR > gemini-json-schema 1`] = `
 }
 `;
 
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-probe-mcp-servers 1`] = `
+{
+  "billed": false,
+  "category": "invalid_request",
+  "fallbackEligible": false,
+  "httpStatus": 400,
+  "message": "No transport configured for MCP server: probe",
+  "provider": {
+    "code": "INVALID_ARGUMENT",
+    "key": "google",
+    "raw": {
+      "error": {
+        "code": 400,
+        "message": "No transport configured for MCP server: probe",
+        "status": "INVALID_ARGUMENT",
+      },
+    },
+    "status": 400,
+  },
+}
+`;
+
+exports[`골든셋 ② gemini 픽스처 → IR > gemini-probe-multimodal-fr 1`] = `
+{
+  "blocks": [],
+  "finishReason": {
+    "raw": "MAX_TOKENS",
+    "unified": "length",
+  },
+  "origin": {
+    "model": "gemini-3.7-flash",
+    "provider": "google",
+    "surface": "generate-content",
+  },
+  "providerRequestId": "responseId_fixture0001",
+  "usage": {
+    "input": {
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "noCache": 1142,
+      "total": 1142,
+    },
+    "output": {
+      "reasoning": 57,
+      "text": 0,
+      "total": 57,
+    },
+    "raw": {
+      "promptTokenCount": 1142,
+      "promptTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1089,
+        },
+        {
+          "modality": "TEXT",
+          "tokenCount": 53,
+        },
+      ],
+      "serviceTier": "standard",
+      "thoughtsTokenCount": 57,
+      "totalTokenCount": 1199,
+    },
+    "totalTokens": 1199,
+  },
+  "warnings": [],
+}
+`;
+
 exports[`골든셋 ② gemini 픽스처 → IR > gemini-text 1`] = `
 {
   "blocks": [
@@ -702,7 +771,7 @@ exports[`골든셋 ② gemini 픽스처 → IR > gemini-tool-call 1`] = `
         },
       },
       "opaqueState": {
-        "data": "Ep4CCpsCARFNMg9LEoSJAoMaVieWtSBZyAKWOIh03gbOt1BMotDJd5RoL5hdM5+ZxUSEfQcpYbAMEcWTmU7DkGFtLBosozWVfu5/fmvDZX7QK9+LFKOiaWxdh+Vndq0kxlOZrts+UGvHN+9UnTpWLATVerAhhu5cAcguYColeR8vcjWr5tfonR+WXapE2nPW5iTSHzj/fJIdBtI5hZklx20fS99QPpaH6fKD7Of+0D7x9Ckr2RZqOD8TiV5ef/nRX7XejriJy65PvgzC+lewvRtXQZH1p7F2L2DxVn6KdKA+T+dbV049tR8Kxd2Ol/6bHhwfmKxEz/0n0KVZfwLZSWpwK/mC8N71H0/fqiyvzb1uXp1r1Ziogsd5EAOYBwZZAQ==",
+        "data": "EosCCogCARFNMg94lcs4B9PEXAh1cEFD0Bmm8a9K91nxAQI3OSB1K9Ecph4Z7Zb2lAVQRdAWbOmzNccgCT+n5brS2E0r+L4nCinm5fYmCwqvPgwC1hKB7bLfRcwrHP1PDrNHV3z9Q1IYJYerdnJCzuDepxr9PwIUxZXWAyz7aZqaTLIG+q1rChLOohsh3BS2LmBNaVWvBoSYcAW/49EEVE5Xk4dFo7sbypSObHdrn5IDnsunUwT3eOW9m5ROvEF3oEkFHQBQsT/dJYboD41AuH/3IVvafElIjfpaJwL/BtrOZNvpTIkhqBMNawCAgUMXCpMAWIPk1fD/22s6X8ELY4kTcMTLdkLVQE1XgROL",
         "provider": "google",
       },
       "origin": {
@@ -733,9 +802,9 @@ exports[`골든셋 ② gemini 픽스처 → IR > gemini-tool-call 1`] = `
       "total": 54,
     },
     "output": {
-      "reasoning": 46,
+      "reasoning": 41,
       "text": 16,
-      "total": 62,
+      "total": 57,
     },
     "raw": {
       "candidatesTokenCount": 16,
@@ -747,10 +816,10 @@ exports[`골든셋 ② gemini 픽스처 → IR > gemini-tool-call 1`] = `
         },
       ],
       "serviceTier": "standard",
-      "thoughtsTokenCount": 46,
-      "totalTokenCount": 116,
+      "thoughtsTokenCount": 41,
+      "totalTokenCount": 111,
     },
-    "totalTokens": 116,
+    "totalTokens": 111,
   },
   "warnings": [],
 }

@@ -1,0 +1,101 @@
+{
+  "case": "gemini-probe-multimodal-fr",
+  "recordedAt": "2026-08-25",
+  "model": "gemini-3.7-flash",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "Take a screenshot and describe it in 5 words."
+            }
+          ]
+        },
+        {
+          "role": "model",
+          "parts": [
+            {
+              "functionCall": {
+                "name": "take_screenshot",
+                "args": {}
+              },
+              "thoughtSignature": "skip_thought_signature_validator"
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "parts": [
+            {
+              "functionResponse": {
+                "name": "take_screenshot",
+                "response": {
+                  "output": "screenshot captured"
+                },
+                "parts": [
+                  {
+                    "inlineData": {
+                      "mimeType": "image/png",
+                      "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "name": "take_screenshot",
+              "parametersJsonSchema": {
+                "type": "object",
+                "properties": {}
+              }
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 60
+      }
+    }
+  },
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "candidates": [
+      {
+        "content": {},
+        "finishReason": "MAX_TOKENS",
+        "index": 0
+      }
+    ],
+    "usageMetadata": {
+      "promptTokenCount": 1142,
+      "totalTokenCount": 1199,
+      "promptTokensDetails": [
+        {
+          "modality": "IMAGE",
+          "tokenCount": 1089
+        },
+        {
+          "modality": "TEXT",
+          "tokenCount": 53
+        }
+      ],
+      "thoughtsTokenCount": 57,
+      "serviceTier": "standard"
+    },
+    "modelVersion": "gemini-3.7-flash",
+    "responseId": "responseId_fixture0001"
+  }
+}

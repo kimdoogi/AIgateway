@@ -147,11 +147,27 @@ Schema subset: type, format, nullable, enum, items, properties, required, min/ma
 | `computerUse` | UI 액션 루프 | 2.5-computer-use-preview |
 | (Interactions 전용) `mcp_server` | mcp_server_tool_call/result steps | SSE 전송 미지원, Gemini 3 "coming soon" |
 
+> **2026-08-25 실측 정정 2건** (전수 감사 잔여 probe — `gemini-probe-*` 픽스처):
+> ① **`tools[].mcp_servers`는 generateContent에 실존** — 'Interactions 전용' 전제 실효.
+> 배열형, 항목은 `name` 필수 + transport 구성 필수("No transport configured"). transport
+> 정확한 키는 공식 스키마 레퍼런스 확인 후 배열형 특수 처리 승격 (감사 google #2 후속).
+> ② **멀티모달 functionResponse.parts는 generateContent(3세대)가 수용** — inlineData PNG가
+> promptTokensDetails IMAGE 모달리티로 실소비 확인. 'Interactions 전용' 전제 실효
+> (어댑터 multimodalFunctionResponse capability 게이트 실증 — P0 #14).
+> 부수: 히스토리 functionCall의 thoughtSignature 부재 시 400 실확인 (D6-9 더미 삽입 근거 실증),
+> usageMetadata에 `serviceTier` 신필드 (known-fields 등재).
+
 조합: Gemini 3부터 빌트인+커스텀+구조화 출력 동시 사용 가능 (2.5는 제한적).
 
 ### D-5. functionResponse의 name/id 재확인 (재타게팅 패스 근거)
 
 `FunctionCall/Response` 스키마에 `id` 필드는 존재하지만 **generateContent 경로에서는 모델이 id를 발급하지 않고, `name`+순서가 매칭 키**다. id가 실제 발급·에코백되는 것은 Live API와 Interactions API. → "id 기반 IR → Gemini generateContent로 갈 때 name 기반 재매핑 필요" 설계 근거 **유효**. 단 IR에 id 슬롯을 유지해야 Live/Interactions에 손실 없이 매핑.
+
+> **2026-08-25 재녹화 반증**: generateContent 응답 functionCall에 **id가 실려 왔다**
+> (`gemini-tool-call` 픽스처 — "id": call-형 값). 위 '미발급' 전제가 실효. 단 **§13.2 결정론적
+> 합성 전환은 스펙 개정 선행 없이 금지** (감사 2026-08-24 판정 — 에코백 보장 여부·요청 방향
+> id 수용 여부가 미확인이라 합성 id 체계가 여전히 안전측). 후속: 에코백 실측(요청에 id 재전송 →
+> 응답 매칭 확인) 후 §13.2 개정 여부 결정.
 
 ## E. 고유 기능 전수 (providerOptions.google 후보군)
 

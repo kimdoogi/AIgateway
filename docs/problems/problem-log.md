@@ -460,3 +460,20 @@ probe 케이스 14건(+정상형 1건 추가) 실행 — 판정표는 [probe 계
 
 잔여: gemini 2건 (mcpServers 실재·멀티모달 FR) — **GEMINI_API_KEY 부재로 미실행**.
 키 확보 시 `pnpm capture gemini-probe-mcp-servers gemini-probe-multimodal-fr gemini-tool-call`.
+
+## 2026-08-25 — gemini probe 3건 (라이브 세션 마감, $0.002): 반증 셋
+
+1. **generateContent functionCall에 id가 실려 왔다** — 인벤토리 D-5 '미발급' 전제 반증
+   (gemini-tool-call 재녹화). §13.2 결정론적 합성은 **유지** — 감사 판정대로 에코백 보장·요청
+   방향 수용이 미확인인 채 전환하면 안전장치를 잃는다. 스펙 개정은 에코백 실측 후.
+2. **tools[].mcp_servers 실존** — 'Interactions 전용' 전제 실효. 3라운드 스키마 탐침:
+   {url,...} → "Unknown name url" (필드 실존 확정) → {} → "name cannot be empty" →
+   {name} → "No transport configured". 배열형 + name·transport 필수까지 확정, transport
+   키는 공식 레퍼런스로 (probe 룰렛은 여기서 중단 — 실존 판정이 목적이었다).
+3. **멀티모달 functionResponse.parts 수용 확정** — inlineData PNG가 IMAGE 모달리티
+   1089 토큰으로 실소비. P0 #14 세대 게이트 구현이 실물로 검증됐다. 1차 400은 probe 자신의
+   결함(히스토리 functionCall thoughtSignature 부재) — D6-9 더미 삽입 규칙의 실증이기도 하다.
+
+anthropic 건과 합쳐 이번 세션의 probe 결함 2건이 준 교훈: **probe body는 어댑터를 통과시키지
+않은 raw wire라서, 어댑터가 자동으로 해주는 것(D6-9 더미, additionalProperties)이 빠진다.**
+probe 설계 시 "게이트웨이가 보정해 주는 것" 목록을 대조할 것.

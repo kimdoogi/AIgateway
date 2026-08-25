@@ -1,7 +1,7 @@
 # 전수 감사 2026-08-24 — API 패리티(4사 웹 대조) + 코드 모순
 
 > 요청: "코드 전수조사 + 각 모델 API 확인(인터넷 검색) — 빠진 기능·에이전트 루프·파라미터·코드 모순 전부"
-> 상태: **수정 실질 완료 + 라이브 probe 반영** (2026-08-25) — §5 문서 선행 5건 + P0 14건 전건 + P1 24/26 + P2 17/18(#17 종결·#18 gemini 2건만 잔여). probe 실측 14건 반영(문제 로그 2026-08-25 참조). 잔여: P1 #18(빌트인 툴 output — IR 설계 선행), P1 #24 블록 레벨 파티셔너, gemini probe 2건(GEMINI_API_KEY 필요). 우선순위 계획은 §1.
+> 상태: **수정 완료 + 라이브 probe 전건 반영** (2026-08-25) — §5 문서 선행 5건 + P0 14건 전건 + P1 24/26 + **P2 18건 전건 종결**. probe 실측 17건 반영(문제 로그 2026-08-25 두 건 참조). 최종 잔여 2건: P1 #18(빌트인 툴 output — IR 설계 선행 + computer-use 녹화), P1 #24(블록 레벨 파티셔너 승격 — 라이브 불요 코드 작업). 우선순위 계획은 §1.
 
 ## 방법론
 
@@ -69,11 +69,12 @@
 
 ### P2 — 저위험·문서 드리프트·정리 — 2026-08-25 수정: 18건 중 16건 완료 + 2건 부분
 
-**#17 종결** (2026-08-25 라이브 probe): Live Search 410 확정 — errors.ts 문구 확정형 복원.
-**#18 대부분 종결**: coverage-matrix 교차 검증 + anthropic PO군 승격 + 실측 반영(xai B2-7 표 —
-5건 200 묵살 반증·background 400·context_management 배열형, openai minimal 400 확정,
-anthropic format 잉여 키 400 → 드롭+warning). 잔여는 gemini 2건(mcpServers·멀티모달 FR) —
-GEMINI_API_KEY 확보 시 probe 계획 문서대로.
+**#17·#18 종결** (2026-08-25 라이브 probe 전건 완료): Live Search 410 확정, xai B2-7 표(5건
+200 묵살 반증·background 400·context_management 배열형), openai minimal 400 확정, anthropic
+format 잉여 키 400 → 드롭+warning, gemini mcp_servers 실존 확정('Interactions 전용' 반증 —
+transport 스키마만 공식 레퍼런스 확인 후 승격), 멀티모달 FR 수용 실증(P0 #14 검증),
+functionCall id 등장(D-5 반증 — §13.2는 감사 판정대로 유지). coverage-matrix 교차 검증 +
+anthropic PO군 승격 포함.
 
 1. openai-compat usage/finishReason raw 복원(§0-2) 미구현
 2. stop_sequence 미보존 + compat null 하드코딩 자기모순

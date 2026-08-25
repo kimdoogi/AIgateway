@@ -1,0 +1,44 @@
+{
+  "case": "gemini-probe-mcp-servers",
+  "recordedAt": "2026-08-25",
+  "model": "gemini-3.7-flash",
+  "stream": false,
+  "request": {
+    "path": "/v1beta/models/gemini-3.7-flash:generateContent",
+    "body": {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "hi"
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "mcpServers": [
+            {
+              "name": "probe"
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "maxOutputTokens": 16
+      }
+    }
+  },
+  "status": 400,
+  "headers": {
+    "content-type": "application/json; charset=UTF-8"
+  },
+  "body": {
+    "error": {
+      "code": 400,
+      "message": "No transport configured for MCP server: probe",
+      "status": "INVALID_ARGUMENT"
+    }
+  }
+}

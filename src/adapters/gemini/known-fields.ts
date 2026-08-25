@@ -49,6 +49,7 @@ const USAGE_KEYS: ReadonlySet<string> = new Set([
   "thoughtsTokenCount",
   "cachedContentTokenCount",
   "toolUsePromptTokenCount",
+  "serviceTier", // 2026-08-25 재녹화에서 검출 (감사 google #9 — 인지 등재)
   "promptTokensDetails",
   "candidatesTokensDetails",
   "cacheTokensDetails",

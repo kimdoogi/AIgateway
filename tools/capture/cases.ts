@@ -1253,7 +1253,9 @@ export const CASES: CaptureCase[] = [
     note: "tools[].mcpServers 실재 확인 — 200이면 PROVIDER_TOOL_KEYS 아닌 배열형 특수 처리로 승격, 400이면 등급 재조정",
     body: {
       contents: [{ role: "user", parts: [{ text: "hi" }] }],
-      tools: [{ mcpServers: [{ url: "https://example.com/mcp", name: "probe" }] }],
+      // 내부 스키마 실측 경과 (2026-08-25): {url,name} → "Unknown name url" (필드 실존 확정),
+      // {} → "MCP server name cannot be empty" (name 필수). name만으로 다음 필수 필드 유도
+      tools: [{ mcpServers: [{ name: "probe" }] }],
       generationConfig: { maxOutputTokens: 16 },
     },
   },
@@ -1268,7 +1270,8 @@ export const CASES: CaptureCase[] = [
     body: {
       contents: [
         { role: "user", parts: [{ text: "Take a screenshot and describe it in 5 words." }] },
-        { role: "model", parts: [{ functionCall: { name: "take_screenshot", args: {} } }] },
+        // thoughtSignature 필수 (2026-08-25 1차 probe: 부재 시 그것 때문에 400) — 공식 더미로 우회 (D6-9)
+        { role: "model", parts: [{ functionCall: { name: "take_screenshot", args: {} }, thoughtSignature: "skip_thought_signature_validator" }] },
         {
           role: "user",
           parts: [
