@@ -78,11 +78,13 @@ describe("콘솔 페이지", () => {
     expect(html).toContain("/v0/responses"); // 실제 내용이 실려 있다
   });
 
-  it("GET / → /console 리다이렉트", async () => {
+  it("GET / → 소개 페이지 (200, 포털·콘솔·가이드 링크)", async () => {
     const app = createApp({});
     const res = await app.request("/");
-    expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/console");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("ai-gateway 소개");
+    for (const href of ["/portal", "/console", "/docs"]) expect(html).toContain(`href="${href}"`);
   });
 });
 

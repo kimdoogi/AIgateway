@@ -58,7 +58,7 @@ curl -N https://<gateway>/v0/responses -H "authorization: Bearer gwk_..." \
 | `fallbackModels` | string[] | 폴백 체인 — 순서 = 시도 순서 |
 | `messages` | Message[] | 필수, 1개 이상 |
 | `tools` / `toolChoice` / `parallelToolCalls` | | 툴 (아래 절) |
-| `maxOutputTokens` `temperature` `topP` `topK` `stopSequences` `seed` `presencePenalty` `frequencyPenalty` | | 샘플링 — 타깃 미지원 값은 드롭+warning |
+| `maxOutputTokens` `temperature` `topP` `topK` `stopSequences` `seed` `presencePenalty` `frequencyPenalty` | | 샘플링 — 타깃 미지원 값은 드롭+warning. `maxOutputTokens: 0`은 캐시 프리워밍(anthropic 전용 — 타사는 드롭+warning) |
 | `responseFormat` | `{type:"text"}` \| `{type:"json", schema?, name?, strict?}` | 구조화 출력 |
 | `reasoning` | `{effort?}` | `none·minimal·low·medium·high·xhigh·max` (아래 절) |
 | `metadata` | `{userId?, ...}` | userId는 프로바이더 사용자 식별 필드로 매핑 |
@@ -101,7 +101,7 @@ curl -N https://<gateway>/v0/responses -H "authorization: Bearer gwk_..." \
 { "type": "text",      "text": "..." }
 { "type": "reasoning", "text": "...", "opaqueState": { "provider": "...", "data": "..." } } // 서명·암호화 상태
 { "type": "toolCall",  "toolCallId": "...", "toolName": "...", "input": { "type": "json", "value": {...} } }
-{ "type": "toolResult","toolCallId": "...", "toolName": "...", "output": { "type": "text", "text": "..." } }
+{ "type": "toolResult","toolCallId": "...", "toolName": "...", "output": { "type": "text", "text": "..." } } // output 7형: text·json·content(블록 배열)·errorText·errorJson·errorContent·executionDenied
 { "type": "file",      "mediaType": "image/png", "data": { "type": "base64", "data": "..." } }
 { "type": "source",    "sourceType": "url", "url": "..." }        // 서버 웹서치 출처 (응답 방향)
 { "type": "custom",    "kind": "anthropic.<...>", "payload": {} } // 프로바이더 고유 블록 (왕복 보장)
@@ -128,8 +128,18 @@ curl -N https://<gateway>/v0/responses -H "authorization: Bearer gwk_..." \
     "toolName": "get_weather", "output": { "type": "text", "text": "맑음, 27도" } } ] }
 ```
 
+**실패한 툴 결과는 `error*` variant로** 제출한다 (`errorText`/`errorJson`/`errorContent`) —
+텍스트에 "failed"라고 쓰는 것과 달리 프로바이더에 에러로 전달되어 모델이 실패를 인지한다.
+멀티모달 결과(스크린샷 등)는 `content` variant에 file 블록을 담는다.
+
 프로바이더 서버가 실행하는 툴(웹서치 등)은 `{ "type": "provider", "id": "anthropic.web_search", "args": {...} }`.
 `id`는 `{provider}.{tool}` 형식이고 타깃 프로바이더와 일치해야 한다.
+
+**클라이언트 실행 빌트인 툴** (OpenAI `computer_use_preview`·셸·apply_patch): 응답의 toolCall에
+`providerExecuted`가 **없으면** 직접 실행 대상이다. 결과는 표준 toolResult로 — computer는
+`content` variant의 file 블록(스크린샷)이 필수이고, 안전 확인 승인은 toolResult 블록의
+`providerOptions.openai.acknowledgedSafetyChecks`로 싣는다. 게이트웨이가 `computer_call_output` 등
+전용 wire 형태로 조립한다.
 
 ## 응답 envelope
 
@@ -169,6 +179,7 @@ curl -N https://<gateway>/v0/responses -H "authorization: Bearer gwk_..." \
 | `fallback-target-switched` | 폴백 체인이 다음 타깃으로 넘어감 |
 | `billing-price-estimated` | 가격표 미등재 모델 — billing이 근사값 |
 | `budget-soft-warning` | 키의 soft 예산 도달 |
+| `budget-exhausted-next-request-blocked` | 이 요청으로 hard 예산 소진 — **다음 요청부터 402** (스트림 finish 직전 예고) |
 
 `warnings`를 로그에 남겨두면 "왜 결과가 미묘하게 다르지"의 답이 대부분 여기 있다.
 
@@ -243,6 +254,7 @@ curl -X POST https://<gateway>/v0/streams/req_XXXX/cancel -H "authorization: Bea
 - 스트림은 **콘텐츠 방출 전 실패만** 무중단 전환 — 이미 받은 텍스트가 있으면 전환하지 않는다 (중복 방출 금지)
 - 시도 이력은 `gateway.attempts`(비스트림) / `finish.attempts`(스트림)에: `success · failed · skipped`
 - 자격증명 없는 타깃, `pinned` passthrough와 불일치하는 타깃은 `skipped`
+- `billing`은 **과금된 전 시도 합산** — 실패 시도에 과금이 발생했으면(스트림 시작 후 에러 등) 그 몫도 라인아이템에 포함된다 (원장과 항상 일치)
 
 ## providerOptions — 프로바이더 고유 기능
 
@@ -262,8 +274,12 @@ curl -X POST https://<gateway>/v0/streams/req_XXXX/cancel -H "authorization: Bea
 }
 ```
 
-- 블록 단위 PO도 있다: 예) anthropic 캐시 브레이크포인트 `"providerOptions": { "anthropic": { "cacheControl": { "type": "ephemeral" } } }`
-- 네임스페이스 안의 **미지 키는 400** — 신기능을 먼저 쓰려면 `allowUnknownProviderOptions: true`로 통과시키면 warning과 함께 wire에 실린다
+- 블록 단위 PO도 있다: 예) anthropic 캐시 브레이크포인트 `"providerOptions": { "anthropic": { "cacheControl": { "type": "ephemeral" } } }`,
+  openai 파트 캐시 `promptCacheBreakpoint`, gemini 비디오 클리핑 `videoMetadata`. 툴 정의에도 붙는다
+  (openai `outputSchema`·`deferLoading`, gemini `responseJsonSchema` 등)
+- xai 비동기: `"xai": { "deferred": true }` (비스트림 전용) — 응답은 콘텐츠 없이
+  `providerMetadata.xai.requestId` 핸들만 오고, 프로바이더에 직접 폴링한다
+- 네임스페이스 안의 **미지 키는 400** (envelope·메시지·블록·툴 전 레벨 동일) — 신기능을 먼저 쓰려면 `allowUnknownProviderOptions: true`로 통과시키면 warning과 함께 wire에 실린다
 - 그래도 안 되는 최후 수단이 `passthroughParams`(wire body 직접 병합). 게이트웨이 조립 키와 충돌하면 400
 
 ## reasoning effort

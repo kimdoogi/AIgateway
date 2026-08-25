@@ -138,7 +138,7 @@ curl -N https://&lt;gateway&gt;/v0/responses -H "authorization: Bearer gwk_..." 
 <tr><td><code>fallbackModels</code></td><td>string[]</td><td>폴백 체인 — 순서 = 시도 순서</td></tr>
 <tr><td><code>messages</code></td><td>Message[]</td><td>필수, 1개 이상</td></tr>
 <tr><td><code>tools</code> / <code>toolChoice</code> / <code>parallelToolCalls</code></td><td></td><td>툴 (아래 절)</td></tr>
-<tr><td><code>maxOutputTokens</code> <code>temperature</code> <code>topP</code> <code>topK</code> <code>stopSequences</code> <code>seed</code> <code>presencePenalty</code> <code>frequencyPenalty</code></td><td></td><td>샘플링 — 타깃 미지원 값은 드롭+warning</td></tr>
+<tr><td><code>maxOutputTokens</code> <code>temperature</code> <code>topP</code> <code>topK</code> <code>stopSequences</code> <code>seed</code> <code>presencePenalty</code> <code>frequencyPenalty</code></td><td></td><td>샘플링 — 타깃 미지원 값은 드롭+warning. <code>maxOutputTokens: 0</code>은 캐시 프리워밍(anthropic 전용 — 타사는 드롭+warning)</td></tr>
 <tr><td><code>responseFormat</code></td><td><code>{type:"text"}</code> | <code>{type:"json", schema?, name?, strict?}</code></td><td>구조화 출력</td></tr>
 <tr><td><code>reasoning</code></td><td><code>{effort?}</code></td><td><code>none·minimal·low·medium·high·xhigh·max</code> (아래 절)</td></tr>
 <tr><td><code>metadata</code></td><td><code>{userId?, ...}</code></td><td>userId는 프로바이더 사용자 식별 필드로 매핑</td></tr>
@@ -182,7 +182,7 @@ curl -N https://&lt;gateway&gt;/v0/responses -H "authorization: Bearer gwk_..." 
 <pre><code>{ "type": "text",      "text": "..." }
 { "type": "reasoning", "text": "...", "opaqueState": { "provider": "...", "data": "..." } } <span class="cm">// 서명·암호화 상태</span>
 { "type": "toolCall",  "toolCallId": "...", "toolName": "...", "input": { "type": "json", "value": {} } }
-{ "type": "toolResult","toolCallId": "...", "toolName": "...", "output": { "type": "text", "text": "..." } }
+{ "type": "toolResult","toolCallId": "...", "toolName": "...", "output": { "type": "text", "text": "..." } } // output 7형: text·json·content(블록 배열)·errorText·errorJson·errorContent·executionDenied
 { "type": "file",      "mediaType": "image/png", "data": { "type": "base64", "data": "..." } }
 { "type": "source",    "sourceType": "url", "url": "..." }        <span class="cm">// 서버 웹서치 출처 (응답 방향)</span>
 { "type": "custom",    "kind": "anthropic.&lt;...&gt;", "payload": {} } <span class="cm">// 프로바이더 고유 블록 (왕복 보장)</span>
@@ -203,8 +203,19 @@ curl -N https://&lt;gateway&gt;/v0/responses -H "authorization: Bearer gwk_..." 
 <span class="cm">// ③ 히스토리에 [②의 message 그대로] + [tool 롤 결과]를 붙여 재요청</span>
 { "role": "tool", "blocks": [ { "type": "toolResult", "toolCallId": "&lt;②의 id&gt;",
     "toolName": "get_weather", "output": { "type": "text", "text": "맑음, 27도" } } ] }</code></pre>
+<p><strong>실패한 툴 결과는 <code>error*</code> variant로</strong> 제출합니다
+(<code>errorText</code>/<code>errorJson</code>/<code>errorContent</code>) — 텍스트에 "failed"라고 쓰는 것과 달리
+프로바이더에 에러로 전달되어 모델이 실패를 인지합니다. 멀티모달 결과(스크린샷 등)는
+<code>content</code> variant에 file 블록을 담습니다.</p>
+
 <p>프로바이더 서버가 실행하는 툴(웹서치 등)은 <code>{ "type": "provider", "id": "anthropic.web_search", "args": {...} }</code>.
 <code>id</code>는 <code>{provider}.{tool}</code> 형식이고 타깃 프로바이더와 일치해야 합니다.</p>
+
+<p><strong>클라이언트 실행 빌트인 툴</strong> (OpenAI <code>computer_use_preview</code>·셸·apply_patch):
+응답의 toolCall에 <code>providerExecuted</code>가 <strong>없으면</strong> 직접 실행 대상입니다. 결과는 표준
+toolResult로 — computer는 <code>content</code> variant의 file 블록(스크린샷)이 필수이고, 안전 확인 승인은
+toolResult 블록의 <code>providerOptions.openai.acknowledgedSafetyChecks</code>로 싣습니다.
+게이트웨이가 <code>computer_call_output</code> 등 전용 wire 형태로 조립합니다.</p>
 
 <h2 id="response">응답 envelope</h2>
 <pre><code>{
@@ -239,6 +250,7 @@ curl -N https://&lt;gateway&gt;/v0/responses -H "authorization: Bearer gwk_..." 
 <tr><td><code>fallback-target-switched</code></td><td>폴백 체인이 다음 타깃으로 넘어감</td></tr>
 <tr><td><code>billing-price-estimated</code></td><td>가격표 미등재 모델 — billing이 근사값</td></tr>
 <tr><td><code>budget-soft-warning</code></td><td>키의 soft 예산 도달</td></tr>
+<tr><td><code>budget-exhausted-next-request-blocked</code></td><td>이 요청으로 hard 예산 소진 — <strong>다음 요청부터 402</strong> (스트림 finish 직전 예고)</td></tr>
 </tbody>
 </table></div>
 <p><code>warnings</code>를 로그에 남겨두면 "왜 결과가 미묘하게 다르지"의 답이 대부분 여기 있습니다.</p>
@@ -301,6 +313,7 @@ curl -X POST https://&lt;gateway&gt;/v0/streams/req_XXXX/cancel -H "authorizatio
 <li>스트림은 <strong>콘텐츠 방출 전 실패만</strong> 무중단 전환 — 이미 받은 텍스트가 있으면 전환하지 않습니다 (중복 방출 금지)</li>
 <li>시도 이력은 <code>gateway.attempts</code>(비스트림) / <code>finish.attempts</code>(스트림)에: <code>success · failed · skipped</code></li>
 <li>자격증명 없는 타깃, <code>pinned</code> passthrough와 불일치하는 타깃은 <code>skipped</code></li>
+<li><code>billing</code>은 <strong>과금된 전 시도 합산</strong> — 실패 시도에 과금이 발생했으면(스트림 시작 후 에러 등) 그 몫도 라인아이템에 포함됩니다 (원장과 항상 일치)</li>
 </ul>
 
 <h2 id="po">providerOptions — 프로바이더 고유 기능</h2>
@@ -317,8 +330,12 @@ curl -X POST https://&lt;gateway&gt;/v0/streams/req_XXXX/cancel -H "authorizatio
   "xai":       { "xGrokConvId": "...", "store": true }
 }</code></pre>
 <ul>
-<li>블록 단위 PO도 있습니다: 예) anthropic 캐시 브레이크포인트 <code>"providerOptions": { "anthropic": { "cacheControl": { "type": "ephemeral" } } }</code></li>
-<li>네임스페이스 안의 <strong>미지 키는 400</strong> — 신기능을 먼저 쓰려면 <code>allowUnknownProviderOptions: true</code>로 통과시키면 warning과 함께 wire에 실립니다</li>
+<li>블록 단위 PO도 있습니다: 예) anthropic 캐시 브레이크포인트 <code>"providerOptions": { "anthropic": { "cacheControl": { "type": "ephemeral" } } }</code>,
+openai 파트 캐시 <code>promptCacheBreakpoint</code>, gemini 비디오 클리핑 <code>videoMetadata</code>. 툴 정의에도 붙습니다
+(openai <code>outputSchema</code>·<code>deferLoading</code>, gemini <code>responseJsonSchema</code> 등)</li>
+<li>xai 비동기: <code>"xai": { "deferred": true }</code> (비스트림 전용) — 응답은 콘텐츠 없이
+<code>providerMetadata.xai.requestId</code> 핸들만 오고, 프로바이더에 직접 폴링합니다</li>
+<li>네임스페이스 안의 <strong>미지 키는 400</strong> (envelope·메시지·블록·툴 전 레벨 동일) — 신기능을 먼저 쓰려면 <code>allowUnknownProviderOptions: true</code>로 통과시키면 warning과 함께 wire에 실립니다</li>
 <li>그래도 안 되는 최후 수단이 <code>passthroughParams</code>(wire body 직접 병합). 게이트웨이 조립 키와 충돌하면 400</li>
 </ul>
 

@@ -20,3 +20,11 @@ export function docsHtml(): string {
   cachedDocs ??= readFileSync(new URL("./docs.html", import.meta.url), "utf8");
   return cachedDocs;
 }
+
+// 소개(랜딩) 페이지 — GET / (이전엔 /console 리다이렉트였으나 첫 방문자에겐 소개가 먼저)
+let cachedLanding: string | undefined;
+
+export function landingHtml(): string {
+  cachedLanding ??= readFileSync(new URL("./landing.html", import.meta.url), "utf8");
+  return cachedLanding;
+}
