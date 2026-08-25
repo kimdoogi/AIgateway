@@ -2,6 +2,7 @@ import type { z } from "zod";
 import type { JSONObject, JSONValue } from "../ir/json.js";
 import type { NS, Warning, WarningCode } from "../ir/common.js";
 import type { IRError } from "../ir/error.js";
+import type { Message } from "../ir/message.js";
 
 // 어댑터 공통 유틸 (리뷰 A1/A2/C2) — 프로바이더별로 다른 것은 네임스페이스 키·스키마뿐,
 // 정책 골격(D5 미지 키 처리, 미지원 파라미터 드롭, warning 조립)은 전 어댑터 공유.
@@ -52,6 +53,49 @@ export function makeWarning(
  * providerOptions.<nsKey>의 D5 처리: 알려진 키는 스키마(strip 모드) 검증,
  * 미지 키는 기본 4xx 거부 / opt-in이면 extra로 통과 + warning.
  */
+/**
+ * 블록·메시지 레벨 providerOptions D5 게이트 (ir-v0 §2 — 감사 #17: envelope만 검사받고
+ * 블록/메시지 PO는 무검증 조회만 받는 2급 시민이었다). 자기 네임스페이스 안의 인지 키 밖
+ * 키는 기본 4xx, opt-in이면 warning(블록 레벨은 통과 좌석이 없어 무시됨을 명시).
+ * 인지 키 집합 = 어댑터가 실제 소비하는 PO 키 ∪ 블록 레벨로 방출하는 PM 키
+ * (§13.1 히스토리 편입이 PM→PO 전량 복사하므로 — G1 왕복 불변식).
+ * 툴 레벨은 각 어댑터의 partitionProviderOptions 호출이 담당.
+ */
+export function gateBlockLevelOptions(
+  messages: readonly Message[],
+  nsKey: string,
+  blockKnown: ReadonlySet<string>,
+  messageKnown: ReadonlySet<string>,
+  allowUnknown: boolean | undefined,
+  warnings: Warning[],
+): void {
+  const check = (po: NS | undefined, known: ReadonlySet<string>, path: string): void => {
+    const ns = po?.[nsKey];
+    if (!ns) return;
+    const unknown = Object.keys(ns).filter((k) => !known.has(k));
+    if (unknown.length === 0) return;
+    if (!allowUnknown) {
+      throw new AdapterInvalidRequestError(
+        `${path}.providerOptions.${nsKey}에 알 수 없는 키: ${unknown.join(", ")} (allowUnknownProviderOptions로 통과 가능 — D5)`,
+      );
+    }
+    for (const k of unknown) {
+      warnings.push(
+        makeWarning(
+          "compatibility",
+          "unknown-provider-option-passed",
+          `미지 providerOptions.${nsKey}.${k} — 블록/메시지 레벨 통과 좌석 없음, 무시 (opt-in)`,
+          `${path}.providerOptions.${nsKey}.${k}`,
+        ),
+      );
+    }
+  };
+  messages.forEach((m, mi) => {
+    check(m.providerOptions, messageKnown, `messages[${mi}]`);
+    m.blocks.forEach((b, bi) => check(b.providerOptions, blockKnown, `messages[${mi}].blocks[${bi}]`));
+  });
+}
+
 export function partitionProviderOptions<S extends z.ZodObject>(
   providerOptions: NS | undefined,
   nsKey: string,

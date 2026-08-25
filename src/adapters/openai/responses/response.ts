@@ -21,18 +21,25 @@ const WireResponseSchema = z.looseObject({
   error: z.record(z.string(), z.unknown()).nullish(),
 });
 
-/** 서버 실행 툴 item 타입 → toolName (인벤토리 §B) */
+/** 서버 실행 툴 item 타입 → toolName (인벤토리 §B). 호출·결과가 한 item */
 export const SERVER_TOOL_CALL_TYPES: ReadonlySet<string> = new Set([
   "web_search_call",
   "file_search_call",
-  "computer_call",
   "code_interpreter_call",
-  "local_shell_call",
-  "shell_call",
-  "apply_patch_call",
   "mcp_call",
   "tool_search_call",
   "x_search_call", // xai responses (base 상속 — OpenAI 미발행이라 base 무해. 감사 xai #3: 미등록 시 providerExecuted가 passthrough 강등)
+]);
+
+/**
+ * 클라이언트 실행형 빌트인 툴 (§13.5 — 감사 openai #4): 모델이 호출을 내고 클라이언트가
+ * 실행해 *_output item을 제출한다. providerExecuted 없는 toolCall로 수납해 서버 실행형과 구분
+ */
+export const CLIENT_EXECUTED_CALL_TYPES: ReadonlySet<string> = new Set([
+  "computer_call",
+  "local_shell_call",
+  "shell_call",
+  "apply_patch_call",
 ]);
 
 /** custom 블록으로 수납하는 item 타입 (라운드트립 무변경 재전송 — §4.7) */
@@ -195,6 +202,23 @@ export function itemToBlocks(
         toolCallId: callId,
         toolName: name,
         input: { type: "text", text: String(item["input"] ?? "") },
+        providerMetadata: { openai: { item: item as JSONValue } },
+      },
+    ];
+  }
+
+  if (typeof type === "string" && CLIENT_EXECUTED_CALL_TYPES.has(type)) {
+    // 클라이언트 실행형 (§13.5) — providerExecuted 없음: 클라이언트가 실행·output 제출.
+    // 이전엔 서버 실행형으로 강등돼 output 제출 루프가 1급 표현 불가였다 (감사 openai #4)
+    const name = typeof item["name"] === "string" ? item["name"] : type.replace(/_call$/, "");
+    const callId =
+      typeof item["call_id"] === "string" && item["call_id"].length > 0 ? item["call_id"] : (itemId ?? "");
+    return [
+      {
+        type: "toolCall",
+        toolCallId: callId,
+        toolName: name,
+        input: { type: "json", value: item as JSONValue },
         providerMetadata: { openai: { item: item as JSONValue } },
       },
     ];

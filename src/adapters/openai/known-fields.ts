@@ -1,7 +1,7 @@
 // OpenAI 응답 방향 신선도 장치 — 얕은 적용 (간극 문서 H: D10-5 하드 보장은 Anthropic 한정).
 // 재녹화 시 어댑터가 모르는 top-level 필드·item 타입만 검출한다. item 내부 키 전수는 비적용.
 
-import { CUSTOM_ITEM_TYPES, SERVER_TOOL_CALL_TYPES } from "./responses/response.js";
+import { CLIENT_EXECUTED_CALL_TYPES, CUSTOM_ITEM_TYPES, SERVER_TOOL_CALL_TYPES } from "./responses/response.js";
 
 const RESPONSE_KEYS: ReadonlySet<string> = new Set([
   "id", "object", "created_at", "completed_at", "status", "incomplete_details", "error", "model",
@@ -20,7 +20,7 @@ const CC_RESPONSE_KEYS: ReadonlySet<string> = new Set([
 const ITEM_TYPES: ReadonlySet<string> = new Set([
   "message", "reasoning", "function_call", "function_call_output", "custom_tool_call",
   "custom_tool_call_output", "image_generation_call", "computer_call_output",
-  ...SERVER_TOOL_CALL_TYPES, ...CUSTOM_ITEM_TYPES,
+  ...SERVER_TOOL_CALL_TYPES, ...CLIENT_EXECUTED_CALL_TYPES, ...CUSTOM_ITEM_TYPES,
 ]);
 
 /** 비스트림 응답 body에서 미지의 top-level 필드·item 타입 목록 (Responses/CC 형태 자동 판별) */

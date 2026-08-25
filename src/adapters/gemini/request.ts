@@ -4,7 +4,7 @@ import type { Warning } from "../../ir/common.js";
 import type { IRRequest } from "../../ir/request.js";
 import type { RequestContext, TransformedRequest } from "../types.js";
 import { z } from "zod";
-import { AdapterInvalidRequestError, gateEffort, makeWarning, partitionProviderOptions } from "../shared.js";
+import { AdapterInvalidRequestError, gateBlockLevelOptions, gateEffort, makeWarning, partitionProviderOptions } from "../shared.js";
 import { parseGoogleRequestOptions, readPartExtras } from "./options.js";
 import { GeminiWireRequestSchema } from "./wire.js";
 
@@ -14,6 +14,10 @@ const GeminiToolLevelSchema = z.object({
   responseJsonSchema: z.record(z.string(), z.unknown()).optional(),
   behavior: z.string().optional(), // Live 비동기 NON_BLOCKING (인벤토리 §K)
 });
+
+// 블록 레벨 인지 키 (감사 #17 — partExtras: withPartExtras, videoMetadata: §4.5)
+const GEMINI_BLOCK_PO_KEYS: ReadonlySet<string> = new Set(["partExtras", "videoMetadata"]);
+const GEMINI_MESSAGE_PO_KEYS: ReadonlySet<string> = new Set([]);
 
 // IR → Gemini generateContent wire (ADR-0003, ir-v0 §13, docs/research/2026-08-20-gemini-api.md)
 // 순수 함수. 스트리밍은 body가 아니라 경로로 갈린다 (:streamGenerateContent?alt=sse 강제 — ADR-0003 §2).
@@ -354,6 +358,8 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
     retargetReasoning: req.retarget?.reasoning ?? "drop",
     ...(ctx.capabilities?.multimodalFunctionResponse ? { multimodalFunctionResponse: true } : {}),
   };
+  // 블록·메시지 레벨 PO D5 게이트 (감사 #17)
+  gateBlockLevelOptions(req.messages, "google", GEMINI_BLOCK_PO_KEYS, GEMINI_MESSAGE_PO_KEYS, req.allowUnknownProviderOptions, warnings);
   const body: JSONObject = {};
   const headers: Record<string, string> = { "content-type": "application/json" };
 

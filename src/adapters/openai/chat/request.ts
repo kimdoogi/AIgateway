@@ -6,10 +6,11 @@ import type { RequestContext, TransformedRequest } from "../../types.js";
 import {
   AdapterInvalidRequestError,
   dropUnsupportedParams,
+  gateBlockLevelOptions,
   gateUnsupportedParams,
   makeWarning,
 } from "../../shared.js";
-import { overrideWarning, parseOpenAIRequestOptions } from "../options.js";
+import { OPENAI_BLOCK_PO_KEYS, OPENAI_MESSAGE_PO_KEYS, overrideWarning, parseOpenAIRequestOptions } from "../options.js";
 import { clampEffort } from "../responses/request.js";
 import { ChatWireRequestSchema } from "./wire.js";
 
@@ -108,6 +109,8 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   const warnings: Warning[] = [];
   const retargetReasoning = req.retarget?.reasoning ?? "drop";
   const opts = parseOpenAIRequestOptions(req.providerOptions, req.allowUnknownProviderOptions ?? false, warnings);
+  // 블록·메시지 레벨 PO D5 게이트 (감사 #17)
+  gateBlockLevelOptions(req.messages, "openai", OPENAI_BLOCK_PO_KEYS, OPENAI_MESSAGE_PO_KEYS, req.allowUnknownProviderOptions, warnings);
   const body: JSONObject = { model: ctx.modelId };
   const messages: WireMessage[] = [];
 

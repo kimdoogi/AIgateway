@@ -127,3 +127,12 @@ export function readValue(
   const v = ns(providerOptions, providerMetadata)[key];
   return v === undefined ? undefined : (v as JSONValue);
 }
+
+// 블록·메시지 레벨 인지 키 (감사 #17 — 소비 PO ∪ 블록 방출 PM(§13.1 편입으로 PO가 된다)).
+// item/itemId: 원문 item 왕복(§4.2), refusal/audio: 응답 블록 PM, promptCacheBreakpoint: 파트 캐시
+export const OPENAI_BLOCK_PO_KEYS: ReadonlySet<string> = new Set([
+  "item", "itemId", "refusal", "audio", "promptCacheBreakpoint", "detail",
+  "acknowledgedSafetyChecks", // computer_call_output 부속 (§13.5)
+]);
+// role: developer 강등 없는 왕복 (부록 (a) §3.1)
+export const OPENAI_MESSAGE_PO_KEYS: ReadonlySet<string> = new Set(["role"]);

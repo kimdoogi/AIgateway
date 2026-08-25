@@ -109,3 +109,96 @@ describe("openai responses transformResponse", () => {
     expect(t.finishReason).toEqual({ unified: "length", raw: "incomplete:max_output_tokens" });
   });
 });
+
+describe("클라이언트 실행 빌트인 툴 왕복 (§13.5 — 감사 openai #4)", () => {
+  const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+  it("응답: computer_call → providerExecuted 없는 toolCall + item 원문 보존", () => {
+    const t = transformResponse(
+      {
+        id: "resp_cu",
+        model: "computer-use-preview",
+        status: "completed",
+        output: [
+          {
+            type: "computer_call", id: "cu_1", call_id: "call_cu1",
+            action: { type: "click", x: 10, y: 20 },
+            pending_safety_checks: [{ id: "sc_1", code: "malicious_instructions", message: "check" }],
+          },
+        ],
+        usage: { input_tokens: 10, output_tokens: 5 },
+      },
+      ctx,
+    );
+    const call = t.blocks[0]!;
+    expect(call).toMatchObject({ type: "toolCall", toolCallId: "call_cu1", toolName: "computer" });
+    expect(call.type === "toolCall" && call.providerExecuted).toBeUndefined(); // 클라이언트 실행형
+    expect(call.providerMetadata?.["openai"]?.["item"]).toMatchObject({ type: "computer_call" });
+  });
+
+  it("요청: 짝 toolCall 기준 *_output 조립 — computer 스크린샷·acked, apply_patch status, shell 문자열", async () => {
+    const { transformRequest } = await import("./request.js");
+    const cuItem = { type: "computer_call", id: "cu_1", call_id: "call_cu1", action: { type: "screenshot" } };
+    const apItem = { type: "apply_patch_call", id: "ap_1", call_id: "call_ap1", input: "diff" };
+    const shItem = { type: "local_shell_call", id: "sh_1", call_id: "call_sh1", action: { command: ["ls"] } };
+    const req = {
+      version: "0" as const,
+      model: "computer-use-preview",
+      messages: [
+        { role: "user" as const, blocks: [{ type: "text" as const, text: "go" }] },
+        {
+          role: "assistant" as const,
+          blocks: [
+            { type: "toolCall" as const, toolCallId: "call_cu1", toolName: "computer_call", input: { type: "json" as const, value: cuItem }, origin: { provider: "openai", model: "computer-use-preview", surface: "responses" }, providerOptions: { openai: { item: cuItem } } },
+            { type: "toolCall" as const, toolCallId: "call_ap1", toolName: "apply_patch_call", input: { type: "json" as const, value: apItem }, origin: { provider: "openai", model: "computer-use-preview", surface: "responses" }, providerOptions: { openai: { item: apItem } } },
+            { type: "toolCall" as const, toolCallId: "call_sh1", toolName: "local_shell_call", input: { type: "json" as const, value: shItem }, origin: { provider: "openai", model: "computer-use-preview", surface: "responses" }, providerOptions: { openai: { item: shItem } } },
+          ],
+        },
+        {
+          role: "tool" as const,
+          blocks: [
+            {
+              type: "toolResult" as const,
+              toolCallId: "call_cu1",
+              toolName: "computer_call",
+              output: { type: "content" as const, blocks: [{ type: "file" as const, mediaType: "image/png", data: { type: "base64" as const, data: PNG } }] },
+              providerOptions: { openai: { acknowledgedSafetyChecks: [{ id: "sc_1" }] } },
+            },
+            { type: "toolResult" as const, toolCallId: "call_ap1", toolName: "apply_patch_call", output: { type: "errorText" as const, text: "patch failed" } },
+            { type: "toolResult" as const, toolCallId: "call_sh1", toolName: "local_shell_call", output: { type: "text" as const, text: "file.txt" } },
+          ],
+        },
+      ],
+    };
+    const { request } = transformRequest(req as never, { requestId: "req_cu", modelId: "computer-use-preview" });
+    const input = request.body["input"] as Array<Record<string, unknown>>;
+    const outputs = input.filter((i) => String(i["type"]).endsWith("_output"));
+    expect(outputs).toHaveLength(3);
+    const cu = outputs.find((i) => i["type"] === "computer_call_output")!;
+    expect(cu["call_id"]).toBe("call_cu1");
+    expect(cu["output"]).toMatchObject({ type: "computer_screenshot" });
+    expect(cu["acknowledged_safety_checks"]).toEqual([{ id: "sc_1" }]);
+    const ap = outputs.find((i) => i["type"] === "apply_patch_call_output")!;
+    expect(ap["status"]).toBe("failed");
+    expect(ap["output"]).toBe("patch failed");
+    const sh = outputs.find((i) => i["type"] === "local_shell_call_output")!;
+    expect(sh["output"]).toBe("file.txt");
+  });
+
+  it("요청: computer output에 스크린샷 file 블록 부재는 4xx (§13.5 — 조용한 반쪽 제출 금지)", async () => {
+    const { transformRequest } = await import("./request.js");
+    const cuItem = { type: "computer_call", id: "cu_1", call_id: "call_cu1", action: { type: "screenshot" } };
+    const req = {
+      version: "0" as const,
+      model: "computer-use-preview",
+      messages: [
+        {
+          role: "assistant" as const,
+          blocks: [{ type: "toolCall" as const, toolCallId: "call_cu1", toolName: "computer_call", input: { type: "json" as const, value: cuItem }, origin: { provider: "openai", model: "computer-use-preview", surface: "responses" }, providerOptions: { openai: { item: cuItem } } }],
+        },
+        { role: "tool" as const, blocks: [{ type: "toolResult" as const, toolCallId: "call_cu1", toolName: "computer_call", output: { type: "text" as const, text: "no screenshot" } }] },
+      ],
+    };
+    expect(() => transformRequest(req as never, { requestId: "req_cu", modelId: "computer-use-preview" })).toThrow(/스크린샷/);
+  });
+});

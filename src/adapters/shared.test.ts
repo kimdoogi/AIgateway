@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Warning } from "../ir/common.js";
-import { AdapterInvalidRequestError, gateEffort } from "./shared.js";
+import { AdapterInvalidRequestError, gateBlockLevelOptions, gateEffort } from "./shared.js";
 
 // 모델 effort 게이트 (ir-v0 §6.3) — 전 어댑터 공통 정책 골격.
 // 핵심 불변식: on/off 경계는 어느 방향으로도 넘지 않는다 (리뷰 2026-08-22).
@@ -50,5 +50,36 @@ describe("gateEffort", () => {
     // 클램프는 4xx가 아니다 — 값이 살아서 나간다
     const warnings: Warning[] = [];
     expect(gateEffort("max", ["low", "high"], { ...opts, strict: true }, warnings)).toBe("high");
+  });
+});
+
+describe("gateBlockLevelOptions — 블록·메시지 레벨 PO D5 (감사 #17)", () => {
+  const messages = [
+    {
+      role: "user",
+      providerOptions: { anthropic: { unknownMsgKey: 1 } },
+      blocks: [
+        { type: "text", text: "hi", providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } } },
+        { type: "text", text: "x", providerOptions: { anthropic: { mysteryKey: true }, google: { whatever: 1 } } },
+      ],
+    },
+  ] as unknown as Parameters<typeof gateBlockLevelOptions>[0];
+  const KNOWN = new Set(["cacheControl"]);
+
+  it("자기 NS 미지 키는 기본 4xx (인지 키·타사 NS는 무관)", () => {
+    expect(() => gateBlockLevelOptions(messages, "anthropic", KNOWN, new Set(), false, [])).toThrow(
+      AdapterInvalidRequestError,
+    );
+    // 타사(google) NS만 보는 어댑터 관점에서는 통과 — 자기 네임스페이스만 검사 (ir-v0 §2)
+    const warnings: Warning[] = [];
+    gateBlockLevelOptions(messages, "google", new Set(["whatever"]), new Set(), false, warnings);
+    expect(warnings).toEqual([]);
+  });
+
+  it("opt-in이면 warning으로 강등 (무시됨을 명시)", () => {
+    const warnings: Warning[] = [];
+    gateBlockLevelOptions(messages, "anthropic", KNOWN, new Set(), true, warnings);
+    expect(warnings.map((w) => w.code)).toEqual(["unknown-provider-option-passed", "unknown-provider-option-passed"]);
+    expect(warnings[0]!.path).toBe("messages[0].providerOptions.anthropic.unknownMsgKey");
   });
 });

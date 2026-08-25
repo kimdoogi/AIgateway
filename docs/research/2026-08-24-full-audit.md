@@ -1,7 +1,7 @@
 # 전수 감사 2026-08-24 — API 패리티(4사 웹 대조) + 코드 모순
 
 > 요청: "코드 전수조사 + 각 모델 API 확인(인터넷 검색) — 빠진 기능·에이전트 루프·파라미터·코드 모순 전부"
-> 상태: **수정 완료 + 라이브 probe 전건 반영** (2026-08-25) — §5 문서 선행 5건 + P0 14건 전건 + P1 24/26 + **P2 18건 전건 종결**. probe 실측 17건 반영(문제 로그 2026-08-25 두 건 참조). 최종 잔여 2건: P1 #18(빌트인 툴 output — IR 설계 선행 + computer-use 녹화), P1 #24(블록 레벨 파티셔너 승격 — 라이브 불요 코드 작업). 우선순위 계획은 §1.
+> 상태: **전건 종결** (2026-08-25) — §5 문서 선행 5건 + P0 14 + P1 26 + P2 18, 93건 전부. 라이브 probe 실측 17건 반영. 마지막 2건: #18은 ir-v0 §13.5 신설(클라이언트 실행 빌트인 툴 — providerExecuted 구분·*_output 조립·왕복 단위 테스트, computer-use 라이브 녹화만 별도 좌석), #24는 gateBlockLevelOptions로 블록·메시지 레벨 D5 완성 (envelope·툴·블록 3레벨 전부 커버). 남은 외부 좌석: computer-use-preview 골든셋 녹화, gemini mcp_servers transport 스키마 공식 확인, functionCall id 에코백 실측 → §13.2 재평가.
 
 ## 방법론
 
@@ -36,9 +36,11 @@
 
 ### P1 — 계약 위반·비대칭 (조용하지만 트리거가 좁음) — 2026-08-25 수정: 26건 중 24건 완료, 잔여 2건 하단 표기
 
-잔여: **#18** 클라이언트 실행 빌트인 툴 output 제출 — IR 표현 설계(문서 선행) + 골든셋 라이브 녹화(D9)가
-필요한 기능 작업이라 별도 착수. **#24 부분** — 툴 레벨 D5 파티셔너는 4사 적용 완료, 블록 레벨
-공통 파티셔너 승격은 어댑터별 인지 키 정리와 함께 후속 (현재 블록 PO는 인지 키 조회만).
+**전건 종결** (2026-08-25 2차): **#18** — ir-v0 §13.5 신설(IR 스키마 무변경 확인 — §4.4가 이미 1급 표현),
+4종 client-executed 분리(providerExecuted 구분), *_output 조립(computer 스크린샷·acked/셸 문자열/
+apply_patch status), 왕복 단위 테스트 3건. computer-use-preview 라이브 골든셋만 별도 좌석(§13.5-4).
+**#24** — gateBlockLevelOptions 공통 게이트로 블록·메시지 레벨 완성 (어댑터별 인지 키 = 소비 PO ∪
+블록 방출 PM — §13.1 편입 왕복 불변식 기준).
 
 1. compat 스트림 3종의 gateway.origin 부재 — 비스트림과 불일치, 표면 sticky 왕복 파손 (openai-compat/stream.ts:147, anthropic-compat/stream.ts:144)
 2. 인바운드 warning 채널 자체 부재 — arguments 파싱 강등·빈 문자열 {} 날조가 전부 무증상 (openai-compat/request.ts:93)

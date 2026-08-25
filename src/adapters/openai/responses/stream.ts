@@ -5,6 +5,7 @@ import type { AdapterStreamEvent, StreamContext, StreamTransformer } from "../..
 import { makeWarning } from "../../shared.js";
 import { convertUsage, mapInStreamError, mapResponsesFinishReason, streamTruncationError, type OpenAIWireUsage } from "../errors.js";
 import {
+  CLIENT_EXECUTED_CALL_TYPES,
   CUSTOM_ITEM_TYPES,
   SERVER_TOOL_CALL_TYPES,
   SURFACE,
@@ -306,6 +307,26 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
                 toolCallId: callId,
                 toolName: name,
                 input,
+                origin,
+                providerMetadata: { openai: { item: item as JSONValue } },
+              },
+            });
+            return out;
+          }
+
+          if (CLIENT_EXECUTED_CALL_TYPES.has(iType)) {
+            // §13.5 — providerExecuted 없음 (클라이언트가 실행·output 제출, 감사 openai #4)
+            const name = typeof item["name"] === "string" ? item["name"] : iType.replace(/_call$/, "");
+            const callId =
+              typeof item["call_id"] === "string" && item["call_id"].length > 0 ? item["call_id"] : itemId;
+            out.push({
+              type: "tool-call",
+              block: {
+                type: "toolCall",
+                id: itemId,
+                toolCallId: callId,
+                toolName: name,
+                input: { type: "json", value: item as JSONValue },
                 origin,
                 providerMetadata: { openai: { item: item as JSONValue } },
               },

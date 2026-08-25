@@ -477,3 +477,17 @@ probe 케이스 14건(+정상형 1건 추가) 실행 — 판정표는 [probe 계
 anthropic 건과 합쳐 이번 세션의 probe 결함 2건이 준 교훈: **probe body는 어댑터를 통과시키지
 않은 raw wire라서, 어댑터가 자동으로 해주는 것(D6-9 더미, additionalProperties)이 빠진다.**
 probe 설계 시 "게이트웨이가 보정해 주는 것" 목록을 대조할 것.
+
+## 2026-08-25 — 전수 감사 93건 전건 종결 (#18 §13.5 신설 + #24 블록 게이트)
+
+마지막 2건 처리로 감사 클로즈:
+
+- **#18 빌트인 툴 output**: 설계 결론이 "IR 스키마 무변경" — §4.4의 content variant(file 블록)가
+  스크린샷을, 블록 PO가 acknowledged_safety_checks를 이미 표현할 수 있었다. 필요한 건 새 타입이
+  아니라 **매핑 규칙 명문화**(ir-v0 §13.5)와 4종의 providerExecuted 오분류 교정이었다.
+  "표현 불가"로 보였던 것이 실은 "규칙 부재"였던 사례 — 스키마 확장 전에 기존 표현력을 먼저 셈할 것.
+- **#24 블록 게이트**: 인지 키 집합 = 소비 PO ∪ 블록 방출 PM. 후자를 빼먹으면 §13.1 편입
+  (PM→PO 전량 복사)된 정상 히스토리가 4xx가 된다 — G1 왕복 불변식이 게이트 설계의 제약이었다.
+
+남은 외부 좌석 3개 (감사 밖 후속): computer-use-preview 라이브 골든셋(§13.5-4),
+gemini mcp_servers transport 스키마 공식 확인, gemini functionCall id 에코백 실측(§13.2 재평가).

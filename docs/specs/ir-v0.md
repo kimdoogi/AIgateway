@@ -528,6 +528,27 @@ compat 포맷(openai-compat CC, anthropic-compat)에는 IR 전용 필드(`origin
 
 필드 상세·매핑표는 부록 (a)에서 확정한다 — **로드맵 4(compat 인바운드) 착수 전 완료가 구현 차단 해소 조건**.
 
+### 13.5 클라이언트 실행 빌트인 툴 (OpenAI Responses — 2026-08-25 신설, 감사 openai #4)
+
+OpenAI 빌트인 툴 중 `computer_call`·`local_shell_call`·`shell_call`·`apply_patch_call` 4종은
+**모델이 호출을 내고 클라이언트가 실행해 output을 제출**하는 루프다 — 서버 실행형과 달리
+호출·결과가 한 item이 아니다. 매핑 규칙:
+
+1. **응답 방향**: 4종 item은 `providerExecuted` **없는** toolCall 블록으로 수납 (서버 실행형과
+   구분 — §4.3). `input`은 item 원문(json), `toolCallId`는 wire `call_id`(부재 시 item id),
+   PM `openai.item`에 원문 보존 (§4.2 무변경 재전송의 전제).
+2. **결과 표현**: 클라이언트는 표준 toolResult로 제출한다 — IR 스키마 변경 없음 (§4.4가 이미
+   1급 표현: 스크린샷 = `content` variant의 file 블록, 셸/패치 출력 = text). computer 전용
+   부속 `acknowledged_safety_checks`는 toolResult **블록 PO** `openai.acknowledgedSafetyChecks`.
+3. **요청 방향 (output 제출 조립)**: toolResult의 짝 toolCall(동일 toolCallId)이 보존한
+   item.type 기준으로 wire item을 조립한다:
+   - `computer_call` → `computer_call_output { call_id, output: {type:"computer_screenshot", image_url|file_id}, acknowledged_safety_checks? }` — content variant의 첫 file 블록이 스크린샷. **file 블록 부재는 4xx** (스크린샷 없는 computer output은 wire 계약 위반 — 조용한 반쪽 제출 금지).
+   - `local_shell_call`/`shell_call` → `{type:"<원형>_output", call_id, output: string}`.
+   - `apply_patch_call` → `apply_patch_call_output { call_id, status, output }` — status는 §4.4 에러 variant(errorText/errorJson/errorContent)면 `"failed"`, 아니면 `"completed"`.
+   - 짝 toolCall의 item 정보가 없으면(크로스 프로바이더 재타게팅 등) 현행 `function_call_output` 조립 유지 — 강등이며 upstream 거부는 명시적.
+4. **골든셋 좌석**: computer-use-preview 라이브 녹화는 별도 세션 (D9 opt-in — 모델 접근 확보 시).
+   그 전까지 단위 테스트가 왕복 규칙을 고정한다.
+
 ## 14. 커버리지 매핑 개요 (상세는 인벤토리 문서)
 
 | 프로바이더 기능 | IR 표현 |

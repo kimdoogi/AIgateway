@@ -4,7 +4,7 @@ import type { Citation, NS, Warning } from "../../ir/common.js";
 import type { IRRequest } from "../../ir/request.js";
 import type { RequestContext, TransformedRequest } from "../types.js";
 import { z } from "zod";
-import { AdapterInvalidRequestError, dropUnsupportedParams, gateEffort, gateUnsupportedParams, makeWarning, partitionProviderOptions } from "../shared.js";
+import { AdapterInvalidRequestError, dropUnsupportedParams, gateBlockLevelOptions, gateEffort, gateUnsupportedParams, makeWarning, partitionProviderOptions } from "../shared.js";
 
 // 툴 레벨 providerOptions.anthropic 인지 키 (D5 — 감사 #17: 툴 PO 미지 키 무증상 방지)
 const AnthropicToolLevelSchema = z.object({
@@ -12,6 +12,10 @@ const AnthropicToolLevelSchema = z.object({
   cache_control: z.record(z.string(), z.unknown()).optional(),
   wireExtras: z.record(z.string(), z.unknown()).optional(),
 });
+
+// 블록 레벨 인지 키 (감사 #17 — 소비 PO ∪ 블록 방출 PM(§13.1 편입으로 PO가 된다))
+const ANTHROPIC_BLOCK_PO_KEYS: ReadonlySet<string> = new Set(["cacheControl", "cache_control", "wireExtras", "wireType"]);
+const ANTHROPIC_MESSAGE_PO_KEYS: ReadonlySet<string> = new Set([]);
 import { PO_WIRE_PASSTHROUGH, parseAnthropicRequestOptions, readBlockCacheControl, readBlockWireType, readWireExtras } from "./options.js";
 import { AnthropicWireRequestSchema } from "./wire.js";
 
@@ -340,6 +344,9 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
       `${ctx.modelId}는 assistant prefill(말미 assistant 메시지)을 지원하지 않습니다 — 메시지 제거 또는 구세대 모델 사용`,
     );
   }
+
+  // 블록·메시지 레벨 PO D5 게이트 (감사 #17 — envelope·툴 레벨과 동일 정책)
+  gateBlockLevelOptions(req.messages, "anthropic", ANTHROPIC_BLOCK_PO_KEYS, ANTHROPIC_MESSAGE_PO_KEYS, req.allowUnknownProviderOptions, warnings);
 
   // max_tokens는 Anthropic wire 필수 — 기본값 주입은 반드시 보고 (리뷰 A6)
   if (req.maxOutputTokens !== undefined) {

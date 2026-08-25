@@ -7,12 +7,14 @@ import { z } from "zod";
 import {
   AdapterInvalidRequestError,
   dropUnsupportedParams,
+  gateBlockLevelOptions,
   gateEffort,
   gateUnsupportedParams,
   makeWarning,
   partitionProviderOptions,
 } from "../../shared.js";
-import { overrideWarning, parseOpenAIRequestOptions, readItem } from "../options.js";
+import { OPENAI_BLOCK_PO_KEYS, OPENAI_MESSAGE_PO_KEYS, overrideWarning, parseOpenAIRequestOptions, readItem } from "../options.js";
+import { CLIENT_EXECUTED_CALL_TYPES } from "./response.js";
 import { ResponsesWireRequestSchema } from "./wire.js";
 
 // 툴 레벨 providerOptions.openai — 함수 툴 신필드 (인벤토리 §1, 감사 openai #3).
@@ -43,6 +45,50 @@ type RetargetReasoning = "drop" | "demote-to-text" | "strip-and-annotate";
 interface ConvertCtx {
   warnings: Warning[];
   retargetReasoning: RetargetReasoning;
+  /** 클라이언트 실행 빌트인 툴 짝 매핑 — toolCallId → item.type (§13.5, transformRequest가 선구축) */
+  clientCallKinds?: Map<string, string>;
+}
+
+/** §13.5-3 — 클라이언트 실행 빌트인 툴의 output 제출 item 조립 */
+function clientToolOutputItem(block: ToolResultBlock, wireCallType: string, path: string): JSONObject {
+  const outType = `${wireCallType}_output`;
+  if (wireCallType === "computer_call") {
+    // content variant의 첫 file 블록 = 스크린샷. 부재는 4xx — 스크린샷 없는 computer output은
+    // wire 계약 위반이라 조용한 반쪽 제출 금지 (§13.5)
+    const blocks =
+      block.output.type === "content" || block.output.type === "errorContent" ? block.output.blocks : [];
+    let screenshot: JSONObject | undefined;
+    for (const b of blocks) {
+      if (b.type !== "file") continue;
+      if (b.data.type === "base64") {
+        screenshot = { type: "computer_screenshot", image_url: `data:${b.mediaType};base64,${b.data.data}` };
+      } else if (b.data.type === "url") {
+        screenshot = { type: "computer_screenshot", image_url: b.data.url };
+      } else if (b.data.type === "reference" && b.data.refs["openai"]) {
+        screenshot = { type: "computer_screenshot", file_id: b.data.refs["openai"] };
+      }
+      break;
+    }
+    if (!screenshot) {
+      throw new AdapterInvalidRequestError(
+        `computer_call_output에는 스크린샷 file 블록이 필요합니다 (${path} — §13.5: output.content에 이미지 file 블록)`,
+      );
+    }
+    const acked = block.providerOptions?.["openai"]?.["acknowledgedSafetyChecks"];
+    return {
+      type: outType,
+      call_id: block.toolCallId,
+      output: screenshot,
+      ...(acked !== undefined ? { acknowledged_safety_checks: acked as JSONValue } : {}),
+    };
+  }
+  const item: JSONObject = { type: outType, call_id: block.toolCallId, output: toolResultOutput(block) };
+  if (wireCallType === "apply_patch_call") {
+    const failed =
+      block.output.type === "errorText" || block.output.type === "errorJson" || block.output.type === "errorContent";
+    item["status"] = failed ? "failed" : "completed";
+  }
+  return item;
 }
 
 /**
@@ -273,6 +319,12 @@ function messageToItems(
           // 서버 툴 결과는 *_call item에 내장 — 별도 재전송 대상 아님 (원문 item이 담당)
           return;
         }
+        // 클라이언트 실행 빌트인 툴의 output 제출 (§13.5 — 짝 toolCall의 item.type 기준)
+        const clientKind = cctx.clientCallKinds?.get(block.toolCallId);
+        if (clientKind !== undefined) {
+          items.push(clientToolOutputItem(block, clientKind, path));
+          return;
+        }
         if (block.output.type === "content") {
           cctx.warnings.push(
             makeWarning("compatibility", "block-dropped", "멀티모달 툴 결과를 문자열로 직렬화 (D6-5)", path),
@@ -326,8 +378,23 @@ function mergeExternal(body: JSONObject, entries: JSONObject, label: string): vo
 
 export function transformRequest(req: IRRequest, ctx: RequestContext): TransformedRequest {
   const warnings: Warning[] = [];
-  const cctx: ConvertCtx = { warnings, retargetReasoning: req.retarget?.reasoning ?? "drop" };
+  // §13.5 짝 매핑 선구축 — 클라이언트 실행 빌트인 툴 toolCall의 보존 item.type을 수집해
+  // 같은 toolCallId의 toolResult가 *_output item으로 조립되게 한다
+  const clientCallKinds = new Map<string, string>();
+  for (const msg of req.messages) {
+    for (const b of msg.blocks) {
+      if (b.type !== "toolCall") continue;
+      const item = readItem(b.providerOptions, b.providerMetadata);
+      const itemType = item?.["type"];
+      if (typeof itemType === "string" && CLIENT_EXECUTED_CALL_TYPES.has(itemType)) {
+        clientCallKinds.set(b.toolCallId, itemType);
+      }
+    }
+  }
+  const cctx: ConvertCtx = { warnings, retargetReasoning: req.retarget?.reasoning ?? "drop", clientCallKinds };
   const opts = parseOpenAIRequestOptions(req.providerOptions, req.allowUnknownProviderOptions ?? false, warnings);
+  // 블록·메시지 레벨 PO D5 게이트 (감사 #17)
+  gateBlockLevelOptions(req.messages, "openai", OPENAI_BLOCK_PO_KEYS, OPENAI_MESSAGE_PO_KEYS, req.allowUnknownProviderOptions, warnings);
   const body: JSONObject = { model: ctx.modelId };
 
   // ── system: 선두 연속 system → instructions. 중간 system은 input message role system ──
