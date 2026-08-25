@@ -1132,6 +1132,190 @@ export const CASES: CaptureCase[] = [
     note: "미지 모델 상태코드 실측 (openai는 400이었음 — 교차 확인)",
     body: { contents: [{ role: "user", parts: [{ text: "hi" }] }], generationConfig: { maxOutputTokens: 50 } },
   },
+
+  // ══ 감사 잔여 라이브 probe (2026-08-25 — docs/plan/live-probe-2026-08-25.md가 실행 계획) ══
+  // 전건 manual — 기본 실행에서 제외, 이름 지정 또는 체크리스트의 일괄 명령으로만.
+  // expectStatus 미지정 = 실거동 판정이 목적 (불일치 경고가 아니라 관측이 산출물).
+
+  // ── xai: Live Search 410 vs 잔존 (감사 xai #9 / P2 #17) ──
+  {
+    name: "xai-probe-live-search",
+    provider: "xai",
+    model: XAI_MODEL,
+    manual: true,
+    note: "search_parameters 실거동 — 410(폐기) vs 200(레퍼런스 잔존) 판정. 결과에 따라 errors.ts 410 문구·인벤토리 갱신",
+    body: {
+      model: XAI_MODEL,
+      messages: [{ role: "user", content: "What happened in tech news today? One sentence." }],
+      search_parameters: { mode: "auto" },
+      max_completion_tokens: 60,
+    },
+  },
+  // ── xai: B2-7 키별 실거동 표 (감사 xai #13 / P2 #18 — store는 2026-08-21 기실측: 200 묵살) ──
+  {
+    name: "xai-probe-metadata",
+    provider: "xai",
+    model: XAI_MODEL,
+    manual: true,
+    note: "B2-7 키별 실거동: metadata — 400 거부 vs 200 묵살",
+    body: { model: XAI_MODEL, messages: [{ role: "user", content: "hi" }], metadata: { probe: "b2-7" }, max_completion_tokens: 16 },
+  },
+  {
+    name: "xai-probe-modalities",
+    provider: "xai",
+    model: XAI_MODEL,
+    manual: true,
+    note: "B2-7 키별 실거동: modalities",
+    body: { model: XAI_MODEL, messages: [{ role: "user", content: "hi" }], modalities: ["text"], max_completion_tokens: 16 },
+  },
+  {
+    name: "xai-probe-audio-param",
+    provider: "xai",
+    model: XAI_MODEL,
+    manual: true,
+    note: "B2-7 키별 실거동: audio (CC 오디오 출력 파라미터)",
+    body: { model: XAI_MODEL, messages: [{ role: "user", content: "hi" }], audio: { voice: "alloy", format: "wav" }, max_completion_tokens: 16 },
+  },
+  {
+    name: "xai-probe-prediction",
+    provider: "xai",
+    model: XAI_MODEL,
+    manual: true,
+    note: "B2-7 키별 실거동: prediction (predicted outputs)",
+    body: { model: XAI_MODEL, messages: [{ role: "user", content: "hi" }], prediction: { type: "content", content: "hello" }, max_completion_tokens: 16 },
+  },
+  {
+    name: "xai-probe-safety-identifier",
+    provider: "xai",
+    model: XAI_MODEL,
+    manual: true,
+    note: "B2-7 키별 실거동: safety_identifier",
+    body: { model: XAI_MODEL, messages: [{ role: "user", content: "hi" }], safety_identifier: "probe-user", max_completion_tokens: 16 },
+  },
+  // ── xai: 'Not Actively Used' 3종 (감사 xai #7 — background는 '(Unsupported)' 문서라 400 가능성) ──
+  {
+    name: "xai-probe-background",
+    provider: "xai",
+    path: "/v1/responses",
+    model: XAI_MODEL,
+    manual: true,
+    note: "'Not Actively Used' 실거동: background (responses) — 400이면 xai 전용 strip 목록으로",
+    body: { model: XAI_MODEL, input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }], background: true, store: false, max_output_tokens: 16 },
+  },
+  {
+    name: "xai-probe-top-logprobs",
+    provider: "xai",
+    model: XAI_MODEL,
+    manual: true,
+    note: "'Not Actively Used' 실거동: logprobs/top_logprobs — 묵살이면 warning 대상",
+    body: { model: XAI_MODEL, messages: [{ role: "user", content: "hi" }], logprobs: true, top_logprobs: 3, max_completion_tokens: 16 },
+  },
+  {
+    name: "xai-probe-context-management",
+    provider: "xai",
+    path: "/v1/responses",
+    model: XAI_MODEL,
+    manual: true,
+    note: "'Not Actively Used' 실거동: context_management (responses)",
+    body: {
+      model: XAI_MODEL,
+      input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      context_management: { truncation: "auto" },
+      store: false,
+      max_output_tokens: 16,
+    },
+  },
+  // ── xai: deferred completions 핸들 실측 (감사 xai #5 — P1 구현의 골든셋 근거) ──
+  {
+    name: "xai-probe-deferred",
+    provider: "xai",
+    model: XAI_MODEL,
+    manual: true,
+    note: "deferred:true → {request_id} 단독 응답 형태 실측 — 어댑터 deferred 분기 골든셋 픽스처로 승격",
+    body: { model: XAI_MODEL, messages: [{ role: "user", content: "hi" }], deferred: true, max_completion_tokens: 16 },
+  },
+  // ── xai: grok-4.3 effort 집합 (감사 xai #6 — none 포함 여부 확정) ──
+  {
+    name: "xai-probe-effort-none-43",
+    provider: "xai",
+    model: "grok-4.3",
+    manual: true,
+    note: "grok-4.3 reasoning_effort none 수용 여부 — registry supportedEfforts의 none 포함 확정",
+    body: { model: "grok-4.3", messages: [{ role: "user", content: "hi" }], reasoning_effort: "none", max_completion_tokens: 16 },
+  },
+  // ── gemini: tools[].mcpServers 실재 (감사 google #2 — 실재 시 배열형 특수 처리 승격) ──
+  {
+    name: "gemini-probe-mcp-servers",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    model: GEMINI_MODEL,
+    manual: true,
+    note: "tools[].mcpServers 실재 확인 — 200이면 PROVIDER_TOOL_KEYS 아닌 배열형 특수 처리로 승격, 400이면 등급 재조정",
+    body: {
+      contents: [{ role: "user", parts: [{ text: "hi" }] }],
+      tools: [{ mcpServers: [{ url: "https://example.com/mcp", name: "probe" }] }],
+      generationConfig: { maxOutputTokens: 16 },
+    },
+  },
+  // ── gemini: 멀티모달 functionResponse.parts (P0 #14 구현의 라이브 재검증 + 골든셋) ──
+  {
+    name: "gemini-probe-multimodal-fr",
+    provider: "google",
+    path: `/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    model: GEMINI_MODEL,
+    manual: true,
+    note: "3세대 functionResponse.parts(inlineData) 수용 실증 — P0 #14 세대 게이트의 골든셋 픽스처",
+    body: {
+      contents: [
+        { role: "user", parts: [{ text: "Take a screenshot and describe it in 5 words." }] },
+        { role: "model", parts: [{ functionCall: { name: "take_screenshot", args: {} } }] },
+        {
+          role: "user",
+          parts: [
+            {
+              functionResponse: {
+                name: "take_screenshot",
+                response: { output: "screenshot captured" },
+                parts: [{ inlineData: { mimeType: "image/png", data: PNG_1X1 } }],
+              },
+            },
+          ],
+        },
+      ],
+      tools: [{ functionDeclarations: [{ name: "take_screenshot", parametersJsonSchema: { type: "object", properties: {} } }] }],
+      generationConfig: { maxOutputTokens: 60 },
+    },
+  },
+  // ── anthropic: output_config.format 잉여 키 (감사 anthropic #9 — 400 vs 무시 확정) ──
+  {
+    name: "anthropic-probe-format-extras",
+    model: HAIKU,
+    manual: true,
+    note: "output_config.format의 name/description/strict — 업스트림 400 vs 무시 확정 후 어댑터 방출 정책 결정",
+    body: {
+      model: HAIKU,
+      max_tokens: 100,
+      messages: [{ role: "user", content: 'Return {"ok": true}' }],
+      output_config: {
+        format: { type: "json_schema", schema: { type: "object", properties: { ok: { type: "boolean" } } }, name: "probe", description: "probe", strict: true },
+      },
+    },
+  },
+  // ── openai: gpt-5.6 minimal effort 재대조 (감사 openai #11 — 인벤토리 'minimal 없음' 근거 재확인) ──
+  {
+    name: "openai-probe-minimal-effort",
+    provider: "openai",
+    model: OAI_CHEAP,
+    manual: true,
+    note: "gpt-5.6 계열 reasoning.effort minimal — 400 확인 시 인벤토리 §H 근거 유지, 200이면 registry efforts 갱신",
+    body: {
+      model: OAI_CHEAP,
+      input: [{ role: "user", content: [{ type: "input_text", text: "hi" }] }],
+      reasoning: { effort: "minimal" },
+      store: false,
+      max_output_tokens: 16,
+    },
+  },
 ];
 
 export function selectCases(names: readonly string[]): CaptureCase[] {
