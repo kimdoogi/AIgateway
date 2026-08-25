@@ -140,12 +140,14 @@ function toolResultToWire(block: ToolResultBlock, cctx: ConvertCtx, path: string
       content = JSON.stringify(out.value);
       break;
     case "content":
+    case "errorContent": // is_error × 블록 배열 (§4.4 직교 규칙 — 감사 #1)
       content = out.blocks.map((b, i) => {
         if (b.type === "text") return { type: "text", text: b.text } as JSONObject;
         if (b.type === "file") return fileToWire(b, `${path}.content[${i}]`);
         // custom (예: anthropic.search_result) — payload가 wire 블록 원문
         return b.payload as JSONObject;
       });
+      isError = out.type === "errorContent";
       break;
     case "errorText":
       content = out.text;
@@ -442,6 +444,11 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
   const opts = parseAnthropicRequestOptions(req.providerOptions, req.allowUnknownProviderOptions ?? false, warnings);
   if (opts.thinking) body["thinking"] = opts.thinking;
   if (opts.serviceTier) body["service_tier"] = opts.serviceTier;
+  if (opts.container !== undefined) body["container"] = opts.container; // §14 서버 상태 재사용 (감사 #3)
+  if (opts.outputConfigExtras) {
+    // compat 인바운드 보존분 재병합 — 1급 필드(effort/format)가 이긴다 (감사 anthropic #1)
+    body["output_config"] = { ...opts.outputConfigExtras, ...((body["output_config"] ?? {}) as JSONObject) };
+  }
   if (opts.betas && opts.betas.length > 0) headers["anthropic-beta"] = opts.betas.join(",");
   mergeExternal(body, opts.extra, "providerOptions.anthropic(opt-in)");
 

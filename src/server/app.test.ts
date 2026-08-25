@@ -252,3 +252,22 @@ it("재시작 폴백도 불량 Last-Event-ID는 400 — 라이브 경로와 동�
     expect(frames.map((f) => f.event)).toEqual(all.slice(2).map((f) => f.event));
   });
 });
+
+describe("바디 상한 — 업로드는 공통 10MB 리미터 제외 (감사 #12)", () => {
+  it("POST /v0/files 11MB는 413이 아니다 (64MB 업로드 상한 유효)", async () => {
+    const app = createApp(deps("text"));
+    const big = new Uint8Array(11 * 1024 * 1024);
+    const res = await app.request("/v0/files", { method: "POST", body: big });
+    expect(res.status).not.toBe(413); // 인증 에러 등은 무방 — 10MB 중첩 리미터만 없으면 된다
+  });
+
+  it("POST /v0/responses 11MB는 여전히 413 (공통 상한 유지)", async () => {
+    const app = createApp(deps("text"));
+    const res = await app.request("/v0/responses", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: `{"pad":"${"x".repeat(11 * 1024 * 1024)}"}`,
+    });
+    expect(res.status).toBe(413);
+  });
+});

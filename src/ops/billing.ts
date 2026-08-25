@@ -40,3 +40,18 @@ export function buildBilling(
     currency: "USD",
   };
 }
+
+/**
+ * 다중 시도 합산 (ir-v0 §10.1 — billing.lineItems는 '과금된 전 시도' 합산).
+ * 폴백 체인에서 과금된 실패 시도(예: message_start 수신 후 in-stream 에러)의 billing을
+ * 최종 성공 시도 billing에 더한다. SKU에 model이 포함되므로 시도별 구분이 유지된다.
+ * (감사 2026-08-24 #2/#31: 최종 시도만 담아 클라이언트 노출 금액이 원장 합계보다 과소)
+ */
+export function mergeBilling(parts: Billing[]): Billing {
+  const lineItems = parts.flatMap((b) => b.lineItems);
+  return {
+    lineItems,
+    total: round6(lineItems.reduce((s, i) => s + i.cost, 0)),
+    currency: "USD",
+  };
+}

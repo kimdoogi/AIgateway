@@ -140,6 +140,12 @@ const SSE_MIDFAIL = [
   `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "overloaded_error", message: "mid-stream" } })}\n`,
 ].join("\n");
 
+// message_start 수신(=input 과금) 후 콘텐츠 방출 전 에러 — 과금된 실패 시도 (§10.1 합산 대상)
+const SSE_EARLYFAIL = [
+  `event: message_start\ndata: ${JSON.stringify({ type: "message_start", message: { id: "msg_e", model: "claude-haiku-4-5", usage: { input_tokens: 5 } } })}\n`,
+  `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "overloaded_error", message: "early" } })}\n`,
+].join("\n");
+
 function sse(body: string): Response {
   return new Response(body, { status: 200, headers: { "content-type": "text/event-stream" } });
 }
@@ -191,6 +197,25 @@ describe("폴백 트리 — 스트림 (§6.4)", () => {
     expect(last.type).toBe("error-partial");
     expect(last.type === "error-partial" && last.willRetry).toBe(false);
     expect(calls).toHaveLength(1);
+  });
+
+  it("finish.billing = 과금된 전 시도 합산 (ir-v0 §10.1 — 감사 #2/#31)", async () => {
+    const { fetchImpl } = mockFetch((_url, body) =>
+      body["model"] === "claude-haiku-4-5" ? sse(SSE_EARLYFAIL) : sse(SSE_OK),
+    );
+    const events = await collect(
+      executeStream(ir({ stream: true, fallbackModels: ["claude-sonnet-4-6"] }), { fetchImpl, retry: FAST_RETRY }),
+    );
+    const finish = events.at(-1) as Extract<StreamEventDraft, { type: "finish" }>;
+    expect(finish.type).toBe("finish");
+    const skus = finish.billing!.lineItems.map((i) => i.sku);
+    // 실패 시도(haiku, input 5) + 성공 시도(sonnet, input 5/output 2) 전부
+    expect(skus).toContain("anthropic:claude-haiku-4-5:input");
+    expect(skus).toContain("anthropic:claude-sonnet-4-6:input");
+    expect(skus).toContain("anthropic:claude-sonnet-4-6:output");
+    // 합계 = 라인아이템 합 (원장 시도별 행과 일치하는 구조)
+    const sum = finish.billing!.lineItems.reduce((s, i) => s + i.cost, 0);
+    expect(finish.billing!.total).toBeCloseTo(sum, 9);
   });
 
   it("세션 — error-partial(willRetry:true)는 done이 아니다", () => {

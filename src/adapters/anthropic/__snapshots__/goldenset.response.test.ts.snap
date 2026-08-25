@@ -826,8 +826,8 @@ Shirts dry simultaneously, not sequentially. Adding more shirts doesn't extend d
       "total": 59,
     },
     "output": {
-      "reasoning": 0,
-      "text": 284,
+      "reasoning": 249,
+      "text": 35,
       "total": 284,
     },
     "raw": {
@@ -919,8 +919,8 @@ The intuitive (but wrong) answer is $0.10 — which is the common snap judgment.
       "total": 42,
     },
     "output": {
-      "reasoning": 0,
-      "text": 311,
+      "reasoning": 61,
+      "text": 250,
       "total": 311,
     },
     "raw": {
@@ -1165,8 +1165,8 @@ This is a classic **invalid",
         "total": 45,
       },
       "output": {
-        "reasoning": 0,
-        "text": 562,
+        "reasoning": 158,
+        "text": 404,
         "total": 562,
       },
       "raw": {
@@ -1253,8 +1253,8 @@ I'll call the get_weather function with Seoul as the city parameter. The unit pa
       "total": 777,
     },
     "output": {
-      "reasoning": 0,
-      "text": 144,
+      "reasoning": 88,
+      "text": 56,
       "total": 144,
     },
     "raw": {
@@ -1403,8 +1403,8 @@ Yes, that's correct.",
         "total": 49,
       },
       "output": {
-        "reasoning": 0,
-        "text": 190,
+        "reasoning": 118,
+        "text": 72,
         "total": 190,
       },
       "raw": {

@@ -138,7 +138,12 @@ export function createApp(deps: AppDeps = {}): Hono {
   const tooLarge = (limit: number) => (c: Context) =>
     errJson(c, irError("content_too_large", 413, `요청 본문이 상한(${limit}B)을 초과했습니다`));
   app.post("/v0/files", bodyLimit({ maxSize: uploadLimit, onError: tooLarge(uploadLimit) }));
-  app.use("/v0/*", bodyLimit({ maxSize: jsonLimit, onError: tooLarge(jsonLimit) }));
+  // hono bodyLimit는 미들웨어마다 독립 실행 — /v0/* 공통 리미터가 업로드에도 중첩되면
+  // 더 작은 10MB가 항상 이겨 MAX_UPLOAD_BYTES가 사문화된다 (감사 2026-08-24 #12).
+  const jsonLimiter = bodyLimit({ maxSize: jsonLimit, onError: tooLarge(jsonLimit) });
+  app.use("/v0/*", (c, next) =>
+    c.req.method === "POST" && c.req.path === "/v0/files" ? next() : jsonLimiter(c, next),
+  );
   app.use("/compat/*", bodyLimit({ maxSize: jsonLimit, onError: tooLarge(jsonLimit) }));
   app.use("/portal/*", bodyLimit({ maxSize: jsonLimit, onError: tooLarge(jsonLimit) }));
 

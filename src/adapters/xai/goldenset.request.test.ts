@@ -51,13 +51,16 @@ describe("골든셋 ① IR → xai chat-completions wire", () => {
     expect(result.request.body["metadata"]).toBeUndefined();
   });
 
-  it("xGrokConvId → x-grok-conv-id 헤더 (캐시 라우팅 — 오버라이드 #7)", () => {
+  it("xGrokConvId → x-grok-conv-id 헤더 (캐시 라우팅 — 오버라이드 #7). opt-in 불요·body 미누출 (감사 #6)", () => {
+    // 자기 네임스페이스 정식 키 — allowUnknownProviderOptions 없이 동작해야 한다
     const result = xaiChatAdapter.transformRequest(
-      ir({ messages: [user("hi")], providerOptions: { xai: { promptCacheKey: "k1", xGrokConvId: "conv_1" } }, allowUnknownProviderOptions: true }),
+      ir({ messages: [user("hi")], providerOptions: { xai: { promptCacheKey: "k1", xGrokConvId: "conv_1" } } }),
       ctx,
     );
     expect(result.request.headers["x-grok-conv-id"]).toBe("conv_1");
     expect(result.request.body["prompt_cache_key"]).toBe("k1");
+    expect(result.request.body["xGrokConvId"]).toBeUndefined(); // 헤더 전용 — wire body 누출 금지
+    expect(result.warnings.map((w) => w.code)).not.toContain("unknown-provider-option-passed");
   });
 
   it("warning 라벨이 xai로 정정된다 (openai 오표기 방지)", () => {

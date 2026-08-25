@@ -132,10 +132,16 @@ type ToolResultBlock = BlockBase & {
         | { type: "content"; blocks: (TextBlock | FileBlock | CustomBlock)[] }   // 멀티모달 툴 결과 (Custom: Anthropic tool_result 내 search_result 등 — D10)
         | { type: "errorText"; text: string }
         | { type: "errorJson"; value: JSONValue }
+        | { type: "errorContent"; blocks: (TextBlock | FileBlock | CustomBlock)[] }  // is_error + 콘텐츠 블록 배열 (2026-08-25 감사 — 실패 툴 결과의 멀티모달 보존)
         | { type: "executionDenied"; reason?: string };
   providerExecuted?: true;
 };
 ```
+
+에러 표식은 content 형태와 **직교**한다 (Anthropic `is_error: true`가 원형): text→`errorText`,
+json/객체→`errorJson`, 블록 배열→`errorContent`. `mcp_tool_result`의 `is_error`도 동일 규칙 —
+응답 수납·§13.1 히스토리 왕복에서 보존한다 (2026-08-24 감사 #1·#23: 소실 시 실패한 툴 호출이
+성공으로 둔갑 — 에이전트 루프 정합성 위반).
 
 ### 4.5 file (미디어·문서 — 입력/출력 공용)
 
@@ -201,6 +207,9 @@ type PassthroughBlock = BlockBase & {
   type: "passthrough";
   provider: string;            // 원문이 속한 프로바이더 wire
   raw: JSONValue;              // 원문 그대로
+  rawUnit?: "block" | "event"; // 스트림 보존 경로의 원문 단위 — "block"(기본): 콘텐츠 블록 스냅샷,
+                               // "event": SSE 이벤트 전체. compat 재합성의 복원 판별자
+                               // (부록 (a) §6.2 — 2026-08-25 감사: 이벤트 원문이 가짜 블록으로 둔갑 방지)
 };
 ```
 
@@ -244,7 +253,9 @@ type IRRequest = {
   parallelToolCalls?: boolean;         // 기본 true
 
   // sampling (모델 게이트로 사전 검증 — D10-4; 클램프/드롭은 warning)
-  maxOutputTokens?: number;
+  maxOutputTokens?: number;            // 0 이상 정수 — 0은 캐시 프리워밍 (anthropic max_tokens:0).
+                                       // 0 미지원 프로바이더는 어댑터 게이트가 드롭+warning
+                                       // (2026-08-25 감사 반영: positive→nonnegative 완화)
   temperature?: number; topP?: number; topK?: number;
   stopSequences?: string[];
   seed?: number;
@@ -353,7 +364,7 @@ type Usage = {
 
 | 프로바이더 | input.total | input.noCache | input.cacheRead/Write | output.total | output.reasoning |
 |---|---|---|---|---|---|
-| Anthropic | `input_tokens + cache_read + cache_creation` (합성) | `input_tokens` | 각 필드. TTL별 분해는 PM | `output_tokens` | 미제공 → 0, text=total |
+| Anthropic | `input_tokens + cache_read + cache_creation` (합성) | `input_tokens` | 각 필드. TTL별 분해는 PM | `output_tokens` | `output_tokens_details.thinking_tokens` (2026-08-21 실녹화로 확인 — '미제공 → 0' 전제 폐기. 필드 부재 시에만 0, text = total − reasoning) |
 | OpenAI | `input_tokens` | `input − cached − cache_write` (역산) | `cached_tokens` / `cache_write_tokens` (2026-08-21 wire 확인 — 과거 미제공 전제 폐기) | `output_tokens` | `reasoning_tokens` |
 | Gemini | `promptTokenCount` | `prompt − cachedContent` | `cachedContentTokenCount` / 0 | **`candidates + thoughts`** (합산) | `thoughtsTokenCount` |
 | xAI | `prompt_tokens` | `prompt − cached` | `cached_tokens` / 0 | `completion_tokens` | `reasoning_tokens` |

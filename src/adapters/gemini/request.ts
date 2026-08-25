@@ -45,6 +45,8 @@ type RetargetReasoning = "drop" | "demote-to-text" | "strip-and-annotate";
 interface ConvertCtx {
   warnings: Warning[];
   retargetReasoning: RetargetReasoning;
+  /** 멀티모달 functionResponse.parts 지원 (Gemini 3 세대 게이트 — 감사 google #1) */
+  multimodalFunctionResponse?: boolean;
 }
 
 /** 파라미터 드롭의 D5 처리 — strict면 4xx, 아니면 드롭 + warning (shared.dropUnsupportedParams와 동일 규약) */
@@ -133,23 +135,34 @@ function toolResultToWire(block: ToolResultBlock, cctx: ConvertCtx, path: string
           ? (out.value as JSONObject)
           : { output: out.value };
       break;
-    case "content": {
-      // 멀티모달 함수응답은 Interactions 전용 (인벤토리 D-4) — 텍스트만 취합, 나머지는 드롭 + warning
+    case "content":
+    case "errorContent": {
+      // 3세대는 멀티모달 functionResponse.parts 지원 (감사 google #1 실증 — 2.5 이하 드롭 유지).
+      // file 블록 → parts(inlineData/fileData), 텍스트는 response.output/error로.
       const texts: string[] = [];
+      const frParts: JSONObject[] = [];
       out.blocks.forEach((b, i) => {
         if (b.type === "text") texts.push(b.text);
-        else {
+        else if (b.type === "file" && cctx.multimodalFunctionResponse) {
+          frParts.push(fileToWire(b, cctx, `${path}.content[${i}]`));
+        } else {
           cctx.warnings.push(
             makeWarning(
               "unsupported",
               "block-dropped",
-              `generateContent functionResponse는 ${b.type} 블록 미지원 — 드롭 (멀티모달 함수응답은 Interactions 전용)`,
+              `generateContent functionResponse는 ${b.type} 블록 미지원 — 드롭${
+                b.type === "file" ? " (멀티모달 함수응답은 Gemini 3 세대 한정)" : ""
+              }`,
               `${path}.content[${i}]`,
             ),
           );
         }
       });
-      response = { output: texts.join("\n") };
+      // §4.4 직교 — errorContent는 error 슬롯으로 (is_error 등가)
+      response = out.type === "errorContent" ? { error: texts.join("\n") } : { output: texts.join("\n") };
+      if (frParts.length > 0) {
+        return { functionResponse: { name: block.toolName, response, parts: frParts } };
+      }
       break;
     }
     case "errorText":
@@ -323,7 +336,11 @@ function clampEffort(
 export function transformRequest(req: IRRequest, ctx: RequestContext): TransformedRequest {
   const warnings: Warning[] = [];
   const dropParam = makeDropParam(req.strictParameters, warnings); // D5 strict 모드 배선
-  const cctx: ConvertCtx = { warnings, retargetReasoning: req.retarget?.reasoning ?? "drop" };
+  const cctx: ConvertCtx = {
+    warnings,
+    retargetReasoning: req.retarget?.reasoning ?? "drop",
+    ...(ctx.capabilities?.multimodalFunctionResponse ? { multimodalFunctionResponse: true } : {}),
+  };
   const body: JSONObject = {};
   const headers: Record<string, string> = { "content-type": "application/json" };
 

@@ -15,7 +15,7 @@ import type { LedgerRow, UsageLedger } from "../state/types.js";
 import { DEFAULT_RETRY, retryDelayMs, type RetryPolicy } from "../policy/retry.js";
 import { estimateCostUSD, isPricedModel } from "./pricing.js";
 import { withUpstreamTimeout } from "./http.js";
-import { buildBilling } from "../ops/billing.js";
+import { buildBilling, mergeBilling } from "../ops/billing.js";
 import {
   endSpanError,
   stdoutMetaLog,
@@ -705,6 +705,8 @@ export async function* executeStream(
   const requestId = genRequestId(deps);
   const fixedDeps = { ...deps, genId: () => requestId };
   const priorAttempts: Attempt[] = [];
+  // 과금된 실패 시도의 billing 누적 — finish에서 최종 시도분과 합산 (ir-v0 §10.1, 감사 #2/#31)
+  const billedPrior: ReturnType<typeof buildBilling>[] = [];
   let streamStartSent = false;
   let contentForwarded = false;
 
@@ -736,6 +738,9 @@ export async function* executeStream(
         if (event.type === "error-final" && !contentForwarded && i < targets.length - 1 && canFallback(event.error, signal?.aborted)) {
           // 콘텐츠 방출 전 실패 → 무중단 전환 (§6.4). 원장 행은 타깃 내부에서 이미 적재됨
           priorAttempts.push({ provider: providerOf(target), model: target, outcome: "failed", error: event.error.category });
+          if (event.error.billed && event.usage) {
+            billedPrior.push(buildBilling(providerOf(target), target, event.usage));
+          }
           yield {
             type: "error-partial",
             error: event.error,
@@ -755,7 +760,10 @@ export async function* executeStream(
           const successAttempts: Attempt[] = event.attempts ?? [
             { provider: providerOf(target), model: target, outcome: "success" },
           ];
-          yield { ...event, attempts: [...priorAttempts, ...successAttempts] };
+          // §10.1: billing = 과금된 전 시도 합산 (원장 시도별 행과 합계 일치)
+          const billing =
+            billedPrior.length > 0 && event.billing ? mergeBilling([...billedPrior, event.billing]) : event.billing;
+          yield { ...event, ...(billing ? { billing } : {}), attempts: [...priorAttempts, ...successAttempts] };
           return;
         }
         if (!LIFECYCLE_TYPES.has(event.type) && !TERMINAL_EVENT_SET.has(event.type)) contentForwarded = true;

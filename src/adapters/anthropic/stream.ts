@@ -65,6 +65,10 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
     ] as const) {
       if (typeof wire[key] === "number") usageAcc[key] = wire[key];
     }
+    // thinking_tokens 분해 — convertUsage가 reasoning으로 소비 (감사 anthropic #4)
+    if (wire["output_tokens_details"] && typeof wire["output_tokens_details"] === "object") {
+      usageAcc.output_tokens_details = wire["output_tokens_details"] as AnthropicWireUsage["output_tokens_details"];
+    }
   }
 
   function warnOnce(kindKey: string, message: string, details?: JSONValue): AdapterStreamEvent[] {

@@ -1,7 +1,7 @@
 # 전수 감사 2026-08-24 — API 패리티(4사 웹 대조) + 코드 모순
 
 > 요청: "코드 전수조사 + 각 모델 API 확인(인터넷 검색) — 빠진 기능·에이전트 루프·파라미터·코드 모순 전부"
-> 상태: **감사 완료, 수정 미착수** — 우선순위 계획은 §1. 개별 항목의 상세 근거(파일:라인·공식 문서 인용)는 본문에.
+> 상태: **감사 완료, 수정 진행 중** — §5 문서 선행 5건 + **P0 14건 전건 수정 완료**(2026-08-25, 테스트 554/554 그린). P1·P2 미착수. 우선순위 계획은 §1. 개별 항목의 상세 근거(파일:라인·공식 문서 인용)는 본문에.
 
 ## 방법론
 
@@ -15,7 +15,7 @@
 
 ## 1. 우선순위 수정 계획
 
-### P0 — 돈·데이터가 조용히 틀리는 것 (스펙 위반 포함)
+### P0 — 돈·데이터가 조용히 틀리는 것 (스펙 위반 포함) — 14건 전건 수정 완료 2026-08-25
 
 | # | 항목 | 위치 | 왜 P0 |
 |---|---|---|---|
@@ -212,10 +212,11 @@
 4. **'문서가 진실'의 부채 축적** — ADR·인벤토리·부록이 확정한 것(fallbacks·deferred·videoMetadata·§0-2 raw 복원·§10.4 warning)이 코드에 없다. coverage-matrix 테스트가 분류 문자열 존재만 검사해 이 드리프트를 못 잡는다 — '분류→구현 실존' 교차 검증이 재발 방지 장치다.
 5. **테스트가 결함을 정답으로 고정** — xGrokConvId 골든셋이 opt-in 우회를 내장. effort 반전(직전 감사)과 같은 계열 세 번째.
 
-## 5. 문서 선행 항목 (CLAUDE.md: 코드 우회 전 문서 수정)
+## 5. 문서 선행 항목 (CLAUDE.md: 코드 우회 전 문서 수정) — 전건 반영 완료 2026-08-25
 
-- ir-v0 §6 `maxOutputTokens` positive → nonnegative (max_tokens:0 프리워밍)
-- ir-v0 §8 usage 표 anthropic 행 (thinking_tokens)
-- ir-v0 §4.4 toolResult error+content 조합 표현 (is_error 보존)
-- 폴백 경합 매트릭스: 서버측 fallbacks 위임 행, stop_details 폴백 트리거 행
-- 부록 (a) §3.4 anthropic-compat 적용 명시, §6.2 passthrough 복원 규칙 정밀화
+- [x] ir-v0 §6 `maxOutputTokens` positive → nonnegative (max_tokens:0 프리워밍)
+- [x] ir-v0 §8 usage 표 anthropic 행 (thinking_tokens)
+- [x] ir-v0 §4.4 toolResult `errorContent` variant 신설 (is_error × content 직교 규칙 명문화)
+- [x] ir-v0 §4.9 `rawUnit?: "block" | "event"` 판별자 신설 (§6.2 정밀화의 전제 — 계획엔 없었으나 필요)
+- [x] 폴백 경합 매트릭스: stop_details 폴백 트리거 행 + 서버측 fallbacks 위임 구체화 행
+- [x] 부록 (a) §3.4 anthropic-compat 적용 명시, §6.2 passthrough 복원 `rawUnit` 판별 규칙

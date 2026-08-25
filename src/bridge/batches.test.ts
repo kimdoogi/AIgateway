@@ -351,3 +351,21 @@ describe("배치 회계·자격증명 귀속", () => {
     expect(authSeen).toEqual(["byo-batch-key"]);
   });
 });
+
+describe("BatchStore.claimBridgeFlag — 원장 1회 보장 프리미티브 (감사 #36)", () => {
+  it("동시 claim 2건 중 1건만 성공 (중복 적재 경합 차단)", async () => {
+    const s = store();
+    await s.put({
+      tenant: "t1", gatewayBatchId: "gwb_claim", provider: "anthropic", providerBatchId: "b1",
+      status: "ended", counts: { total: 0, succeeded: 0, errored: 0, canceled: 0, expired: 0 },
+      itemModels: {}, createdAt: new Date(0).toISOString(),
+    });
+    const [a, b] = await Promise.all([
+      s.claimBridgeFlag("t1", "gwb_claim", "ledgerRecorded"),
+      s.claimBridgeFlag("t1", "gwb_claim", "ledgerRecorded"),
+    ]);
+    expect([a, b].filter(Boolean)).toHaveLength(1);
+    expect(await s.claimBridgeFlag("t1", "gwb_claim", "ledgerRecorded")).toBe(false); // 재조회도 불가
+    expect((await s.get("t1", "gwb_claim"))!.bridgeState?.["ledgerRecorded"]).toBe("true");
+  });
+});

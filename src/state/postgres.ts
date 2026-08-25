@@ -619,4 +619,16 @@ export class PostgresBatchStore implements BatchStore {
     const r = await this.pool.query(`SELECT * FROM gateway_batches WHERE tenant = $1 ORDER BY created_at`, [tenant]);
     return r.rows.map((row) => this.rowToJob(row));
   }
+  async claimBridgeFlag(tenant: string, gatewayBatchId: string, flag: string): Promise<boolean> {
+    await this.init();
+    // 조건부 UPDATE 1문 — 크로스 레플리카에서도 원자적 (감사 #36)
+    const r = await this.pool.query(
+      `UPDATE gateway_batches
+          SET bridge_state = COALESCE(bridge_state, '{}'::jsonb) || jsonb_build_object($3::text, 'true')
+        WHERE tenant = $1 AND gateway_batch_id = $2
+          AND COALESCE(bridge_state->>$3, '') <> 'true'`,
+      [tenant, gatewayBatchId, flag],
+    );
+    return (r.rowCount ?? 0) === 1;
+  }
 }

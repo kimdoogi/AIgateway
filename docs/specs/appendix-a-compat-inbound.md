@@ -87,6 +87,11 @@
 
 `content`가 빈 문자열/빈 배열인 메시지는 **역할과 무관하게 메시지 자체를 생략**한다. IR `MessageSchema.blocks`는 `min(1)`이라 빈 블록 메시지를 만들면 검증 실패로 4xx가 되는데, OpenAI/Anthropic은 빈 system을 정상 수용하므로 게이트웨이만 거부하는 비대칭이 생긴다 (user/assistant에는 이미 적용돼 있었고 system/developer만 빠져 있었다).
 
+이 규칙은 **두 인바운드 공통**이다 — openai-compat뿐 아니라 anthropic-compat의 messages·top-level
+`system` 파라미터(빈 문자열 system은 생략)에도 적용된다. (2026-08-24 감사 #10·#15:
+anthropic-compat이 빈 문자열을 `text:""` 블록으로 만들고 system을 무조건 push해 미적용 검출 —
+규칙 자체는 확정 유지, 코드가 따라온다.)
+
 ## 4. 응답 방향 — finishReason 다운컨버트 표
 
 ### 4.1 → CC `finish_reason`
@@ -161,7 +166,7 @@ origin 일치 시 usage.raw를 우선 복원 (무손실).
 | error-partial(`willRetry:true`) | **미방출** — 폴백 진행 중이며 터미널이 아니다 (§6.4). `error`를 내면 SDK가 턴을 실패로 종결한다 |
 | provider-switched | `ping`(연결 유지) + finish의 `gateway.warnings`에 `fallback-target-switched` |
 | heartbeat | `ping` |
-| passthrough(provider==anthropic) | 원문 이벤트 복원 |
+| passthrough(provider==anthropic) | `rawUnit` 판별 (ir-v0 §4.9): `"event"` → raw(SSE 이벤트 전체)를 **원문 그대로 재방출**, `"block"`(기본·부재 시) → `content_block_start{content_block: raw}` + `content_block_stop` 쌍 재합성. 형태 추론 금지 — 어댑터가 보존 시점에 마킹한다 (2026-08-25 감사 #43: 이벤트 원문의 무조건 쌍 재합성이 가짜 콘텐츠 블록을 만들던 것 정밀화) |
 | 기타 (custom/file/source/provider-switched 등) | 드롭 — `gateway` 확장(§2.2)과 native 재개 API로 보완 |
 
 블록 인덱스: IR 블록 id 등장 순서대로 0부터 재부여 (Anthropic wire는 index 기반).

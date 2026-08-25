@@ -128,6 +128,7 @@ describe("가격표 완전성 (조용히 틀린 금액 방지)", () => {
   /** 실단가 미확보 모델 — 폴백 근사 + `billing-price-estimated` warning으로 운영된다 */
   const UNPRICED_KNOWN: Record<string, string> = {
     "claude-opus-5": "실단가 미확보 — 확보 시 PRICE_TABLE 등재 (현재 폴백 근사 + warning)",
+    "gpt-5.6-pro": "gpt-5.6 접두 과소 과금 방지용 PREFIX_EXCLUDES (감사 #32) — pro 실단가 확보 시 정식 등재",
     "computer-use-preview": "실단가 미확보 — 사용 실적 없음",
     "gpt-audio": "오디오 단가는 토큰 외 축(초당) — 가격표 모델 확장 필요",
     "gpt-5.4": "구세대 — 사용 실적 없음",

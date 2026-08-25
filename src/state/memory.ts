@@ -195,4 +195,12 @@ export class InMemoryBatchStore implements BatchStore {
   async list(tenant: string): Promise<BatchJob[]> {
     return [...this.jobs.values()].filter((j) => j.tenant === tenant);
   }
+  async claimBridgeFlag(tenant: string, gatewayBatchId: string, flag: string): Promise<boolean> {
+    // 단일 프로세스 — Map 동기 접근이라 check-and-set이 원자적
+    const key = `${tenant}/${gatewayBatchId}`;
+    const job = this.jobs.get(key);
+    if (!job || job.bridgeState?.[flag] === "true") return false;
+    this.jobs.set(key, { ...job, bridgeState: { ...(job.bridgeState ?? {}), [flag]: "true" } });
+    return true;
+  }
 }

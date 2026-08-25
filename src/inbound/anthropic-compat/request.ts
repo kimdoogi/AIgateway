@@ -88,7 +88,12 @@ export function wireBlockToIRBlock(raw: Record<string, unknown>, path: string): 
           blocks: content.map((c, i) => wireBlockToIRBlock((c ?? {}) as Record<string, unknown>, `${path}.content[${i}]`)) as never,
         };
       } else output = { type: "json", value: (content ?? null) as JSONValue };
-      if (raw["is_error"] === true && output.type === "text") output = { type: "errorText", text: output.text };
+      // is_error는 content 형태와 직교 (§4.4) — text만 승격하면 배열/json의 실패가 성공으로 둔갑 (감사 #1)
+      if (raw["is_error"] === true) {
+        if (output.type === "text") output = { type: "errorText", text: output.text };
+        else if (output.type === "json") output = { type: "errorJson", value: output.value };
+        else if (output.type === "content") output = { type: "errorContent", blocks: output.blocks };
+      }
       return withCachePO(
         {
           type: "toolResult",
@@ -207,6 +212,12 @@ export function compatMessagesToIR(
   if (betaHeader) po["betas"] = betaHeader.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
 
   const outputConfig = (w["output_config"] ?? {}) as Record<string, unknown>;
+  // effort/format 외 잔여 서브키(task_budget 등) 보존 — 부분 소비가 나머지를 조용히 소멸시키면
+  // §8-1 보존 통과 계약 위반 (감사 anthropic #1). 아웃바운드가 output_config에 재병합.
+  {
+    const { effort: _e, format: _f, ...ocExtras } = outputConfig;
+    if (Object.keys(ocExtras).length > 0) po["outputConfigExtras"] = ocExtras as JSONObject;
+  }
 
   const ir: JSONObject = { version: "0", model: String(w["model"] ?? ""), messages: messages as unknown as JSONValue };
   if (tools) ir["tools"] = tools as unknown as JSONValue;

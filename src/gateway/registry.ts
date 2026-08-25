@@ -136,13 +136,14 @@ export const MODEL_ROUTES: ModelRoute[] = [
     pattern: /^gemini-3\.1-pro/,
     sample: "gemini-3.1-pro",
     provider: "google",
-    capabilities: { supportedEfforts: ["low", "medium", "high"] }, // minimal 미지원 (§I)
+    // multimodalFunctionResponse: 3세대 한정 (감사 google #1 — 2.5 이하는 드롭 유지)
+    capabilities: { supportedEfforts: ["low", "medium", "high"], multimodalFunctionResponse: true }, // minimal 미지원 (§I)
   },
   {
     pattern: /^gemini-3/,
     sample: "gemini-3.7-flash",
     provider: "google",
-    capabilities: { supportedEfforts: ["minimal", "low", "medium", "high"] },
+    capabilities: { supportedEfforts: ["minimal", "low", "medium", "high"], multimodalFunctionResponse: true },
   },
   {
     pattern: /^gemini-2\.5/,

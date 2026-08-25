@@ -116,6 +116,7 @@ function toolResultOutput(block: ToolResultBlock): string {
     case "json":
       return JSON.stringify(out.value);
     case "content":
+    case "errorContent": // §4.4 직교 — CC/Responses에는 에러 슬롯이 없어 내용만 직렬화
       // Responses function_call_output은 string — 멀티모달 파트는 직렬화 (D6-5 강등은 호출측 warning)
       return JSON.stringify(out.blocks);
     case "errorText":
@@ -132,9 +133,11 @@ function reasoningToItem(
   cctx: ConvertCtx,
   path: string,
 ): JSONObject | null {
-  // 무손실 규칙 (§4.2): 원문 item 우선 복원
+  // 무손실 규칙 (§4.2): 원문 item 우선 복원. openai NS의 item 존재 자체가 openai 산 증거 —
+  // opaqueState 게이트를 걸면 store:true 멀티턴(encrypted_content 부재)에서 보존된 item이
+  // 외래로 강등·드롭된다 (감사 2026-08-24 #5)
   const item = readItem(block.providerOptions, block.providerMetadata);
-  if (item && block.opaqueState?.provider === "openai") return item;
+  if (item) return item;
   if (block.opaqueState?.provider === "openai") {
     // item 소실 — encrypted_content만으로 재구성 (최선 복원)
     return {

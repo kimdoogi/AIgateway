@@ -35,8 +35,18 @@ export function messageToBlocks(
   const content = message["content"];
   if (typeof content === "string" && content.length > 0) {
     const annotationsRaw = message["annotations"];
+    // CC annotation은 {type:"url_citation", url_citation:{...}} 래핑 — 내부 객체엔 type이 없어
+    // 언랩만 하면 mapAnnotation이 빈 file 인용으로 변조한다 (감사 2026-08-24 #4). type을 승계.
     const citations = Array.isArray(annotationsRaw)
-      ? annotationsRaw.map((a) => mapAnnotation((a as Record<string, unknown>)["url_citation"] as Record<string, unknown> ?? (a as Record<string, unknown>)))
+      ? annotationsRaw.map((a) => {
+          const ann = (a ?? {}) as Record<string, unknown>;
+          const inner = ann["url_citation"];
+          return mapAnnotation(
+            inner && typeof inner === "object"
+              ? { type: ann["type"] ?? "url_citation", ...(inner as Record<string, unknown>) }
+              : ann,
+          );
+        })
       : [];
     blocks.push({ type: "text", text: content, ...(citations.length > 0 ? { citations } : {}) });
   }

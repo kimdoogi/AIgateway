@@ -7,7 +7,7 @@ import { InMemoryKeyStore, InMemoryProviderKeyStore, InMemoryResourceStore } fro
 import { decryptSecret, encryptSecret, issueVirtualKey, tenantCredentialResolver, verifyVirtualKey } from "./keys.js";
 import { evaluateBudget, InMemorySpendTracker, withSpendTracking } from "./budget.js";
 import { buildBilling } from "./billing.js";
-import { checkInboundResources, registerResponseResources } from "./resources.js";
+import { checkInboundResources, registerResponseResources, sweepExpiredResources } from "./resources.js";
 import { stripForLog } from "./body-log.js";
 import { toCsv } from "./report.js";
 
@@ -194,5 +194,42 @@ describe("InMemorySpendTracker 창 관리", () => {
     expect(await tracker.spentSince("k1", "2026-08-22T00:00:00.000Z")).toBeCloseTo(1, 6);
     // 두 번째 조회도 같은 값 (정리가 창 안 항목을 먹지 않는다)
     expect(await tracker.spentSince("k1", "2026-08-22T00:00:00.000Z")).toBeCloseTo(1, 6);
+  });
+});
+
+describe("리소스 스윕 — HTTP 실패는 실패다 (감사 #13)", () => {
+  const expired = (id: string) => ({
+    tenant: "t1", provider: "openai" as const, resourceType: "response", externalId: id,
+    createdAt: "2026-08-01T00:00:00.000Z", expiresAt: "2026-08-02T00:00:00.000Z",
+  });
+  const deps = (status: number) => ({
+    now: () => new Date("2026-08-24T00:00:00.000Z"),
+    fetchImpl: (async () => new Response(status === 204 ? null : "{}", { status })) as typeof fetch,
+    baseUrlFor: () => "https://api.test",
+    credentialsFor: () => ({}),
+  });
+
+  it("401/429는 성공 계상 없이 레지스트리 유지 (다음 스윕 재시도)", async () => {
+    const store = new InMemoryResourceStore();
+    await store.register(expired("resp_fail"));
+    const result = await sweepExpiredResources(store, deps(401));
+    expect(result.deleted).toBe(0);
+    expect(await store.ownerOf("openai", "response", "resp_fail")).toBe("t1"); // 유지
+  });
+
+  it("404는 이미 없음 = 삭제 목적 달성 — 레지스트리 제거", async () => {
+    const store = new InMemoryResourceStore();
+    await store.register(expired("resp_gone"));
+    const result = await sweepExpiredResources(store, deps(404));
+    expect(result.deleted).toBe(1);
+    expect(await store.ownerOf("openai", "response", "resp_gone")).toBeNull();
+  });
+
+  it("2xx는 삭제 성공 — 레지스트리 제거", async () => {
+    const store = new InMemoryResourceStore();
+    await store.register(expired("resp_ok"));
+    const result = await sweepExpiredResources(store, deps(204));
+    expect(result.deleted).toBe(1);
+    expect(await store.ownerOf("openai", "response", "resp_ok")).toBeNull();
   });
 });

@@ -166,6 +166,53 @@ describe("anthropic-compat 요청 변환 (§3.2)", () => {
     expect(ir.metadata?.["userId"]).toBe("u1");
   });
 
+  it("tool_result is_error × content 형태 직교 보존 + 아웃바운드 왕복 (§4.4 — 감사 #1)", () => {
+    const ir = compatMessagesToIR(
+      {
+        model: "claude-haiku-4-5",
+        max_tokens: 100,
+        messages: [
+          { role: "user", content: "hi" },
+          {
+            role: "user",
+            content: [
+              { type: "tool_result", tool_use_id: "toolu_a", is_error: true, content: [{ type: "text", text: "boom" }] },
+              { type: "tool_result", tool_use_id: "toolu_b", is_error: true, content: { code: 500 } },
+            ],
+          },
+        ],
+      },
+      false,
+    );
+    const blocks = ir.messages[1]!.blocks;
+    expect(blocks[0]).toMatchObject({ type: "toolResult", output: { type: "errorContent" } });
+    expect(blocks[1]).toMatchObject({ type: "toolResult", output: { type: "errorJson", value: { code: 500 } } });
+    // 아웃바운드 재조립 — is_error:true 복원 (실패한 툴 호출이 성공으로 둔갑 금지)
+    const { request } = anthropicAdapter.transformRequest(ir, { requestId: "req_e", modelId: "claude-haiku-4-5" });
+    const toolResults = (request.body["messages"] as Array<{ content: Array<Record<string, unknown>> }>)
+      .flatMap((m) => m.content)
+      .filter((b) => b["type"] === "tool_result");
+    expect(toolResults).toHaveLength(2);
+    expect(toolResults[0]).toMatchObject({ type: "tool_result", is_error: true });
+    expect(toolResults[1]).toMatchObject({ type: "tool_result", is_error: true });
+  });
+
+  it("output_config 잔여 서브키 보존 → 아웃바운드 재병합 (§8-1 — 감사 anthropic #1)", () => {
+    const ir = compatMessagesToIR(
+      {
+        model: "claude-haiku-4-5",
+        max_tokens: 100,
+        messages: [{ role: "user", content: "hi" }],
+        output_config: { effort: "high", task_budget: 5000 },
+      },
+      false,
+    );
+    expect(ir.reasoning?.effort).toBe("high");
+    expect(ir.providerOptions?.["anthropic"]?.["outputConfigExtras"]).toEqual({ task_budget: 5000 });
+    const { request } = anthropicAdapter.transformRequest(ir, { requestId: "req_oc", modelId: "claude-haiku-4-5" });
+    expect(request.body["output_config"]).toMatchObject({ effort: "high", task_budget: 5000 });
+  });
+
   it("서버 툴 정의 → provider 툴", () => {
     const ir = compatMessagesToIR(
       {

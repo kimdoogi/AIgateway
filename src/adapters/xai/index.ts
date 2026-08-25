@@ -25,6 +25,24 @@ import { eventFromBase, requestToBase, responseFromBase, relabelWarning, stripBo
 const XAI_REJECTED_CC_KEYS = ["store", "metadata", "modalities", "audio", "prediction", "safety_identifier"] as const;
 const XAI_REJECTED_RESPONSES_KEYS = ["metadata", "safety_identifier", "prompt_cache_options", "prompt_cache_retention", "truncation", "moderation"] as const;
 
+/**
+ * xGrokConvId는 헤더 전용(오버라이드 #7) — base로 넘기면 openai 스키마의 미지 키라
+ * 기본 4xx, opt-in 시엔 wire body로 누출된다 (감사 2026-08-24 #6). base 전달 전 제거,
+ * 헤더 주입은 postprocess가 원본 req에서 읽는다.
+ */
+function withoutConvId(req: IRRequest): IRRequest {
+  const ns = req.providerOptions?.["xai"];
+  if (!ns || ns["xGrokConvId"] === undefined) return req;
+  const { xGrokConvId: _c, ...rest } = ns;
+  const po = { ...req.providerOptions };
+  if (Object.keys(rest).length > 0) po["xai"] = rest;
+  else delete po["xai"];
+  const out = { ...req };
+  if (Object.keys(po).length > 0) out.providerOptions = po;
+  else delete out.providerOptions;
+  return out;
+}
+
 function postprocess(
   base: TransformedRequest,
   req: IRRequest,
@@ -62,7 +80,7 @@ export const xaiChatAdapter: OutboundAdapter = {
   provider: "xai",
   surface: "chat-completions",
   transformRequest(req: IRRequest, ctx: RequestContext): TransformedRequest {
-    return postprocess(openaiChatAdapter.transformRequest(requestToBase(req), ctx), req, XAI_REJECTED_CC_KEYS);
+    return postprocess(openaiChatAdapter.transformRequest(requestToBase(withoutConvId(req)), ctx), req, XAI_REJECTED_CC_KEYS);
   },
   transformResponse: (body, ctx) => responseFromBase(openaiChatAdapter.transformResponse(body, ctx)),
   createStreamTransformer: wrapStream(openaiChatAdapter.createStreamTransformer),
@@ -74,7 +92,7 @@ export const xaiResponsesAdapter: OutboundAdapter = {
   surface: "responses",
   transformRequest(req: IRRequest, ctx: RequestContext): TransformedRequest {
     return postprocess(
-      openaiResponsesAdapter.transformRequest(requestToBase(req), ctx),
+      openaiResponsesAdapter.transformRequest(requestToBase(withoutConvId(req)), ctx),
       req,
       XAI_REJECTED_RESPONSES_KEYS,
     );

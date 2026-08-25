@@ -26,6 +26,7 @@ export interface AnthropicWireUsage {
   output_tokens?: number;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
+  output_tokens_details?: { thinking_tokens?: number; [k: string]: unknown };
   [k: string]: unknown;
 }
 
@@ -35,10 +36,12 @@ export function convertUsage(wire: AnthropicWireUsage): Usage {
   const cacheWrite = wire.cache_creation_input_tokens ?? 0;
   const inputTotal = noCache + cacheRead + cacheWrite;
   const outputTotal = wire.output_tokens ?? 0;
+  // output_tokens_details.thinking_tokens — 2026-08-21 실녹화 확인 ('미제공' 전제 폐기, ir-v0 §8 표.
+  // 감사 2026-08-24 anthropic #4: 미소비 시 reasoning 0 고정 = 정산 필드 오보)
+  const reasoning = wire.output_tokens_details?.thinking_tokens ?? 0;
   return {
     input: { total: inputTotal, noCache, cacheRead, cacheWrite },
-    // Anthropic은 reasoning 토큰 분리 미제공 → reasoning 0, text = total (ir-v0 §8 표)
-    output: { total: outputTotal, text: outputTotal, reasoning: 0 },
+    output: { total: outputTotal, text: outputTotal - reasoning, reasoning },
     totalTokens: inputTotal + outputTotal,
     raw: wire as JSONValue,
   };

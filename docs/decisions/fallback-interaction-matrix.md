@@ -41,3 +41,10 @@
 | 폴백 × 폴백 타깃 prepare 실패 | 1차 타깃 prepare 실패는 즉시 반환(기존과 동일), **폴백 타깃**의 prepare 실패(미라우팅 모델 등)는 skipped 처리 후 다음 타깃 — 오타 하나가 전체 요청을 죽이지 않게 |
 | 폴백 × compat 다운컨버트 (2026-08-22 리뷰) | `error-partial(willRetry:true)`는 compat wire에서도 **종결로 번역 금지** — openai-compat은 `[DONE]` 미방출(SSE 주석만), anthropic-compat은 `error` 이벤트 미방출. 전환 사실은 finish의 `gateway.warnings`에 `fallback-target-switched`로 (부록 (a) §6.1/6.2) |
 | 폴백 × 세션 소유권 (2026-08-22 리뷰) | 세션은 생성 시 소유 테넌트를 새긴다 — 폴백으로 타깃이 바뀌어도 소유자는 불변(요청 발신 테넌트). 재개·취소는 소유자만, 불일치는 미지 세션과 동일한 410 |
+
+## 추가 행 (2026-08-25 — 전수 감사 문서 선행)
+
+| 교차 | 규칙 |
+|---|---|
+| stop_details × 폴백 트리거 | refusal 종료 시 anthropic `stop_details`(category·explanation)는 `providerMetadata.anthropic.stopDetails`로 **보존이 전제** — 폴백 트리거 판단은 unified `refusal` 기준이되, 정책 레이어(ADR-0005 §3)는 stop_details를 판단 근거(카테고리별 폴백 여부)로 소비할 수 있어야 한다. 미보존 시 거부 분기·폴백 정책 연결 불가 (감사 2026-08-24 anthropic #3). `finishReason.unified` 확장은 하지 않는다 — refusal 유지, 세부는 PM |
+| 서버측 fallbacks 위임 × refusal 폴백 | 위 '서버측 fallbacks' 행의 구체화: PO opt-in으로 서버측 fallbacks가 통과된 타깃은 응답 fallback 블록·`usage.iterations`를 근거로 providerMetadata에 **위임 마킹**하고, 해당 타깃의 refusal 폴백은 게이트웨이가 중복 수행하지 않는다. batches 경로는 fallbacks PO 사전 400 (감사 2026-08-24 anthropic #5) |

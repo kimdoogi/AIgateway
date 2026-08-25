@@ -611,8 +611,10 @@ export async function getBatchResults(gatewayBatchId: string, deps: BatchBridgeD
     }
   }
 
-  // 원장 적재 — 결과 수확 시점 1회 (재조회 중복 방지 플래그, ADR-0007 배치 SKU는 운영 평면)
-  if (deps.ledger && job.bridgeState?.["ledgerRecorded"] !== "true") {
+  // 원장 적재 — 결과 수확 시점 1회. 원자적 claim 선행 (감사 #36: check→record→flag 순서가
+  // 동시 조회 2건에 2배 적재를 허용했다). claim-first라 record 도중 크래시는 과소 기록으로
+  // 남는다 — 이중 과금(과다)보다 낫고, 항목별 실패는 아래 catch가 로그로 남긴다.
+  if (deps.ledger && (await deps.batches.claimBridgeFlag(job.tenant, job.gatewayBatchId, "ledgerRecorded"))) {
     const createdAt = (deps.now?.() ?? new Date()).toISOString();
     for (const r of out) {
       try {
@@ -644,7 +646,6 @@ export async function getBatchResults(gatewayBatchId: string, deps: BatchBridgeD
         console.error("[batch-ledger]", err instanceof Error ? err.message : err);
       }
     }
-    await deps.batches.put({ ...job, bridgeState: { ...(job.bridgeState ?? {}), ledgerRecorded: "true" } });
   }
   return out;
 }

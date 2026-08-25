@@ -150,10 +150,16 @@ export async function sweepExpiredResources(
         const fetchImpl = withUpstreamTimeout(deps.fetchImpl ?? fetch, {
           label: `${r.provider} 리소스 삭제`,
         });
-        await fetchImpl(`${deps.baseUrlFor(r.provider)}${path}`, {
+        const res = await fetchImpl(`${deps.baseUrlFor(r.provider)}${path}`, {
           method: "DELETE",
           headers: deps.credentialsFor(r.provider),
         });
+        // fetch는 비-2xx에서 throw하지 않는다 — 401/429/5xx를 성공 계상하면 프로바이더에
+        // 고아 리소스가 남는다 (감사 2026-08-24 #13). 404는 이미 없음 = 삭제 목적 달성.
+        if (!res.ok && res.status !== 404) {
+          console.error("[resource-sweep]", r.provider, r.externalId, `HTTP ${res.status}`);
+          continue; // 실패 리소스는 레지스트리 유지 — 다음 스윕 재시도
+        }
         deleted += 1;
       } catch (err) {
         console.error("[resource-sweep]", r.provider, r.externalId, err instanceof Error ? err.message : err);

@@ -26,11 +26,24 @@ export const PRICE_TABLE: Array<{ prefix: string; price: ModelPrice }> = [
 /** 미지 모델 폴백 — Opus급 상한 근사 (캡 가드가 과소평가하지 않게 보수적으로) */
 const FALLBACK_PRICE: ModelPrice = { input: 5.0, output: 25.0, ...DEFAULT_MULTIPLIERS };
 
+/**
+ * 접두 매칭 제외 — 접두보다 특수하고 단가가 그 접두를 넘는(또는 미확정) 모델.
+ * 여기 등재되면 미가격 모델로 취급된다: FALLBACK 근사 + billing-price-estimated warning.
+ * (감사 2026-08-24 #32: gpt-5.6 접두가 gpt-5.6-pro까지 매칭해 과소 과금 + warning 억제.
+ *  pro 실단가 확보 시 이 목록에서 빼고 PRICE_TABLE에 정식 행 추가)
+ */
+const PREFIX_EXCLUDES = ["gpt-5.6-pro"];
+
 // 최장 접두 우선 — 삽입 순서 의존 제거 (리뷰 F18). 정렬은 모듈 로드 시 1회:
 // lookupPrice는 시도마다·응답마다 불린다 (recordAttempt·buildBilling)
 const PRICE_BY_LONGEST_PREFIX = [...PRICE_TABLE].sort((a, b) => b.prefix.length - a.prefix.length);
 
+function excluded(model: string): boolean {
+  return PREFIX_EXCLUDES.some((p) => model.startsWith(p));
+}
+
 export function lookupPrice(model: string): ModelPrice {
+  if (excluded(model)) return FALLBACK_PRICE;
   return PRICE_BY_LONGEST_PREFIX.find((e) => model.startsWith(e.prefix))?.price ?? FALLBACK_PRICE;
 }
 
@@ -41,6 +54,7 @@ export function lookupPrice(model: string): ModelPrice {
  * 돈의 근사를 조용히 하면 D5 위반이라 호출측이 warning을 발행해야 한다.
  */
 export function isPricedModel(model: string): boolean {
+  if (excluded(model)) return false;
   return PRICE_BY_LONGEST_PREFIX.some((e) => model.startsWith(e.prefix));
 }
 

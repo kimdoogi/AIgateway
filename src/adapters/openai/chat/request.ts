@@ -90,6 +90,7 @@ function toolResultContent(block: ToolResultBlock, warnings: Warning[], path: st
     case "json":
       return JSON.stringify(out.value);
     case "content":
+    case "errorContent": // §4.4 직교 — CC에는 에러 슬롯이 없어 내용만 직렬화
       warnings.push(makeWarning("compatibility", "block-dropped", "멀티모달 툴 결과를 문자열로 직렬화 (D6-5)", path));
       return JSON.stringify(out.blocks);
     case "errorText":

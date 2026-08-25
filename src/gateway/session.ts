@@ -134,12 +134,18 @@ export class StreamSession {
     if (this.persistence && !this.persistBroken) {
       const persistence = this.persistence;
       this.persistTail = this.persistTail
-        .then(() => persistence.appendEvent(this.persistId, stamped.seq, json))
+        .then(() => {
+          // 실행 시점 재확인 — 앞선 append 실패로 무효화된 뒤 큐잉분이 삭제된 키를 부활시키는
+          // 경합 차단 (감사 2026-08-24 #11)
+          if (this.persistBroken) return;
+          return persistence.appendEvent(this.persistId, stamped.seq, json);
+        })
         .catch((err) => {
           if (this.persistBroken) return;
           this.persistBroken = true;
           console.error(`[session-persistence] append 실패 — 버퍼 무효화 (${this.id})`, err);
-          persistence.invalidate(this.persistId).catch(() => {});
+          // invalidate를 체인 안에 유지 — 큐잉된 후속 append와의 순서 역전 방지 (감사 #11)
+          return persistence.invalidate(this.persistId).catch(() => {});
         });
     }
     // error-partial(willRetry:true)는 논리적 터미널이 아니다 — 폴백 트리가 다음 타깃으로 이어간다

@@ -93,6 +93,12 @@ export const ToolResultOutputSchema = z.discriminatedUnion("type", [
   }),
   z.strictObject({ type: z.literal("errorText"), text: z.string() }),
   z.strictObject({ type: z.literal("errorJson"), value: JSONValueSchema }),
+  // 에러 표식은 content 형태와 직교 (§4.4 2026-08-25 — anthropic is_error:true + 블록 배열.
+  // 미보존 시 실패한 툴 호출이 성공으로 둔갑, 감사 #1/#23)
+  z.strictObject({
+    type: z.literal("errorContent"),
+    blocks: z.array(z.discriminatedUnion("type", [TextBlockSchema, FileBlockSchema, CustomBlockSchema])),
+  }),
   z.strictObject({ type: z.literal("executionDenied"), reason: z.string().optional() }),
 ]);
 

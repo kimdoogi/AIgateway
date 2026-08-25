@@ -239,4 +239,9 @@ export interface BatchStore {
   put(job: BatchJob): Promise<void>;
   get(tenant: string, gatewayBatchId: string): Promise<BatchJob | null>;
   list(tenant: string): Promise<BatchJob[]>;
+  /**
+   * bridgeState[flag]="true" 원자적 test-and-set — 이미 true면 false 반환.
+   * 배치 원장 적재의 1회 보장 (감사 2026-08-24 #36: 동시 결과 조회 2건이 원장 2배 적재)
+   */
+  claimBridgeFlag(tenant: string, gatewayBatchId: string, flag: string): Promise<boolean>;
 }

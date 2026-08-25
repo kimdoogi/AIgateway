@@ -52,6 +52,11 @@ export interface AdapterCapabilities {
    */
   unsupportedParams?: readonly string[];
   /**
+   * 멀티모달 functionResponse(parts) 지원 세대 (Gemini 3 한정 — 감사 2026-08-24 google #1).
+   * false/부재면 toolResult content의 file 블록은 현행대로 드롭 + warning.
+   */
+  multimodalFunctionResponse?: boolean;
+  /**
    * 모델이 접근 가능한 표면 집합 (예: gpt-5-pro = ["responses"], gpt-audio-* = ["chat-completions"]).
    * 미지정이면 프로바이더의 전 표면 허용. 표면 선택자의 게이트 입력 (ADR-0002 결과 절).
    */
