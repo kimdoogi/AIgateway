@@ -178,8 +178,11 @@ export function registerPortalRoutes(app: Hono, deps: AppDeps): void {
     const denied = () => errJson(c, irError("auth", 401, "이메일 또는 비밀번호가 올바르지 않습니다"));
     if (!email || !password) return denied();
     if (deps.rateLimiter) {
-      // 이메일별 브루트포스 방어 — Redis면 레플리카 합산으로 성립
-      const v = await deps.rateLimiter.hit(`portal:login:${email}`, 10, 60, now());
+      // 이메일별 브루트포스 방어 — Redis면 레플리카 합산으로 성립.
+      // 키는 해시로 상한 — 무검증 이메일 문자열이 그대로 저장 키가 되면 무인증 메모리
+      // 팽창 벡터 + 리미터 스토어에 PII 잔존 (감사 #47)
+      const loginKey = `portal:login:${hashSessionToken(email).slice(0, 32)}`;
+      const v = await deps.rateLimiter.hit(loginKey, 10, 60, now());
       if (!v.allowed) return errJson(c, irError("rate_limit", 429, `로그인 시도 한도 초과 — ${v.retryAfterSeconds}초 후 재시도`));
     }
     const account = await deps.accounts!.getByEmail(email);
@@ -219,29 +222,37 @@ export function registerPortalRoutes(app: Hono, deps: AppDeps): void {
     return c.json({ keys: (await myKeys(accountOf(c).tenant)).map(keySafe) });
   });
 
+  // maxKeys 검사↔발급 TOCTOU 차단 — 테넌트별 프로세스 내 직렬화 (감사 #48).
+  // ponytail: 크로스 레플리카 경합은 잔존 (포털 단일 인스턴스 전제) — 필요해지면 KeyStore 조건부 발급으로
+  const keyIssueTail = new Map<string, Promise<unknown>>();
   app.post("/portal/keys", async (c) => {
     if (!requireJson(c)) return errJson(c, irError("invalid_request", 415, "content-type: application/json 필요"));
     const a = accountOf(c);
     const l = limits();
-    const active = (await myKeys(a.tenant)).filter((k) => !k.disabled);
-    if (active.length >= l.maxKeys) {
-      return errJson(c, irError("invalid_request", 400, `활성 키 한도(${l.maxKeys}개) 초과 — 안 쓰는 키를 비활성화하세요`));
-    }
     const body = (await c.req.json().catch(() => ({}))) as { name?: unknown };
     const name = typeof body.name === "string" ? body.name.trim().slice(0, 64) : "";
-    // 포털 발급 키는 항상 기본 한도 부착 — 셀프서비스가 무한도 지출로 이어지지 않게.
-    // 한도 상향은 관리자 소관 (관리 콘솔에서 별도 키 발급)
-    const { key, secret } = await issueVirtualKey(
-      deps.keys!,
-      {
-        tenant: a.tenant,
-        ...(name ? { name } : {}),
-        rateLimit: { requestsPerMinute: l.rpm },
-        budget: { periodDays: l.periodDays, softUsd: l.softUsd, hardUsd: l.hardUsd },
-      },
-      deps.now ?? (() => new Date()),
-    );
-    return c.json({ key: keySafe(key), secret }, 201); // 시크릿 1회 노출 — 관리 API와 동일 계약
+    const run = (keyIssueTail.get(a.tenant) ?? Promise.resolve()).then(async () => {
+      const active = (await myKeys(a.tenant)).filter((k) => !k.disabled);
+      if (active.length >= l.maxKeys) return null;
+      // 포털 발급 키는 항상 기본 한도 부착 — 셀프서비스가 무한도 지출로 이어지지 않게.
+      // 한도 상향은 관리자 소관 (관리 콘솔에서 별도 키 발급)
+      return issueVirtualKey(
+        deps.keys!,
+        {
+          tenant: a.tenant,
+          ...(name ? { name } : {}),
+          rateLimit: { requestsPerMinute: l.rpm },
+          budget: { periodDays: l.periodDays, softUsd: l.softUsd, hardUsd: l.hardUsd },
+        },
+        deps.now ?? (() => new Date()),
+      );
+    });
+    keyIssueTail.set(a.tenant, run.catch(() => undefined));
+    const issued = await run;
+    if (issued === null) {
+      return errJson(c, irError("invalid_request", 400, `활성 키 한도(${l.maxKeys}개) 초과 — 안 쓰는 키를 비활성화하세요`));
+    }
+    return c.json({ key: keySafe(issued.key), secret: issued.secret }, 201); // 시크릿 1회 노출 — 관리 API와 동일 계약
   });
 
   app.post("/portal/keys/:id/disable", async (c) => {

@@ -138,6 +138,9 @@ export function toMessagesResponse(response: IRResponse, strict: boolean): JSONO
   if (raw !== undefined) gateway["finish_reason_raw"] = raw;
   // container 복원 (부록 (a) §2.2 — 샌드박스 재사용 계약. §14 커버리지)
   const container = response.providerMetadata?.["anthropic"]?.["container"];
+  // stop_sequence 복원 — raw stop_reason:"stop_sequence"를 내보내면서 짝 필드가 null인
+  // 자기모순 wire 방지 (감사 #28 — 어댑터가 PM anthropic.stopSequence로 보존)
+  const stopSeq = response.providerMetadata?.["anthropic"]?.["stopSequence"];
   return {
     id: response.id,
     type: "message",
@@ -145,7 +148,7 @@ export function toMessagesResponse(response: IRResponse, strict: boolean): JSONO
     model: response.model.resolved.model,
     content,
     stop_reason,
-    stop_sequence: null,
+    stop_sequence: typeof stopSeq === "string" ? stopSeq : null,
     ...(container !== undefined ? { container } : {}),
     usage: toMessagesUsage(response.usage, origin.provider === "anthropic"),
     ...(Object.keys(gateway).length > 0 ? { gateway } : {}),

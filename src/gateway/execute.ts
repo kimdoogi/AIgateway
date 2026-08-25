@@ -53,6 +53,11 @@ export interface ExecuteDeps {
   };
   /** 정책 레이어 사전 warning (예산 soft 등) — 응답/stream-start warnings에 병합 */
   preWarnings?: Warning[];
+  /**
+   * 스트림 finish 직전 hard 예산 재평가 (ir-v0 §10.4 — 감사 #46: warning 방출 지점 부재).
+   * 인자 = 이 요청의 근사 비용. 초과 예상 시 budget-exhausted-next-request-blocked warning 반환
+   */
+  budgetRecheck?: (pendingCostUsd: number) => Promise<Warning | undefined>;
   /** 자격증명 결정자 — 기본 env 풀 키. BYO는 앱이 테넌트 키로 오버라이드 (ADR-0001 하이브리드) */
   credentials?: (rt: ProviderRuntime) => Record<string, string> | Promise<Record<string, string>>;
 }
@@ -439,7 +444,14 @@ function finalizeDraft(draft: AdapterStreamEvent, call: PreparedCall, contentEmi
       : { type: "error-final", error: draft.error, usage: draft.usage };
   }
   if (draft.type === "finish") {
-    return { ...draft, billing: buildBilling(call.adapter.provider, call.ctx.modelId, draft.usage) }; // ADR-0007 §1
+    // 키 순서 = 스키마 필드 순서 (D10) — spread 뒤에 billing을 붙이면 providerMetadata 뒤로 밀린다 (감사 #44)
+    return {
+      type: "finish",
+      finishReason: draft.finishReason,
+      usage: draft.usage,
+      billing: buildBilling(call.adapter.provider, call.ctx.modelId, draft.usage), // ADR-0007 §1
+      ...(draft.providerMetadata ? { providerMetadata: draft.providerMetadata } : {}),
+    };
   }
   if (draft.type === "response-metadata") {
     return {
@@ -507,7 +519,11 @@ async function* executeStreamTarget(
     );
     if (error) endSpanError(span, error.category, error.message);
     span.end();
-    if (event.type === "finish" && attempts.length > 1) return { ...event, attempts }; // §10.1 finish.attempts
+    if (event.type === "finish" && attempts.length > 1) {
+      // §10.1 finish.attempts — 키 순서는 스키마 순 (D10, 감사 #44: attempts가 PM 뒤로 밀리지 않게)
+      const { providerMetadata, ...head } = event;
+      return { ...head, attempts, ...(providerMetadata ? { providerMetadata } : {}) };
+    }
     return event;
   };
 
@@ -555,7 +571,13 @@ async function* executeStreamTarget(
     if (!body) throw new Error("응답 body 없음");
     for await (const frame of parseSSEStream(body)) {
       for (const draft of transformer.onEvent(frame.event, frame.data)) {
-        yield emit(finalizeDraft(draft, call, contentEmitted));
+        const finalized = finalizeDraft(draft, call, contentEmitted);
+        // §10.4: 스트림 중 hard 예산 소진은 finish 전에 warning으로 예고 (감사 #46)
+        if (finalized.type === "finish" && deps.budgetRecheck) {
+          const w = await deps.budgetRecheck(estimateCostUSD(call.ctx.modelId, finalized.usage)).catch(() => undefined);
+          if (w) yield emit({ type: "warning", warning: w });
+        }
+        yield emit(finalized);
         if (terminal) return;
       }
     }
@@ -718,6 +740,15 @@ export async function* executeStream(
   let streamStartSent = false;
   let contentForwarded = false;
 
+  // 다음 시도 가능 타깃 — provider-switched.to가 skip될 타깃을 가리키는 오표기 방지 (감사 #45).
+  // skip 판정은 다음 순회가 다시 수행 (판정만 선행 — 멱등 읽기)
+  const nextViable = async (from: number): Promise<string | undefined> => {
+    for (let j = from; j < targets.length; j++) {
+      if ((await skipReason(targets[j]!, req, fixedDeps)) === undefined) return targets[j]!;
+    }
+    return undefined;
+  };
+
   for (const [i, target] of targets.entries()) {
     const skip = await skipReason(target, req, fixedDeps);
     if (skip !== undefined) {
@@ -744,6 +775,12 @@ export async function* executeStream(
           continue;
         }
         if (event.type === "error-final" && !contentForwarded && i < targets.length - 1 && canFallback(event.error, signal?.aborted)) {
+          // 잔여 전 타깃 skip이면 전환하지 않는다 — 실제 실패가 '전 타깃 skip 400'으로 둔갑 방지 (감사 #45)
+          const next = await nextViable(i + 1);
+          if (next === undefined) {
+            yield event; // 원 실패를 그대로 터미널로
+            return;
+          }
           // 콘텐츠 방출 전 실패 → 무중단 전환 (§6.4). 원장 행은 타깃 내부에서 이미 적재됨
           priorAttempts.push({ provider: providerOf(target), model: target, outcome: "failed", error: event.error.category });
           if (event.error.billed && event.usage) {
@@ -758,7 +795,7 @@ export async function* executeStream(
           yield {
             type: "provider-switched",
             from: { provider: providerOf(target), model: target },
-            to: { provider: providerOf(targets[i + 1]!), model: targets[i + 1]! },
+            to: { provider: providerOf(next), model: next },
             reason: `${event.error.category} — 폴백 체인 진행 (ir-v0 §6.4)`,
           };
           switched = true;
@@ -771,7 +808,15 @@ export async function* executeStream(
           // §10.1: billing = 과금된 전 시도 합산 (원장 시도별 행과 합계 일치)
           const billing =
             billedPrior.length > 0 && event.billing ? mergeBilling([...billedPrior, event.billing]) : event.billing;
-          yield { ...event, ...(billing ? { billing } : {}), attempts: [...priorAttempts, ...successAttempts] };
+          // 키 순서 = 스키마 필드 순서 (D10, 감사 #44) — 명시 재조립
+          yield {
+            type: "finish",
+            finishReason: event.finishReason,
+            usage: event.usage,
+            ...(billing ? { billing } : {}),
+            attempts: [...priorAttempts, ...successAttempts],
+            ...(event.providerMetadata ? { providerMetadata: event.providerMetadata } : {}),
+          };
           return;
         }
         if (!LIFECYCLE_TYPES.has(event.type) && !TERMINAL_EVENT_SET.has(event.type)) contentForwarded = true;
@@ -784,12 +829,18 @@ export async function* executeStream(
       if (!streamStartSent && i === 0 && !(canFallback(irErr, signal?.aborted) && i < targets.length - 1)) throw err;
       priorAttempts.push({ provider: providerOf(target), model: target, outcome: "failed", error: irErr.category });
       if (canFallback(irErr, signal?.aborted) && i < targets.length - 1) {
+        const next = await nextViable(i + 1); // 오표기·오보고 방지 (감사 #45)
+        if (next === undefined) {
+          if (!streamStartSent) yield { type: "stream-start", warnings: options.extraWarnings ?? [] };
+          yield { type: "error-final", error: irErr };
+          return;
+        }
         if (streamStartSent) {
           yield { type: "error-partial", error: irErr, willRetry: true };
           yield {
             type: "provider-switched",
             from: { provider: providerOf(target), model: target },
-            to: { provider: providerOf(targets[i + 1]!), model: targets[i + 1]! },
+            to: { provider: providerOf(next), model: next },
             reason: `${irErr.category} — 폴백 체인 진행 (ir-v0 §6.4)`,
           };
         }

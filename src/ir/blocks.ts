@@ -128,6 +128,9 @@ export const PassthroughBlockSchema = z.strictObject({
   type: z.literal("passthrough"),
   provider: z.string().min(1),
   raw: JSONValueSchema,
+  // 스트림 보존 경로의 원문 단위 — "block"(기본): 콘텐츠 블록 스냅샷, "event": SSE 이벤트 전체.
+  // compat 재합성의 복원 판별자 (§4.9 / 부록 (a) §6.2 — 감사 #43: 이벤트 원문이 가짜 블록으로 둔갑)
+  rawUnit: z.enum(["block", "event"]).optional(),
   ...base,
 });
 export type PassthroughBlock = z.infer<typeof PassthroughBlockSchema>;

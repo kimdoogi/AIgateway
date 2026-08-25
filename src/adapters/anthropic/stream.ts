@@ -44,6 +44,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
   // 리뷰 G1 — 후기 도착분은 response-metadata가 이미 나갔으므로 finish PM에 싣는다)
   let latestContainer: JSONValue | undefined;
   let stopDetails: JSONValue | undefined; // refusal category·explanation (감사 anthropic #3)
+  let stopSequence: string | undefined; // 발동한 정지 시퀀스 (감사 #22)
   let terminalEmitted = false;
   const warnedUnknown = new Set<string>(); // 미지 타입별 warning 1회 (§10.2 스팸 방지)
 
@@ -80,8 +81,20 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
     ];
   }
 
-  function preserve(raw: JSONValue): AdapterStreamEvent {
-    return { type: "passthrough", block: { type: "passthrough", provider: "anthropic", raw, origin } };
+  function preserve(raw: JSONValue, rawUnit: "block" | "event" = "block"): AdapterStreamEvent {
+    // rawUnit — compat 재합성 판별자 (§4.9): block=콘텐츠 블록 스냅샷, event=SSE 이벤트 전체 (감사 #43)
+    return { type: "passthrough", block: { type: "passthrough", provider: "anthropic", raw, rawUnit, origin } };
+  }
+
+  /** 터미널 전 열린 블록 폐쇄 — gemini closeOpen과 동일 계약 (감사 #39: 어댑터 간 비대칭이었다) */
+  function closeOpenBlocks(out: AdapterStreamEvent[]): void {
+    for (const open of blocks.values()) {
+      if (open.kind === "text") out.push({ type: "text-end", id: open.irId });
+      else if (open.kind === "reasoning") out.push({ type: "reasoning-end", id: open.irId });
+      else if (open.kind === "tool") out.push({ type: "tool-input-end", id: open.irId });
+      // unknown: 보존은 start/delta에서 완료 — 폐쇄 이벤트 없음
+    }
+    blocks.clear();
   }
 
   function synthId(index: number, toolName: string): string {
@@ -227,8 +240,8 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
           const dType = delta["type"] as string | undefined;
 
           if (open.kind === "unknown") {
-            // 미지 블록의 후속 delta — 원문 보존 (리뷰 R7)
-            out.push(preserve(json as JSONValue));
+            // 미지 블록의 후속 delta — 이벤트 원문 보존 (리뷰 R7)
+            out.push(preserve(json as JSONValue, "event"));
             return out;
           }
           if (dType === "text_delta" && open.kind === "text") {
@@ -261,7 +274,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
             return out;
           }
           // 알려진 블록에 도착한 미지 delta 타입 — 보존 + 1회 보고 (리뷰 R7/V10b)
-          out.push(...warnOnce(`delta:${dType}`, `미지의 delta 타입 '${String(dType)}' — 원문 보존`), preserve(json as JSONValue));
+          out.push(...warnOnce(`delta:${dType}`, `미지의 delta 타입 '${String(dType)}' — 원문 보존`), preserve(json as JSONValue, "event"));
           return out;
         }
 
@@ -323,6 +336,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
           if (delta["stop_details"] && typeof delta["stop_details"] === "object") {
             stopDetails = delta["stop_details"] as JSONValue;
           }
+          if (typeof delta["stop_sequence"] === "string") stopSequence = delta["stop_sequence"]; // 감사 #22
           const deltaContainer = json["container"] ?? delta["container"]; // 실관측 2경로 (리뷰 G1)
           if (deltaContainer && typeof deltaContainer === "object") latestContainer = deltaContainer as JSONValue;
           const wireUsage = json["usage"];
@@ -346,6 +360,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
             const finishPM: Record<string, JSONValue> = {};
             if (latestContainer !== undefined) finishPM["container"] = latestContainer;
             if (stopDetails !== undefined) finishPM["stopDetails"] = stopDetails;
+            if (stopSequence !== undefined) finishPM["stopSequence"] = stopSequence;
             out.push({
               type: "finish",
               finishReason: mapStopReason(stopReason),
@@ -359,6 +374,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
         case "error": {
           const err = (json["error"] ?? {}) as Record<string, unknown>;
           terminalEmitted = true;
+          closeOpenBlocks(out); // 터미널 보장 — 열린 블록 폐쇄 (감사 #39)
           out.push({
             type: "provider-error",
             error: {
@@ -372,7 +388,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
 
         default:
           // 미지 top-level 이벤트 — 보존 + 1회 보고 (리뷰 R7/V10c)
-          out.push(...warnOnce(`event:${type}`, `미지의 스트림 이벤트 '${String(type)}' — 원문 보존`), preserve(json as JSONValue));
+          out.push(...warnOnce(`event:${type}`, `미지의 스트림 이벤트 '${String(type)}' — 원문 보존`), preserve(json as JSONValue, "event"));
           return out;
       }
     },
@@ -381,13 +397,14 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
       if (terminalEmitted) return [];
       terminalEmitted = true; // 멱등 — 재호출·후속 이벤트 무시 (§10.2)
       // 종료 신호 없는 절단 — 터미널 보장 계약 (ADR-0005). 과금 usage 동봉 (리뷰 R2)
-      return [
-        {
-          type: "provider-error",
-          error: { ...streamTruncationError(), billed: sawMessageStart },
-          ...(sawMessageStart ? { usage: currentUsage() } : {}),
-        },
-      ];
+      const out: AdapterStreamEvent[] = [];
+      closeOpenBlocks(out); // 열린 블록 폐쇄 (감사 #39 — gemini 대칭)
+      out.push({
+        type: "provider-error",
+        error: { ...streamTruncationError(), billed: sawMessageStart },
+        ...(sawMessageStart ? { usage: currentUsage() } : {}),
+      });
+      return out;
     },
   };
 }

@@ -33,6 +33,13 @@ export class InMemoryRateLimiter implements RateLimiter {
 
   async hit(keyId: string, limit: number, windowSeconds: number, now: Date): Promise<RateVerdict> {
     const start = windowStart(now, windowSeconds);
+    // 만료 창 정리 — 항목 영구 보존은 무인증 메모리 팽창 벡터 (감사 #47)
+    // ponytail: 크기 임계 도달 시 전량 스윕 O(n) — 키 수가 문제되면 LRU로
+    if (this.counters.size > 10_000) {
+      for (const [k, e] of this.counters) {
+        if (e.window < start) this.counters.delete(k);
+      }
+    }
     const entry = this.counters.get(keyId);
     const count = entry && entry.window === start ? entry.count + 1 : 1;
     this.counters.set(keyId, { window: start, count });

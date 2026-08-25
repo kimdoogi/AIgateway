@@ -44,8 +44,10 @@ const DELTA_KEYS: Record<string, readonly string[]> = {
   citations_delta: ["type", "citation"],
 };
 
-const MESSAGE_DELTA_KEYS = ["type", "delta", "usage", "context_management"] as const;
-const MESSAGE_DELTA_DELTA_KEYS = ["stop_reason", "stop_sequence", "stop_details"] as const;
+// container: stream.ts가 '실관측 2경로'로 소비 (top-level·delta) — 미등재 시 아는 필드를
+// 드리프트로 오탐하는 자기모순 (감사 #41)
+const MESSAGE_DELTA_KEYS = ["type", "delta", "usage", "context_management", "container"] as const;
+const MESSAGE_DELTA_DELTA_KEYS = ["stop_reason", "stop_sequence", "stop_details", "container"] as const;
 const CONTENT_BLOCK_DELTA_KEYS = ["type", "index", "delta"] as const;
 const CONTENT_BLOCK_STOP_KEYS = ["type", "index"] as const;
 const MESSAGE_STOP_KEYS = ["type"] as const;

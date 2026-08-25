@@ -28,6 +28,7 @@ interface OpenItem {
   toolName?: string;
   /** reasoning: 시작 이벤트를 이미 냈는가 */
   reasoningStarted?: boolean;
+  reasoningTextSeen?: boolean; // delta 텍스트 수신 여부 — done 보정 가드의 진짜 조건 (감사 #42)
   /** reasoning: 파트 사이 구분자 필요 여부 */
   reasoningNeedsSep?: boolean;
 }
@@ -208,6 +209,7 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
         case "response.reasoning_text.delta": {
           const open = items.get(itemIdOf());
           if (!open) return out;
+          open.reasoningTextSeen = true;
           out.push({ type: "reasoning-delta", id: open.itemId, delta: String(json["delta"] ?? "") });
           return out;
         }
@@ -257,9 +259,11 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
           if (iType === "reasoning") {
             const encrypted = typeof item["encrypted_content"] === "string" ? item["encrypted_content"] : undefined;
             if (!open?.reasoningStarted) out.push({ type: "reasoning-start", id: itemId });
-            // 스트림 delta 미수신(요약 없는 모델)이면 완성 item 텍스트를 delta로 보정
+            // 스트림 delta 미수신(요약 없는 모델)이면 완성 item 텍스트를 delta로 보정.
+            // 가드 조건은 'delta 텍스트 수신 여부' — started 기준이면 added 후 delta 없이
+            // done에만 summary가 올 때 텍스트가 소실된다 (감사 #42: 죽은 코드였다)
             const text = reasoningItemText(item);
-            if (!open?.reasoningStarted && text.length > 0) {
+            if (!open?.reasoningTextSeen && text.length > 0) {
               out.push({ type: "reasoning-delta", id: itemId, delta: text });
             }
             out.push({
@@ -369,6 +373,26 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
           out.push({
             type: "provider-error",
             error: { ...mapInStreamError({ error: response["error"] }), billed: sawCreated },
+            ...(usage ? { usage } : {}),
+          });
+          return out;
+        }
+
+        case "response.cancelled": {
+          // 취소 터미널 — 미처리 시 502 절단 오류(fallbackEligible)로 둔갑해 폴백을 태운다 (감사 #38)
+          terminalEmitted = true;
+          const response = (json["response"] ?? {}) as Record<string, unknown>;
+          const usage = usageFrom(response);
+          out.push({
+            type: "provider-error",
+            error: {
+              category: "gateway_error",
+              httpStatus: 499,
+              message: "업스트림이 응답 취소를 보고 (response.cancelled)",
+              fallbackEligible: false,
+              billed: sawCreated,
+              provider: { key: "openai", code: "response-cancelled" },
+            },
             ...(usage ? { usage } : {}),
           });
           return out;

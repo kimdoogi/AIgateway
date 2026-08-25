@@ -12,7 +12,7 @@ const AnthropicToolLevelSchema = z.object({
   cache_control: z.record(z.string(), z.unknown()).optional(),
   wireExtras: z.record(z.string(), z.unknown()).optional(),
 });
-import { parseAnthropicRequestOptions, readBlockCacheControl, readBlockWireType, readWireExtras } from "./options.js";
+import { PO_WIRE_PASSTHROUGH, parseAnthropicRequestOptions, readBlockCacheControl, readBlockWireType, readWireExtras } from "./options.js";
 import { AnthropicWireRequestSchema } from "./wire.js";
 
 // IR → Anthropic Messages wire (ir-v0 §13, docs/research/2026-08-20-anthropic-api-coverage.md)
@@ -80,7 +80,7 @@ function mergeWireExtras(
   }
 }
 
-function fileToWire(block: FileBlock, path: string): JSONObject {
+function fileToWire(block: FileBlock, cctx: ConvertCtx, path: string): JSONObject {
   const isImage = block.mediaType.startsWith("image/");
   let source: JSONObject;
   switch (block.data.type) {
@@ -105,7 +105,17 @@ function fileToWire(block: FileBlock, path: string): JSONObject {
       source = { type: "text", media_type: "text/plain", data: block.data.text };
       break;
   }
-  if (isImage) return withCache({ type: "image", source }, block.providerOptions);
+  if (isImage) {
+    // 이미지 wire에는 문서 메타 좌석이 없다 — 조용한 유실 금지 (감사 #40, gemini 패턴과 대칭)
+    for (const key of ["title", "context", "citationsEnabled", "filename"] as const) {
+      if (block[key] !== undefined) {
+        cctx.warnings.push(
+          makeWarning("unsupported", "parameter-dropped", `anthropic image 블록은 ${key} 미지원 — 드롭`, `${path}.${key}`),
+        );
+      }
+    }
+    return withCache({ type: "image", source }, block.providerOptions);
+  }
   const doc: JSONObject = { type: "document", source };
   if (block.title) doc["title"] = block.title;
   if (block.context) doc["context"] = block.context;
@@ -157,7 +167,7 @@ function toolResultToWire(block: ToolResultBlock, cctx: ConvertCtx, path: string
     case "errorContent": // is_error × 블록 배열 (§4.4 직교 규칙 — 감사 #1)
       content = out.blocks.map((b, i) => {
         if (b.type === "text") return { type: "text", text: b.text } as JSONObject;
-        if (b.type === "file") return fileToWire(b, `${path}.content[${i}]`);
+        if (b.type === "file") return fileToWire(b, cctx, `${path}.content[${i}]`);
         // custom (예: anthropic.search_result) — payload가 wire 블록 원문
         return b.payload as JSONObject;
       });
@@ -286,7 +296,7 @@ function blockToWire(block: Block, cctx: ConvertCtx, path: string): JSONObject |
     case "toolResult":
       return toolResultToWire(block, cctx, path);
     case "file":
-      return fileToWire(block, path);
+      return fileToWire(block, cctx, path);
     case "source":
       return null; // §4.6 — 히스토리 재전송 대상 아님 (스펙 명시라 warning 없음)
     case "custom": {
@@ -534,6 +544,11 @@ export function transformRequest(req: IRRequest, ctx: RequestContext): Transform
     body["output_config"] = { ...opts.outputConfigExtras, ...((body["output_config"] ?? {}) as JSONObject) };
   }
   if (opts.betas && opts.betas.length > 0) headers["anthropic-beta"] = opts.betas.join(",");
+  // 인벤토리 §2 'PO' 확정군 — wire 원문 통과 (감사 anthropic #8. 베타 헤더는 betas로)
+  for (const [poKey, wireKey] of PO_WIRE_PASSTHROUGH) {
+    const v = (opts as unknown as Record<string, unknown>)[poKey];
+    if (v !== undefined) body[wireKey] = v as JSONValue;
+  }
   mergeExternal(body, opts.extra, "providerOptions.anthropic(opt-in)");
 
   // ── passthroughParams (D10-1). 타깃 불일치는 정책 레이어가 걸렀어야 함 (리뷰 A5) ──

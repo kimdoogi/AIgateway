@@ -90,6 +90,12 @@ function remapBlock(block: Block, r: Relabel): Block {
   if (pm !== out.providerMetadata) out.providerMetadata = pm!;
   if (out.type === "passthrough") out.provider = r.provider(out.provider);
   if (out.type === "custom") out.kind = r.prefix(out.kind) as typeof out.kind;
+  // 합성 tool id의 프로바이더 세그먼트 리라벨 — 'synth:openai:' 잔존 방지 (감사 #26)
+  if ((out.type === "toolCall" || out.type === "toolResult") && out.toolCallId.startsWith("synth:")) {
+    const [tag, prov, ...rest] = out.toolCallId.split(":");
+    const relabeled = r.provider(prov ?? "");
+    if (relabeled !== prov) out.toolCallId = [tag, relabeled, ...rest].join(":");
+  }
   return out;
 }
 
@@ -190,8 +196,18 @@ export function eventFromBase(event: AdapterStreamEvent): AdapterStreamEvent {
       return event.provider === TO ? { ...event, provider: FROM } : event;
     case "provider-error": {
       const provider = event.error.provider;
-      return provider?.key === TO
-        ? { ...event, error: { ...event.error, provider: { ...provider, key: FROM } } }
+      // 메시지 문구의 openai 표기도 리라벨 — 조용한 오표기 방지 (감사 #26)
+      const message = event.error.message.replaceAll(TO, FROM);
+      const changed = provider?.key === TO || message !== event.error.message;
+      return changed
+        ? {
+            ...event,
+            error: {
+              ...event.error,
+              message,
+              ...(provider?.key === TO ? { provider: { ...provider, key: FROM } } : {}),
+            },
+          }
         : event;
     }
     default:

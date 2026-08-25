@@ -7,8 +7,15 @@ import type { Usage } from "../../ir/usage.js";
 
 // IRResponse → openai-compat CC 응답 (부록 (a) §4.1/§5). gateway 확장(§2.1)은 strict 모드 제외.
 
-/** unified → CC finish_reason (§4.1). 대응 없는 값은 stop + raw 병기 */
-export function toChatFinishReason(fr: FinishReason): { finish_reason: string; raw?: string } {
+/** §0-2 raw 복원 자격 — openai 산 + CC 표면일 때만 (Responses 표면 raw는 형태가 달라 복원 불가) */
+export function chatRawEligible(origin: { provider: string; surface?: string } | undefined): boolean {
+  return origin?.provider === "openai" && origin.surface === "chat-completions";
+}
+
+/** unified → CC finish_reason (§4.1). 대응 없는 값은 stop + raw 병기.
+ *  §0-2: openai CC 산이면 raw 우선 복원 (무손실 — 감사 #18과 대칭, anthropic-compat과 동일 규칙) */
+export function toChatFinishReason(fr: FinishReason, rawEligible = false): { finish_reason: string; raw?: string } {
+  if (rawEligible && fr.raw.length > 0) return { finish_reason: fr.raw };
   switch (fr.unified) {
     case "stop": return { finish_reason: "stop" };
     case "length": return { finish_reason: "length" };
@@ -20,7 +27,12 @@ export function toChatFinishReason(fr: FinishReason): { finish_reason: string; r
   }
 }
 
-export function toChatUsage(usage: Usage): JSONObject {
+export function toChatUsage(usage: Usage, rawEligible = false): JSONObject {
+  // §0-2 무손실 — CC wire 형태(prompt_tokens)일 때만 원문 복원 (스트림 합성 raw 방어)
+  if (rawEligible && usage.raw && typeof usage.raw === "object" && !Array.isArray(usage.raw)) {
+    const raw = usage.raw as JSONObject;
+    if (typeof raw["prompt_tokens"] === "number") return raw;
+  }
   return {
     prompt_tokens: usage.input.total,
     completion_tokens: usage.output.total,
@@ -58,7 +70,8 @@ export function blocksToChatMessage(blocks: readonly Block[]): JSONObject {
 }
 
 export function toChatResponse(response: IRResponse, strict: boolean): JSONObject {
-  const { finish_reason, raw } = toChatFinishReason(response.finishReason);
+  const rawEligible = chatRawEligible(response.message.origin);
+  const { finish_reason, raw } = toChatFinishReason(response.finishReason, rawEligible);
   const message = blocksToChatMessage(response.message.blocks);
   const gateway: JSONObject = {};
   if (!strict) {
@@ -75,7 +88,7 @@ export function toChatResponse(response: IRResponse, strict: boolean): JSONObjec
     created: Math.floor(Date.parse(response.created) / 1000),
     model: response.model.resolved.model,
     choices: [{ index: 0, message, finish_reason }],
-    usage: toChatUsage(response.usage),
+    usage: toChatUsage(response.usage, rawEligible),
     ...(Object.keys(gateway).length > 0 ? { gateway } : {}),
   };
 }

@@ -21,6 +21,7 @@ import type { Warning } from "../ir/common.js";
 import { timingSafeEqual } from "node:crypto";
 import { encryptSecret, issueVirtualKey, tenantCredentialResolver, verifyVirtualKey } from "../ops/keys.js";
 import { budgetExceededError, evaluateBudget, type SpendTracker } from "../ops/budget.js";
+import { makeWarning } from "../adapters/shared.js";
 import { limitOf, rateLimitedError, type RateLimiter } from "../ops/rate-limit.js";
 import { checkInboundResources, registerResponseResources, sweepExpiredResources } from "../ops/resources.js";
 import { logBody } from "../ops/body-log.js";
@@ -267,6 +268,21 @@ export function createApp(deps: AppDeps = {}): Hono {
       },
       ...(ops.preWarnings.length > 0 ? { preWarnings: [...ops.preWarnings] } : {}),
       credentials: ops.resolver.credentials,
+      // §10.4 — 스트림 finish 직전 hard 예산 재평가 (감사 #46). 이 요청 비용을 더해 판단
+      ...(deps.spendTracker && ops.key.budget?.hardUsd !== undefined
+        ? {
+            budgetRecheck: async (pendingCostUsd: number): Promise<Warning | undefined> => {
+              const v = await evaluateBudget(ops.key, deps.spendTracker!, deps.now?.() ?? new Date());
+              const hard = ops.key.budget!.hardUsd!;
+              if (v.spentUsd + pendingCostUsd < hard) return undefined;
+              return makeWarning(
+                "other",
+                "budget-exhausted-next-request-blocked",
+                `예산 하드 한도 소진 — ${ops.key.budget!.periodDays}일 지출 $${(v.spentUsd + pendingCostUsd).toFixed(4)} ≥ $${hard} (다음 요청부터 402)`,
+              );
+            },
+          }
+        : {}),
     };
   }
   const tenantOf = (c: Context): string | undefined => opsCtx.get(c.req.raw)?.key.tenant;

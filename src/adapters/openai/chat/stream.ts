@@ -137,7 +137,15 @@ export function createStreamTransformer(ctx: StreamContext): StreamTransformer {
 
       const choices = json["choices"];
       if (!Array.isArray(choices) || choices.length === 0) return out;
-      const choice = (choices[0] ?? {}) as Record<string, unknown>;
+      // 설계상 n=1 (G2)이나 방어 — index>0 후보 delta를 같은 블록에 혼합하면 무경고 변조 (감사 #25)
+      const choice = (choices.find((c) => {
+        const idx = (c as Record<string, unknown> | null)?.["index"];
+        return idx === undefined || idx === 0;
+      }) ?? null) as Record<string, unknown> | null;
+      if (choices.some((c) => Number((c as Record<string, unknown> | null)?.["index"] ?? 0) > 0)) {
+        out.push(...warnOnce("choices:n>1", "n>1 후보 delta 도착 — index 0만 소비, 나머지 드롭 (G2 단일 후보)"));
+      }
+      if (!choice) return out;
       if (typeof choice["finish_reason"] === "string") finishReasonRaw = choice["finish_reason"];
       const delta = (choice["delta"] ?? {}) as Record<string, unknown>;
 

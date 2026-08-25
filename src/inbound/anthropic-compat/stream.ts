@@ -114,7 +114,22 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
       case "tool-result":
       case "custom":
       case "passthrough": {
-        // anthropic 원문 복원 가능하면 블록으로, 아니면 드롭 (§6.2)
+        // §6.2 rawUnit 판별 (감사 #43): 이벤트 원문 보존분은 그대로 재방출 — 무조건 블록 쌍
+        // 재합성하면 이벤트 JSON이 가짜 콘텐츠 블록으로 둔갑한다. 형태 추론 금지 — 어댑터 마킹만.
+        if (
+          event.type === "passthrough" &&
+          event.block.type === "passthrough" &&
+          event.block.provider === "anthropic" &&
+          event.block.rawUnit === "event" &&
+          event.block.raw &&
+          typeof event.block.raw === "object" &&
+          !Array.isArray(event.block.raw)
+        ) {
+          const raw = event.block.raw as JSONObject;
+          const evName = typeof raw["type"] === "string" ? raw["type"] : "message_delta";
+          return [{ event: evName, data: JSON.stringify(raw) }];
+        }
+        // anthropic 원문 복원 가능하면 블록으로, 아니면 드롭 (§6.2 — "block" 단위)
         const wire = blockToWire(event.block);
         if (!wire) return [];
         const id = event.block.id ?? `restored_${nextIndex}`;
@@ -146,8 +161,10 @@ export function createMessagesDownconverter(strict: boolean): (event: StreamEven
         return [frame("ping", {})];
       case "finish": {
         const { stop_reason, raw } = toMessagesStopReason(event.finishReason, originProvider === "anthropic");
+        // stop_sequence 복원 (감사 #28 — null 하드코딩 자기모순 해소, 비스트림과 대칭)
+        const stopSeq = event.providerMetadata?.["anthropic"]?.["stopSequence"];
         const deltaBody: JSONObject = {
-          delta: { stop_reason, stop_sequence: null },
+          delta: { stop_reason, stop_sequence: typeof stopSeq === "string" ? stopSeq : null },
           usage: toMessagesUsage(event.usage, originProvider === "anthropic"),
         };
         // 턴 중 생성·교체된 container — SDK가 message_delta에서도 읽는다 (리뷰 G1)

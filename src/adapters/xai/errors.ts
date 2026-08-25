@@ -56,7 +56,8 @@ export function mapXAIError(status: number, body: unknown, headers?: Record<stri
   return {
     category,
     httpStatus: status,
-    message: status === 410 ? `${message} (폐기된 API — Live Search는 agent tools로 이관됨)` : message,
+    // 단정형 → 추정형 (감사 xai #9: 최신 레퍼런스에 search_parameters 잔존 — 라이브 probe로 확정 전까지)
+    message: status === 410 ? `${message} (폐기 추정 API — Live Search는 agent tools 이관 추정, 미확정)` : message,
     ...(retryAfter != null && Number.isFinite(retryAfter) ? { retryAfter } : {}),
     fallbackEligible,
     billed: false,

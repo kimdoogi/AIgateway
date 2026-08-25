@@ -13,6 +13,7 @@ const WireResponseSchema = z.looseObject({
   model: z.string(),
   content: z.array(z.record(z.string(), z.unknown())),
   stop_reason: z.string().nullish(),
+  stop_sequence: z.string().nullish(), // 발동한 정지 시퀀스 값 (감사 #22 — 무보고 드롭이었다)
   stop_details: z.record(z.string(), z.unknown()).nullish(), // refusal category·explanation (§9 — 폴백 정책 근거)
   usage: z.record(z.string(), z.unknown()).optional(),
   container: z.record(z.string(), z.unknown()).nullish(), // 코드 실행 샌드박스 id·만료 (§14)
@@ -171,6 +172,7 @@ export function transformResponse(
   const pm: Record<string, JSONValue> = {};
   if (wire.container) pm["container"] = wire.container as JSONValue;
   if (wire.stop_details) pm["stopDetails"] = wire.stop_details as JSONValue;
+  if (typeof wire.stop_sequence === "string") pm["stopSequence"] = wire.stop_sequence; // 감사 #22/#28
   return {
     blocks,
     origin,

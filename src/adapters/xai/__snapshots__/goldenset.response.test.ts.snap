@@ -25,7 +25,7 @@ exports[`골든셋 ② xai 픽스처 → IR > xai-gate-live-search-410 1`] = `
   "category": "invalid_request",
   "fallbackEligible": false,
   "httpStatus": 410,
-  "message": "Live search is deprecated. Please switch to the Agent Tools API: https://docs.x.ai/docs/guides/tools/overview (폐기된 API — Live Search는 agent tools로 이관됨)",
+  "message": "Live search is deprecated. Please switch to the Agent Tools API: https://docs.x.ai/docs/guides/tools/overview (폐기 추정 API — Live Search는 agent tools 이관 추정, 미확정)",
   "provider": {
     "key": "xai",
     "raw": {

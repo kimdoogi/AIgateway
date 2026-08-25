@@ -2,7 +2,7 @@ import type { JSONObject, JSONValue } from "../../ir/json.js";
 import type { Block } from "../../ir/blocks.js";
 import type { NS, Warning } from "../../ir/common.js";
 import type { StreamEvent } from "../../ir/stream.js";
-import { toChatError, toChatFinishReason, toChatUsage } from "./response.js";
+import { chatRawEligible, toChatError, toChatFinishReason, toChatUsage } from "./response.js";
 import { makeWarning } from "../../adapters/shared.js";
 
 // IR 스트림 → CC chat.completion.chunk 재합성 (부록 (a) §6.1).
@@ -143,10 +143,12 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
       case "raw":
         return [];
       case "finish": {
-        const { finish_reason, raw } = toChatFinishReason(event.finishReason);
+        // §0-2 raw 복원 자격 — 비스트림 toChatResponse와 동일 규칙 (감사 #18)
+        const rawEligible = chatRawEligible(origin);
+        const { finish_reason, raw } = toChatFinishReason(event.finishReason, rawEligible);
         const frames: ChatSSEFrame[] = [
           deltaChunk({}, finish_reason),
-          chunk({ choices: [], usage: toChatUsage(event.usage) }),
+          chunk({ choices: [], usage: toChatUsage(event.usage, rawEligible) }),
         ];
         if (event.providerMetadata) providerMetadata = { ...providerMetadata, ...event.providerMetadata };
         if (!strict) {
@@ -164,6 +166,10 @@ export function createChatDownconverter(strict: boolean): (event: StreamEvent) =
               ...(providerMetadata ? { providerMetadata: providerMetadata as unknown as JSONValue } : {}),
             },
           }));
+        } else if (raw) {
+          // strict에서도 raw 병기 — 비스트림(toChatResponse)·anthropic-compat 스트림과 동일
+          // (§4.1 'paused/tool_error → raw 병기'. 감사 #27: 3경로 모순 해소)
+          frames.push(chunk({ gateway: { finish_reason_raw: raw } }));
         }
         frames.push({ data: "[DONE]" });
         return frames;
